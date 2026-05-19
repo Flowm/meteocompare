@@ -10,7 +10,16 @@ import { useUnits } from '@/composables/useUnits'
 const props = defineProps<{
   hourly: HourlyAggregate
   contributingModels: ModelDef[]
+  /** Current local time at the location (open-meteo's `current.time`). */
+  currentTime: string
 }>()
+
+function findNowIndex(times: string[], nowStr: string): number {
+  for (let i = 0; i < times.length; i++) {
+    if (times[i] >= nowStr) return i
+  }
+  return -1
+}
 
 const { temp, precip, formatTemp, formatPrecip } = useUnits()
 
@@ -68,6 +77,7 @@ function formatFor(varId: HourlyVar, v: number | null): string {
 const option = computed<EChartsOption>(() => {
   const n = Math.min(hoursWindow.value, props.hourly.times.length)
   const times = props.hourly.times.slice(0, n)
+  const nowIdx = findNowIndex(times, props.currentTime)
   const labels = times.map((t) => {
     const d = new Date(t)
     return d.getHours() === 0
@@ -85,6 +95,16 @@ const option = computed<EChartsOption>(() => {
     symbol: 'none',
     lineStyle: { width: 3, color: '#e2e8f0' },
     z: 10,
+    // Dim already-elapsed timestamps so the past reads as context, not forecast.
+    markArea:
+      nowIdx > 0
+        ? {
+            silent: true,
+            itemStyle: { color: 'rgba(2, 6, 23, 0.7)' },
+            z: 50,
+            data: [[{ xAxis: 0 }, { xAxis: nowIdx - 1 }]],
+          }
+        : undefined,
   }
 
   const perModelSeries = props.contributingModels

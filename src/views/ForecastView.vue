@@ -33,9 +33,13 @@ const locationLabel = computed(() => {
 
       <template v-if="raw && hourly && daily">
         <AggregateSummary :raw="raw" :daily="daily" :location-name="locationLabel" />
-        <HourlyChart :hourly="hourly" />
+        <HourlyChart :hourly="hourly" :current-time="raw.current.time" />
         <DailyStrip :daily="daily" />
-        <ModelBreakdown :hourly="hourly" :contributing-models="contributingModels" />
+        <ModelBreakdown
+          :hourly="hourly"
+          :contributing-models="contributingModels"
+          :current-time="raw.current.time"
+        />
       </template>
     </main>
 

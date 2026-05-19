@@ -7,6 +7,9 @@ import { useUnits } from '@/composables/useUnits'
 
 const props = defineProps<{
   hourly: HourlyAggregate
+  /** Current local time at the location (open-meteo's `current.time`).
+   *  Used to grey out elapsed hours and mark "Now". */
+  currentTime: string
   /** How many hours to show. Default 72. */
   hours?: number
 }>()
@@ -26,10 +29,20 @@ function toPrecipUnit(v: number | null | undefined): number | null {
   return precip.value === 'in' ? v / 25.4 : v
 }
 
+/** Find the first index in `times` whose timestamp is at or after `currentTime`.
+ *  Both are local-time ISO strings from open-meteo (same TZ), so string compare works. */
+function findNowIndex(times: string[], nowStr: string): number {
+  for (let i = 0; i < times.length; i++) {
+    if (times[i] >= nowStr) return i
+  }
+  return -1
+}
+
 const option = computed<EChartsOption>(() => {
   const times = props.hourly.times.slice(0, n.value)
   const temps = props.hourly.series.temperature_2m.slice(0, n.value)
   const precips = props.hourly.series.precipitation.slice(0, n.value)
+  const nowIdx = findNowIndex(times, props.currentTime)
 
   const tempValues = temps.map((p) => toTempUnit(p.value))
   const tempLower = temps.map((p) => toTempUnit(p.value - p.stdDev))
@@ -139,6 +152,15 @@ const option = computed<EChartsOption>(() => {
         symbol: 'none',
         lineStyle: { width: 2.5, color: '#f472b6' },
         z: 5,
+        markArea:
+          nowIdx > 0
+            ? {
+                silent: true,
+                itemStyle: { color: 'rgba(2, 6, 23, 0.7)' },
+                z: 50,
+                data: [[{ xAxis: 0 }, { xAxis: nowIdx - 1 }]],
+              }
+            : undefined,
       },
     ],
   }
