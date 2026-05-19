@@ -143,7 +143,7 @@ const option = computed<EChartsOption>(() => {
       type: 'category',
       data: labels,
       axisLine: { lineStyle: { color: '#475569' } },
-      axisLabel: { color: '#94a3b8', interval: 5 },
+      axisLabel: { color: '#94a3b8', interval: 11, hideOverlap: true },
       axisTick: { show: false },
     },
     yAxis: {
