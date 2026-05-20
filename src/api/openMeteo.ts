@@ -11,6 +11,8 @@ const HOURLY_VARS = [
   'precipitation',
   'precipitation_probability',
   'weather_code',
+  'wind_speed_10m',
+  'wind_direction_10m',
 ] as const
 
 const DAILY_VARS = [
@@ -19,9 +21,17 @@ const DAILY_VARS = [
   'temperature_2m_min',
   'precipitation_sum',
   'precipitation_probability_max',
+  'wind_speed_10m_max',
+  'wind_direction_10m_dominant',
 ] as const
 
-const CURRENT_VARS = ['temperature_2m', 'precipitation', 'weather_code'] as const
+const CURRENT_VARS = [
+  'temperature_2m',
+  'precipitation',
+  'weather_code',
+  'wind_speed_10m',
+  'wind_direction_10m',
+] as const
 
 export type HourlyVar = (typeof HOURLY_VARS)[number]
 export type DailyVar = (typeof DAILY_VARS)[number]

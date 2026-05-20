@@ -21,7 +21,7 @@ function findNowIndex(times: string[], nowStr: string): number {
   return -1
 }
 
-const { temp, precip, formatTemp, formatPrecip } = useUnits()
+const { temp, precip, wind, formatTemp, formatPrecip, formatWind } = useUnits()
 
 const variable = ref<HourlyVar>('temperature_2m')
 const hoursWindow = ref(72)
@@ -31,6 +31,7 @@ const variableOptions: { id: HourlyVar; label: string }[] = [
   { id: 'temperature_2m', label: 'Temperature' },
   { id: 'precipitation', label: 'Precipitation' },
   { id: 'precipitation_probability', label: 'Precipitation probability' },
+  { id: 'wind_speed_10m', label: 'Wind speed' },
 ]
 
 const palette = [
@@ -58,18 +59,21 @@ function convertValue(v: number | null, varId: HourlyVar): number | null {
   if (v == null || Number.isNaN(v)) return null
   if (varId === 'temperature_2m') return temp.value === 'f' ? (v * 9) / 5 + 32 : v
   if (varId === 'precipitation') return precip.value === 'in' ? v / 25.4 : v
+  if (varId === 'wind_speed_10m') return wind.value === 'mph' ? v / 1.609344 : v
   return v
 }
 
 function unitFor(varId: HourlyVar): string {
   if (varId === 'temperature_2m') return temp.value === 'f' ? '°F' : '°C'
   if (varId === 'precipitation') return precip.value === 'in' ? 'in' : 'mm'
+  if (varId === 'wind_speed_10m') return wind.value === 'mph' ? 'mph' : 'km/h'
   return '%'
 }
 
 function formatFor(varId: HourlyVar, v: number | null): string {
   if (varId === 'temperature_2m') return formatTemp.value(v, 1)
   if (varId === 'precipitation') return formatPrecip.value(v, 1)
+  if (varId === 'wind_speed_10m') return formatWind.value(v, 1)
   if (v == null || Number.isNaN(v)) return '–'
   return `${Math.round(v)}%`
 }

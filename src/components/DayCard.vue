@@ -12,11 +12,21 @@ const props = defineProps<{
   low: number
   precipProb: number | null
   precipSum: number | null
+  windSpeed: number | null
+  windDirection: number | null
   confidence: number
   highlight?: boolean
 }>()
 
-const { formatTemp, formatPercent, formatPrecip } = useUnits()
+const { formatTemp, formatPercent, formatPrecip, formatWind, compassPoint } = useUnits()
+
+/** The arrow visually points where the wind is going TO. Meteorological convention
+ *  reports the direction the wind is coming FROM, so we rotate by direction + 180°. */
+const arrowRotation = computed(() =>
+  props.windDirection != null && !Number.isNaN(props.windDirection)
+    ? (props.windDirection + 180) % 360
+    : 0,
+)
 
 const dayLabel = computed(() => {
   const d = new Date(props.date)
@@ -59,6 +69,29 @@ const dateLabel = computed(() =>
       <template v-else>
         <span class="text-slate-600">no precip</span>
       </template>
+    </div>
+    <div
+      v-if="windSpeed != null && !Number.isNaN(windSpeed)"
+      class="flex items-center justify-center gap-1 text-xs text-slate-400 mt-1 tabular-nums"
+      :title="`Wind from ${compassPoint(windDirection)} (${windDirection != null ? Math.round(windDirection) + '°' : '–'})`"
+    >
+      <svg
+        v-if="windDirection != null"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="size-3 text-slate-300"
+        :style="{ transform: `rotate(${arrowRotation}deg)` }"
+        aria-hidden="true"
+      >
+        <line x1="12" y1="20" x2="12" y2="4" />
+        <polyline points="6 10 12 4 18 10" />
+      </svg>
+      <span>{{ formatWind(windSpeed, 0) }}</span>
     </div>
     <div class="mt-2 flex justify-center">
       <ConfidenceBadge :value="confidence" size="sm" :label="`${Math.round(confidence * 100)}%`" />

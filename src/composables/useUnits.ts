@@ -3,10 +3,14 @@ import { computed } from 'vue'
 
 export type TemperatureUnit = 'c' | 'f'
 export type PrecipitationUnit = 'mm' | 'in'
+export type WindUnit = 'kmh' | 'mph'
+
+const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'] as const
 
 export function useUnits() {
   const temp = useLocalStorage<TemperatureUnit>('meteocompare:unit:temp', 'c')
   const precip = useLocalStorage<PrecipitationUnit>('meteocompare:unit:precip', 'mm')
+  const wind = useLocalStorage<WindUnit>('meteocompare:unit:wind', 'kmh')
 
   const formatTemp = computed(() => (v: number | null | undefined, digits = 0): string => {
     if (v == null || Number.isNaN(v)) return '–'
@@ -20,10 +24,24 @@ export function useUnits() {
     return `${x.toFixed(digits)} ${precip.value === 'in' ? 'in' : 'mm'}`
   })
 
+  const formatWind = computed(() => (v: number | null | undefined, digits = 0): string => {
+    if (v == null || Number.isNaN(v)) return '–'
+    // open-meteo returns km/h by default.
+    const x = wind.value === 'mph' ? v / 1.609344 : v
+    return `${x.toFixed(digits)} ${wind.value === 'mph' ? 'mph' : 'km/h'}`
+  })
+
   const formatPercent = (v: number | null | undefined): string => {
     if (v == null || Number.isNaN(v)) return '–'
     return `${Math.round(v)}%`
   }
 
-  return { temp, precip, formatTemp, formatPrecip, formatPercent }
+  /** Convert a 0–360° bearing into an 8-point compass label (N, NE, E, …). */
+  const compassPoint = (deg: number | null | undefined): string => {
+    if (deg == null || Number.isNaN(deg)) return '–'
+    const idx = Math.round(((deg % 360) + 360) % 360 / 45) % 8
+    return COMPASS[idx]
+  }
+
+  return { temp, precip, wind, formatTemp, formatPrecip, formatWind, formatPercent, compassPoint }
 }

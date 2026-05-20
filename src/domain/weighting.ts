@@ -6,6 +6,8 @@ export type Variable =
   | 'precipitation'
   | 'precipitation_probability'
   | 'weather_code'
+  | 'wind_speed_10m'
+  | 'wind_direction_10m'
 
 /** Per-model lead-time decay, returning a multiplier in [0, 1]. */
 function leadFactor(model: ModelDef, leadHours: number): number {

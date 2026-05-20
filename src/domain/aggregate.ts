@@ -68,6 +68,40 @@ function weightedMean(
   return { mean, stdDev: Math.sqrt(varSum), effectiveWeights: used }
 }
 
+/** Weighted average of angles via unit-vector sum.
+ *  stdDev becomes the angular standard deviation in degrees (Mardia / circular). */
+function weightedCircularMean(
+  perModel: ModelSamples,
+  weights: Map<string, number>,
+): { mean: number; stdDev: number; effectiveWeights: Record<string, number> } {
+  let x = 0
+  let y = 0
+  let totalW = 0
+  const used: Record<string, number> = {}
+  for (const [id, w] of weights) {
+    const v = perModel[id]
+    if (v == null || Number.isNaN(v)) continue
+    const r = (v * Math.PI) / 180
+    x += w * Math.cos(r)
+    y += w * Math.sin(r)
+    totalW += w
+    used[id] = w
+  }
+  if (totalW === 0) {
+    return { mean: NaN, stdDev: 0, effectiveWeights: {} }
+  }
+  const mx = x / totalW
+  const my = y / totalW
+  const meanRad = Math.atan2(my, mx)
+  const mean = ((meanRad * 180) / Math.PI + 360) % 360
+  // Mean resultant length R in [0, 1]; closer to 1 = tighter agreement.
+  const R = Math.min(1, Math.sqrt(mx * mx + my * my))
+  // Circular standard deviation in radians: sqrt(-2 * ln(R)). Convert to degrees.
+  const stdDev = R > 0 ? (Math.sqrt(-2 * Math.log(R)) * 180) / Math.PI : 180
+  for (const id in used) used[id] = used[id] / totalW
+  return { mean, stdDev, effectiveWeights: used }
+}
+
 function severityWeightedMode(
   perModel: ModelSamples,
   weights: Map<string, number>,
@@ -136,6 +170,15 @@ export function aggregateSeries(
         time: times[i],
         value: code,
         stdDev: 0,
+        weights: effectiveWeights,
+        perModel,
+      })
+    } else if (variable === 'wind_direction_10m') {
+      const { mean, stdDev, effectiveWeights } = weightedCircularMean(perModel, weights)
+      result.push({
+        time: times[i],
+        value: mean,
+        stdDev,
         weights: effectiveWeights,
         perModel,
       })

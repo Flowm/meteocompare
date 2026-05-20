@@ -18,6 +18,8 @@ const HOURLY: HourlyVar[] = [
   'precipitation',
   'precipitation_probability',
   'weather_code',
+  'wind_speed_10m',
+  'wind_direction_10m',
 ]
 
 const DAILY: DailyVar[] = [
@@ -26,6 +28,8 @@ const DAILY: DailyVar[] = [
   'temperature_2m_min',
   'precipitation_sum',
   'precipitation_probability_max',
+  'wind_speed_10m_max',
+  'wind_direction_10m_dominant',
 ]
 
 /** Map a daily variable to its base variable family (drives weighting + confidence). */
@@ -38,6 +42,10 @@ function dailyBase(v: DailyVar): Variable {
       return 'precipitation'
     case 'precipitation_probability_max':
       return 'precipitation_probability'
+    case 'wind_speed_10m_max':
+      return 'wind_speed_10m'
+    case 'wind_direction_10m_dominant':
+      return 'wind_direction_10m'
     case 'weather_code':
       return 'weather_code'
   }

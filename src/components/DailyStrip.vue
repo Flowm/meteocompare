@@ -12,6 +12,8 @@ interface DayRow {
   low: number
   precipProb: number | null
   precipSum: number | null
+  windSpeed: number | null
+  windDirection: number | null
   confidence: number
 }
 
@@ -29,6 +31,8 @@ const days = computed<DayRow[]>(() =>
       low: props.daily.series.temperature_2m_min[i]?.value ?? NaN,
       precipProb: props.daily.series.precipitation_probability_max[i]?.value ?? null,
       precipSum: props.daily.series.precipitation_sum[i]?.value ?? null,
+      windSpeed: props.daily.series.wind_speed_10m_max[i]?.value ?? null,
+      windDirection: props.daily.series.wind_direction_10m_dominant[i]?.value ?? null,
       confidence: conf.reduce((a, b) => a + b, 0) / conf.length,
     }
   }),
@@ -49,6 +53,8 @@ const days = computed<DayRow[]>(() =>
         :low="d.low"
         :precip-prob="d.precipProb"
         :precip-sum="d.precipSum"
+        :wind-speed="d.windSpeed"
+        :wind-direction="d.windDirection"
         :confidence="d.confidence"
         :highlight="i === 0"
       />

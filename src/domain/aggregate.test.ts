@@ -81,6 +81,77 @@ describe('aggregateSeries (temperature)', () => {
   })
 })
 
+describe('aggregateSeries (wind_direction_10m)', () => {
+  const baseTime = new Date('2026-05-20T00:00:00Z')
+  const times = makeTimes(1, '2026-05-20T00:00:00Z')
+
+  it('averages angles that straddle 0/360° correctly', () => {
+    // 350° and 10° should average to 0°/360°, not 180°.
+    const out = aggregateSeries(
+      times,
+      {
+        ecmwf_ifs025: [350],
+        gfs_global: [10],
+        icon_global: [355],
+        meteofrance_seamless: [5],
+      },
+      {
+        variable: 'wind_direction_10m',
+        models: subset,
+        lat: PARIS.lat,
+        lon: PARIS.lon,
+        baseTime,
+      },
+    )
+    // Allow either side of the wrap.
+    const v = out[0].value
+    const distFromNorth = Math.min(v, 360 - v)
+    expect(distFromNorth).toBeLessThan(2)
+  })
+
+  it('reports a small angular stddev for tight agreement', () => {
+    const out = aggregateSeries(
+      times,
+      {
+        ecmwf_ifs025: [180],
+        gfs_global: [185],
+        icon_global: [175],
+        meteofrance_seamless: [180],
+      },
+      {
+        variable: 'wind_direction_10m',
+        models: subset,
+        lat: PARIS.lat,
+        lon: PARIS.lon,
+        baseTime,
+      },
+    )
+    expect(out[0].value).toBeCloseTo(180, 0)
+    expect(out[0].stdDev).toBeLessThan(10)
+  })
+
+  it('reports a large angular stddev when models are opposite', () => {
+    const out = aggregateSeries(
+      times,
+      {
+        ecmwf_ifs025: [0],
+        gfs_global: [180],
+        icon_global: [0],
+        meteofrance_seamless: [180],
+      },
+      {
+        variable: 'wind_direction_10m',
+        models: subset,
+        lat: PARIS.lat,
+        lon: PARIS.lon,
+        baseTime,
+      },
+    )
+    // Mean resultant length → 0, so circular stddev should be huge.
+    expect(out[0].stdDev).toBeGreaterThan(90)
+  })
+})
+
 describe('aggregateSeries (weather_code)', () => {
   it('picks the severity-weighted modal code', () => {
     const baseTime = new Date('2026-05-20T00:00:00Z')
