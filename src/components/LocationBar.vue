@@ -12,6 +12,8 @@ const results = ref<GeocodingResult[]>([])
 const isOpen = ref(false)
 const isSearching = ref(false)
 const searchError = ref<string | null>(null)
+const isLocating = ref(false)
+const locateError = ref<string | null>(null)
 const root = ref<HTMLElement | null>(null)
 
 onClickOutside(root, () => (isOpen.value = false))
@@ -58,6 +60,45 @@ function pickSaved(loc: Location): void {
   setLocation(loc)
   isOpen.value = false
 }
+
+function geolocate(): void {
+  if (!navigator.geolocation) {
+    locateError.value = 'Geolocation not supported by this browser.'
+    return
+  }
+  locateError.value = null
+  isLocating.value = true
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      isLocating.value = false
+      setLocation({
+        name: 'Your location',
+        detail: `${pos.coords.latitude.toFixed(3)}, ${pos.coords.longitude.toFixed(3)}`,
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      })
+      isOpen.value = false
+    },
+    (err) => {
+      isLocating.value = false
+      switch (err.code) {
+        case err.PERMISSION_DENIED:
+          locateError.value = 'Location permission denied.'
+          break
+        case err.POSITION_UNAVAILABLE:
+          locateError.value = 'Location unavailable.'
+          break
+        case err.TIMEOUT:
+          locateError.value = 'Location request timed out.'
+          break
+        default:
+          locateError.value = 'Could not determine location.'
+      }
+    },
+    { enableHighAccuracy: false, timeout: 10_000, maximumAge: 5 * 60_000 },
+  )
+}
 </script>
 
 <template>
@@ -74,10 +115,43 @@ function pickSaved(loc: Location): void {
         <input
           v-model="query"
           type="search"
-          :placeholder="`Search a city… (current: ${current.name})`"
-          class="w-full bg-slate-900 border border-slate-800 focus:border-slate-600 rounded-lg px-3 py-2 text-sm placeholder:text-slate-500 outline-none"
+          placeholder="Search for location…"
+          class="w-full bg-slate-900 border border-slate-800 focus:border-slate-600 rounded-lg pl-3 pr-10 py-2 text-sm placeholder:text-slate-500 outline-none"
           @focus="isOpen = true"
         />
+        <button
+          type="button"
+          class="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-sky-300 transition-colors flex items-center justify-center rounded-md"
+          :disabled="isLocating"
+          :title="locateError ?? 'Use my location'"
+          @click="geolocate"
+        >
+          <svg
+            v-if="!isLocating"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="size-4"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="3" />
+            <circle cx="12" cy="12" r="8" />
+            <line x1="12" y1="2" x2="12" y2="5" />
+            <line x1="12" y1="19" x2="12" y2="22" />
+            <line x1="2" y1="12" x2="5" y2="12" />
+            <line x1="19" y1="12" x2="22" y2="12" />
+          </svg>
+          <span
+            v-else
+            class="size-4 rounded-full border-2 border-slate-700 border-t-slate-300 animate-spin"
+            aria-hidden="true"
+          />
+          <span class="sr-only">Use my location</span>
+        </button>
 
         <div
           v-if="isOpen && (results.length || favourites.length || recent.length || isSearching || searchError)"
