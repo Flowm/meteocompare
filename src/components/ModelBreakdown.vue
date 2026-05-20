@@ -30,8 +30,9 @@ const selected = ref<Set<string>>(new Set(props.contributingModels.map((m) => m.
 const variableOptions: { id: HourlyVar; label: string }[] = [
   { id: 'temperature_2m', label: 'Temperature' },
   { id: 'precipitation', label: 'Precipitation' },
-  { id: 'precipitation_probability', label: 'Precipitation probability' },
+  { id: 'precipitation_probability', label: 'Precip. probability' },
   { id: 'wind_speed_10m', label: 'Wind speed' },
+  { id: 'cloud_cover', label: 'Cloud cover' },
 ]
 
 const palette = [
@@ -157,7 +158,9 @@ const option = computed<EChartsOption>(() => {
       axisLine: { show: false },
       axisLabel: { color: '#94a3b8' },
       splitLine: { lineStyle: { color: '#1e293b' } },
-      ...(variable.value === 'precipitation_probability' ? { min: 0, max: 100 } : {}),
+      ...(variable.value === 'precipitation_probability' || variable.value === 'cloud_cover'
+        ? { min: 0, max: 100 }
+        : {}),
     },
     series: [aggregateSeries, ...perModelSeries],
   }

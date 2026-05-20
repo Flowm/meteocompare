@@ -8,6 +8,7 @@ export type Variable =
   | 'weather_code'
   | 'wind_speed_10m'
   | 'wind_direction_10m'
+  | 'cloud_cover'
 
 /** Per-model lead-time decay, returning a multiplier in [0, 1]. */
 function leadFactor(model: ModelDef, leadHours: number): number {

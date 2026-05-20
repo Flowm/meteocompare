@@ -7,6 +7,7 @@ const TOLERANCE: Record<Exclude<Variable, 'weather_code' | 'wind_direction_10m'>
   precipitation: 1, // mm/h
   precipitation_probability: 15, // percentage points
   wind_speed_10m: 3, // km/h
+  cloud_cover: 15, // percentage points
 }
 
 function typicalSpread(variable: Variable, leadHours: number): number {
@@ -27,6 +28,8 @@ function typicalSpread(variable: Variable, leadHours: number): number {
     case 'wind_direction_10m':
       // Angular std-dev "typical" of 30° at short range, 70° at long range.
       return leadHours <= 48 ? 30 : 70
+    case 'cloud_cover':
+      return 25 // percentage points
     case 'weather_code':
       return 1 // unused — confidence path is different
   }

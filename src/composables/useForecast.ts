@@ -20,6 +20,7 @@ const HOURLY: HourlyVar[] = [
   'weather_code',
   'wind_speed_10m',
   'wind_direction_10m',
+  'cloud_cover',
 ]
 
 const DAILY: DailyVar[] = [

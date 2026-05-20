@@ -13,6 +13,7 @@ const HOURLY_VARS = [
   'weather_code',
   'wind_speed_10m',
   'wind_direction_10m',
+  'cloud_cover',
 ] as const
 
 const DAILY_VARS = [
