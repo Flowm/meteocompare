@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import VChart from 'vue-echarts'
 import type { EChartsOption } from 'echarts'
 import type { HourlyAggregate } from '@/composables/useForecast'
@@ -10,13 +10,18 @@ const props = defineProps<{
   /** Current local time at the location (open-meteo's `current.time`).
    *  Used to grey out elapsed hours and mark "Now". */
   currentTime: string
-  /** How many hours to show. Default 72. */
-  hours?: number
 }>()
 
 const { temp, precip, formatTemp, formatPrecip } = useUnits()
 
-const n = computed(() => Math.min(props.hours ?? 72, props.hourly.times.length))
+const WINDOW_CHOICES = [
+  { hours: 24, label: '24h' },
+  { hours: 72, label: '3d' },
+  { hours: 168, label: '7d' },
+] as const
+
+const hoursWindow = ref<number>(72)
+const n = computed(() => Math.min(hoursWindow.value, props.hourly.times.length))
 const tempUnit = computed(() => (temp.value === 'f' ? '°F' : '°C'))
 const precipUnit = computed(() => (precip.value === 'in' ? 'in' : 'mm'))
 
@@ -91,7 +96,12 @@ const option = computed<EChartsOption>(() => {
       type: 'category',
       data: labels,
       axisLine: { lineStyle: { color: '#475569' } },
-      axisLabel: { color: '#94a3b8', interval: 11, hideOverlap: true },
+      axisLabel: {
+        color: '#94a3b8',
+        // 24h → every 3 h, 3d → every 12 h, 7d → every 24 h.
+        interval: hoursWindow.value <= 24 ? 2 : hoursWindow.value <= 72 ? 11 : 23,
+        hideOverlap: true,
+      },
       axisTick: { show: false },
     },
     yAxis: [
@@ -169,9 +179,22 @@ const option = computed<EChartsOption>(() => {
 
 <template>
   <section class="rounded-2xl bg-slate-900/60 ring-1 ring-slate-800 p-4 sm:p-6">
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="text-sm font-medium text-slate-300 uppercase tracking-wider">Next 3 days</h2>
-      <span class="text-xs text-slate-500">Shaded area: model spread (±1σ)</span>
+    <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+      <h2 class="text-sm font-medium text-slate-300 uppercase tracking-wider">Hourly forecast</h2>
+      <div class="flex items-center gap-3">
+        <span class="text-xs text-slate-500 hidden sm:inline">Shaded: model spread (±1σ)</span>
+        <div class="flex rounded-md bg-slate-950 ring-1 ring-slate-800 overflow-hidden text-xs">
+          <button
+            v-for="c in WINDOW_CHOICES"
+            :key="c.hours"
+            class="px-3 py-1.5 transition-colors"
+            :class="hoursWindow === c.hours
+              ? 'bg-slate-700 text-slate-100'
+              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'"
+            @click="hoursWindow = c.hours"
+          >{{ c.label }}</button>
+        </div>
+      </div>
     </div>
     <VChart style="height: 18rem;" :option="option" autoresize />
   </section>

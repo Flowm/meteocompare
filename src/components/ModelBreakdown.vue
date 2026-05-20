@@ -25,6 +25,12 @@ const { temp, precip, wind, formatTemp, formatPrecip, formatWind } = useUnits()
 
 const variable = ref<HourlyVar>('temperature_2m')
 const hoursWindow = ref(72)
+
+const WINDOW_CHOICES = [
+  { hours: 24, label: '24h' },
+  { hours: 72, label: '3d' },
+  { hours: 168, label: '7d' },
+] as const
 const selected = ref<Set<string>>(new Set(props.contributingModels.map((m) => m.id)))
 
 const variableOptions: { id: HourlyVar; label: string }[] = [
@@ -148,7 +154,11 @@ const option = computed<EChartsOption>(() => {
       type: 'category',
       data: labels,
       axisLine: { lineStyle: { color: '#475569' } },
-      axisLabel: { color: '#94a3b8', interval: 11, hideOverlap: true },
+      axisLabel: {
+        color: '#94a3b8',
+        interval: hoursWindow.value <= 24 ? 2 : hoursWindow.value <= 72 ? 11 : 23,
+        hideOverlap: true,
+      },
       axisTick: { show: false },
     },
     yAxis: {
@@ -202,14 +212,14 @@ const option = computed<EChartsOption>(() => {
           <span class="text-slate-500">Window:</span>
           <div class="flex rounded-md bg-slate-950 ring-1 ring-slate-800 overflow-hidden">
             <button
-              v-for="h in [48, 72, 168]"
-              :key="h"
+              v-for="c in WINDOW_CHOICES"
+              :key="c.hours"
               class="px-3 py-1.5"
-              :class="hoursWindow === h
+              :class="hoursWindow === c.hours
                 ? 'bg-slate-700 text-slate-100'
                 : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'"
-              @click="hoursWindow = h"
-            >{{ h === 168 ? '7d' : `${h / 24}d` }}</button>
+              @click="hoursWindow = c.hours"
+            >{{ c.label }}</button>
           </div>
         </div>
       </div>
