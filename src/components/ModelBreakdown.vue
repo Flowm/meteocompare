@@ -135,14 +135,7 @@ const option = computed<EChartsOption>(() => {
   return {
     backgroundColor: 'transparent',
     textStyle: { color: '#cbd5e1' },
-    grid: { left: 48, right: 24, top: 32, bottom: 36 },
-    legend: {
-      type: 'scroll',
-      top: 0,
-      right: 0,
-      textStyle: { color: '#cbd5e1' },
-      icon: 'circle',
-    },
+    grid: { left: 48, right: 24, top: 12, bottom: 36 },
     tooltip: {
       trigger: 'axis',
       backgroundColor: 'rgba(15, 23, 42, 0.95)',
