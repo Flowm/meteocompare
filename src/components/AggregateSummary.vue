@@ -21,6 +21,7 @@ const { formatTemp, formatPercent } = useUnits()
 
 const currentTemp = computed(() => props.raw.current.temperature_2m ?? null)
 const currentCode = computed(() => Number(props.raw.current.weather_code ?? 0))
+const currentIsDay = computed(() => (props.raw.current.is_day ?? 1) === 1)
 const todayHigh = computed(() => props.daily.series.temperature_2m_max[0]?.value ?? null)
 const todayLow = computed(() => props.daily.series.temperature_2m_min[0]?.value ?? null)
 const todayPrecipProb = computed(() => props.daily.series.precipitation_probability_max[0]?.value ?? null)
@@ -40,7 +41,7 @@ const lastUpdated = computed(() => new Date(props.raw.current.time))
   <section class="rounded-2xl bg-slate-900/60 ring-1 ring-slate-800 p-6 sm:p-8">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
       <div class="flex items-center gap-5">
-        <WeatherIcon :code="currentCode" size="4.5rem" />
+        <WeatherIcon :code="currentCode" :is-day="currentIsDay" size="4.5rem" />
         <div>
           <div class="flex items-center gap-1.5">
             <div class="text-sm uppercase tracking-wider text-slate-400">{{ locationName }}</div>

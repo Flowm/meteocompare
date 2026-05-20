@@ -1,35 +1,21 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { severitySlug, type SeveritySlug } from '@/domain/weatherCodes'
+import { iconFor } from '@/domain/weatherCodes'
 
-const props = defineProps<{
-  code: number
-  size?: number | string
-  isDay?: boolean
-}>()
+// Vue 3 coerces an absent Boolean prop to `false`, so an unwrapped
+// `isDay?: boolean` would default to night — exactly backwards from
+// what we want for daily summaries. `withDefaults` keeps it day by default.
+const props = withDefaults(
+  defineProps<{
+    code: number
+    size?: number | string
+    isDay?: boolean
+  }>(),
+  { isDay: true },
+)
 
-const slug = computed<SeveritySlug>(() => severitySlug(props.code))
-
-const emoji = computed(() => {
-  switch (slug.value) {
-    case 'clear':
-      return props.isDay === false ? '🌙' : '☀️'
-    case 'mostly_clear':
-      return props.isDay === false ? '☁️' : '🌤️'
-    case 'cloudy':
-      return '☁️'
-    case 'fog':
-      return '🌫️'
-    case 'drizzle':
-      return '🌦️'
-    case 'rain':
-      return '🌧️'
-    case 'snow':
-      return '❄️'
-    case 'storm':
-      return '⛈️'
-  }
-})
+const icon = computed(() => iconFor(props.code))
+const cls = computed(() => (props.isDay ? icon.value.day : icon.value.night))
 
 const sizeStyle = computed(() => {
   const s = props.size ?? '2rem'
@@ -38,10 +24,11 @@ const sizeStyle = computed(() => {
 </script>
 
 <template>
-  <span
-    class="inline-block leading-none select-none"
-    :style="{ fontSize: sizeStyle }"
-    :aria-label="slug"
+  <i
+    class="wi"
+    :class="[cls, icon.tone]"
+    :style="{ fontSize: sizeStyle, lineHeight: 1 }"
     role="img"
-  >{{ emoji }}</span>
+    aria-hidden="false"
+  />
 </template>

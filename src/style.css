@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "weather-icons/css/weather-icons.min.css";
 
 @theme {
   --color-confidence-high: #22c55e;

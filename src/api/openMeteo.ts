@@ -32,6 +32,7 @@ const CURRENT_VARS = [
   'weather_code',
   'wind_speed_10m',
   'wind_direction_10m',
+  'is_day',
 ] as const
 
 export type HourlyVar = (typeof HOURLY_VARS)[number]
