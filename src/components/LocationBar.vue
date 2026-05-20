@@ -5,7 +5,7 @@ import { searchLocations, formatLocation, type GeocodingResult } from '@/api/geo
 import { useLocation, type Location } from '@/composables/useLocation'
 import UnitsToggle from './UnitsToggle.vue'
 
-const { current, favourites, recent, setLocation, isFavourite, toggleFavourite } = useLocation()
+const { current, favourites, recent, setLocation } = useLocation()
 
 const query = ref('')
 const results = ref<GeocodingResult[]>([])
@@ -71,22 +71,13 @@ function pickSaved(loc: Location): void {
       </div>
 
       <div class="relative flex-1 max-w-md">
-        <div class="relative">
-          <input
-            v-model="query"
-            type="search"
-            :placeholder="`Search a city… (current: ${current.name})`"
-            class="w-full bg-slate-900 border border-slate-800 focus:border-slate-600 rounded-lg px-3 py-2 text-sm placeholder:text-slate-500 outline-none"
-            @focus="isOpen = true"
-          />
-          <button
-            class="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-amber-300"
-            :title="isFavourite(current) ? 'Remove from favourites' : 'Save as favourite'"
-            @click="toggleFavourite(current)"
-          >
-            {{ isFavourite(current) ? '★' : '☆' }}
-          </button>
-        </div>
+        <input
+          v-model="query"
+          type="search"
+          :placeholder="`Search a city… (current: ${current.name})`"
+          class="w-full bg-slate-900 border border-slate-800 focus:border-slate-600 rounded-lg px-3 py-2 text-sm placeholder:text-slate-500 outline-none"
+          @focus="isOpen = true"
+        />
 
         <div
           v-if="isOpen && (results.length || favourites.length || recent.length || isSearching || searchError)"

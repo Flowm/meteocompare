@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import type { ForecastResponse } from '@/api/openMeteo'
 import type { DailyAggregate } from '@/composables/useForecast'
 import { useUnits } from '@/composables/useUnits'
+import { useLocation } from '@/composables/useLocation'
 import { weatherLabel } from '@/domain/weatherCodes'
 import WeatherIcon from './WeatherIcon.vue'
 import ConfidenceBadge from './ConfidenceBadge.vue'
@@ -12,6 +13,9 @@ const props = defineProps<{
   daily: DailyAggregate
   locationName: string
 }>()
+
+const { current, isFavourite, toggleFavourite } = useLocation()
+const starred = computed(() => isFavourite(current.value))
 
 const { formatTemp, formatPercent } = useUnits()
 
@@ -38,7 +42,17 @@ const lastUpdated = computed(() => new Date(props.raw.current.time))
       <div class="flex items-center gap-5">
         <WeatherIcon :code="currentCode" size="4.5rem" />
         <div>
-          <div class="text-sm uppercase tracking-wider text-slate-400">{{ locationName }}</div>
+          <div class="flex items-center gap-1.5">
+            <div class="text-sm uppercase tracking-wider text-slate-400">{{ locationName }}</div>
+            <button
+              type="button"
+              class="text-base leading-none p-1 -m-1 rounded-md transition-colors"
+              :class="starred ? 'text-amber-300 hover:text-amber-200' : 'text-slate-500 hover:text-amber-300'"
+              :title="starred ? 'Remove from favourites' : 'Save as favourite'"
+              :aria-pressed="starred"
+              @click="toggleFavourite(current)"
+            >{{ starred ? '★' : '☆' }}</button>
+          </div>
           <div class="flex items-baseline gap-3 mt-0.5">
             <div class="text-5xl sm:text-6xl font-semibold tabular-nums">{{ formatTemp(currentTemp, 0) }}</div>
             <div class="text-slate-300 hidden sm:block">{{ weatherLabel(currentCode) }}</div>
