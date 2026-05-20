@@ -7,6 +7,19 @@ export type WindUnit = 'kmh' | 'mph'
 
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'] as const
 
+/** Format a percentage. Stateless — hoisted out of the composable. */
+export function formatPercent(v: number | null | undefined): string {
+  if (v == null || Number.isNaN(v)) return '–'
+  return `${Math.round(v)}%`
+}
+
+/** Convert a 0–360° bearing into an 8-point compass label (N, NE, E, …). */
+export function compassPoint(deg: number | null | undefined): string {
+  if (deg == null || Number.isNaN(deg)) return '–'
+  const idx = Math.round((((deg % 360) + 360) % 360) / 45) % 8
+  return COMPASS[idx]
+}
+
 export function useUnits() {
   const temp = useLocalStorage<TemperatureUnit>('meteocompare:unit:temp', 'c')
   const precip = useLocalStorage<PrecipitationUnit>('meteocompare:unit:precip', 'mm')
@@ -30,18 +43,6 @@ export function useUnits() {
     const x = wind.value === 'mph' ? v / 1.609344 : v
     return `${x.toFixed(digits)} ${wind.value === 'mph' ? 'mph' : 'km/h'}`
   })
-
-  const formatPercent = (v: number | null | undefined): string => {
-    if (v == null || Number.isNaN(v)) return '–'
-    return `${Math.round(v)}%`
-  }
-
-  /** Convert a 0–360° bearing into an 8-point compass label (N, NE, E, …). */
-  const compassPoint = (deg: number | null | undefined): string => {
-    if (deg == null || Number.isNaN(deg)) return '–'
-    const idx = Math.round(((deg % 360) + 360) % 360 / 45) % 8
-    return COMPASS[idx]
-  }
 
   return { temp, precip, wind, formatTemp, formatPrecip, formatWind, formatPercent, compassPoint }
 }

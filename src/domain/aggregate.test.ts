@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { MODELS, getModel } from './models'
+import { getModel } from './models'
 import { aggregateSeries } from './aggregate'
 
 const PARIS = { lat: 48.85, lon: 2.35 }
