@@ -53,7 +53,7 @@ describe('normalizedWeights', () => {
     expect(w.has('meteofrance_seamless')).toBe(false)
     expect(w.has('knmi_seamless')).toBe(false)
     expect(w.has('ecmwf_ifs025')).toBe(true)
-    expect(w.has('gfs_seamless')).toBe(true)
+    expect(w.has('gfs_global')).toBe(true)
   })
 
   it('puts more weight on BOM ACCESS-G near Sydney than near Paris', () => {

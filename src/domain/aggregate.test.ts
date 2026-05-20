@@ -5,8 +5,8 @@ import { aggregateSeries } from './aggregate'
 const PARIS = { lat: 48.85, lon: 2.35 }
 const subset = [
   getModel('ecmwf_ifs025')!,
-  getModel('gfs_seamless')!,
-  getModel('icon_seamless')!,
+  getModel('gfs_global')!,
+  getModel('icon_global')!,
   getModel('meteofrance_seamless')!,
 ]
 
@@ -23,8 +23,8 @@ describe('aggregateSeries (temperature)', () => {
     const times = makeTimes(4, '2026-05-20T00:00:00Z')
     const series = {
       ecmwf_ifs025: [10, 11, 12, 13],
-      gfs_seamless: [10, 11, 12, 13],
-      icon_seamless: [10, 11, 12, 13],
+      gfs_global: [10, 11, 12, 13],
+      icon_global: [10, 11, 12, 13],
       meteofrance_seamless: [10, 11, 12, 13],
     }
     const out = aggregateSeries(times, series, {
@@ -45,8 +45,8 @@ describe('aggregateSeries (temperature)', () => {
     const times = makeTimes(1, '2026-05-20T00:00:00Z')
     const series = {
       ecmwf_ifs025: [10],
-      gfs_seamless: [14],
-      icon_seamless: [12],
+      gfs_global: [14],
+      icon_global: [12],
       meteofrance_seamless: [11],
     }
     const out = aggregateSeries(times, series, {
@@ -66,8 +66,8 @@ describe('aggregateSeries (temperature)', () => {
     const times = makeTimes(1, '2026-05-20T00:00:00Z')
     const series = {
       ecmwf_ifs025: [10],
-      gfs_seamless: [null],
-      icon_seamless: [null],
+      gfs_global: [null],
+      icon_global: [null],
       meteofrance_seamless: [null],
     }
     const out = aggregateSeries(times, series, {
@@ -88,8 +88,8 @@ describe('aggregateSeries (weather_code)', () => {
     // 3 models say "rain" (61, 63, 80), 1 says "clear" (0).
     const series = {
       ecmwf_ifs025: [61],
-      gfs_seamless: [63],
-      icon_seamless: [80],
+      gfs_global: [63],
+      icon_global: [80],
       meteofrance_seamless: [0],
     }
     const out = aggregateSeries(times, series, {
