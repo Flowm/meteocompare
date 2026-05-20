@@ -1,48 +1,50 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import { useDebounceFn, onClickOutside } from '@vueuse/core'
-import { searchLocations, formatLocation, type GeocodingResult } from '@/api/geocoding'
-import { useLocation, type Location } from '@/composables/useLocation'
-import UnitsToggle from './UnitsToggle.vue'
+import { useDebounceFn, onClickOutside } from "@vueuse/core";
+import { ref, watch } from "vue";
 
-const { current, favourites, recent, setLocation } = useLocation()
+import { searchLocations, formatLocation, type GeocodingResult } from "@/api/geocoding";
+import { useLocation, type Location } from "@/composables/useLocation";
 
-const query = ref('')
-const results = ref<GeocodingResult[]>([])
-const isOpen = ref(false)
-const isSearching = ref(false)
-const searchError = ref<string | null>(null)
-const isLocating = ref(false)
-const locateError = ref<string | null>(null)
-const root = ref<HTMLElement | null>(null)
+import UnitsToggle from "./UnitsToggle.vue";
 
-onClickOutside(root, () => (isOpen.value = false))
+const { current, favourites, recent, setLocation } = useLocation();
+
+const query = ref("");
+const results = ref<GeocodingResult[]>([]);
+const isOpen = ref(false);
+const isSearching = ref(false);
+const searchError = ref<string | null>(null);
+const isLocating = ref(false);
+const locateError = ref<string | null>(null);
+const root = ref<HTMLElement | null>(null);
+
+onClickOutside(root, () => (isOpen.value = false));
 
 const runSearch = useDebounceFn(async () => {
   if (query.value.trim().length < 2) {
-    results.value = []
-    isSearching.value = false
-    return
+    results.value = [];
+    isSearching.value = false;
+    return;
   }
-  isSearching.value = true
-  searchError.value = null
+  isSearching.value = true;
+  searchError.value = null;
   try {
-    results.value = await searchLocations(query.value)
+    results.value = await searchLocations(query.value);
   } catch (e) {
-    searchError.value = e instanceof Error ? e.message : 'Search failed'
-    results.value = []
+    searchError.value = e instanceof Error ? e.message : "Search failed";
+    results.value = [];
   } finally {
-    isSearching.value = false
+    isSearching.value = false;
   }
-}, 250)
+}, 250);
 
 watch(query, () => {
-  isOpen.value = true
-  void runSearch()
-})
+  isOpen.value = true;
+  void runSearch();
+});
 
 function pick(r: GeocodingResult): void {
-  const detail = [r.admin1, r.country_code].filter(Boolean).join(', ') || undefined
+  const detail = [r.admin1, r.country_code].filter(Boolean).join(", ") || undefined;
   setLocation({
     name: r.name,
     detail,
@@ -50,78 +52,75 @@ function pick(r: GeocodingResult): void {
     longitude: r.longitude,
     country_code: r.country_code,
     timezone: r.timezone,
-  })
-  query.value = ''
-  results.value = []
-  isOpen.value = false
+  });
+  query.value = "";
+  results.value = [];
+  isOpen.value = false;
 }
 
 function pickSaved(loc: Location): void {
-  setLocation(loc)
-  isOpen.value = false
+  setLocation(loc);
+  isOpen.value = false;
 }
 
 function geolocate(): void {
   if (!navigator.geolocation) {
-    locateError.value = 'Geolocation not supported by this browser.'
-    return
+    locateError.value = "Geolocation not supported by this browser.";
+    return;
   }
-  locateError.value = null
-  isLocating.value = true
+  locateError.value = null;
+  isLocating.value = true;
   navigator.geolocation.getCurrentPosition(
     (pos) => {
-      isLocating.value = false
+      isLocating.value = false;
       setLocation({
-        name: 'Your location',
+        name: "Your location",
         detail: `${pos.coords.latitude.toFixed(3)}, ${pos.coords.longitude.toFixed(3)}`,
         latitude: pos.coords.latitude,
         longitude: pos.coords.longitude,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      })
-      isOpen.value = false
+      });
+      isOpen.value = false;
     },
     (err) => {
-      isLocating.value = false
+      isLocating.value = false;
       switch (err.code) {
         case err.PERMISSION_DENIED:
-          locateError.value = 'Location permission denied.'
-          break
+          locateError.value = "Location permission denied.";
+          break;
         case err.POSITION_UNAVAILABLE:
-          locateError.value = 'Location unavailable.'
-          break
+          locateError.value = "Location unavailable.";
+          break;
         case err.TIMEOUT:
-          locateError.value = 'Location request timed out.'
-          break
+          locateError.value = "Location request timed out.";
+          break;
         default:
-          locateError.value = 'Could not determine location.'
+          locateError.value = "Could not determine location.";
       }
     },
     { enableHighAccuracy: false, timeout: 10_000, maximumAge: 5 * 60_000 },
-  )
+  );
 }
 </script>
 
 <template>
-  <header
-    ref="root"
-    class="sticky top-0 z-30 bg-slate-950/90 backdrop-blur border-b border-slate-800"
-  >
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
-      <div class="flex items-baseline gap-2 flex-shrink-0">
-        <span class="text-lg sm:text-xl font-semibold tracking-tight">MeteoCompare</span>
+  <header ref="root" class="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/90 backdrop-blur">
+    <div class="mx-auto flex max-w-4xl items-center gap-3 px-4 py-3 sm:px-6">
+      <div class="flex flex-shrink-0 items-baseline gap-2">
+        <span class="text-lg font-semibold tracking-tight sm:text-xl">MeteoCompare</span>
       </div>
 
-      <div class="relative flex-1 max-w-md">
+      <div class="relative max-w-md flex-1">
         <input
           v-model="query"
           type="search"
           placeholder="Search for location…"
-          class="w-full bg-slate-900 border border-slate-800 focus:border-slate-600 rounded-lg pl-3 pr-10 py-2 text-sm placeholder:text-slate-500 outline-none"
+          class="w-full rounded-lg border border-slate-800 bg-slate-900 py-2 pr-10 pl-3 text-sm outline-none placeholder:text-slate-500 focus:border-slate-600"
           @focus="isOpen = true"
         />
         <button
           type="button"
-          class="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-sky-300 transition-colors flex items-center justify-center rounded-md"
+          class="absolute top-1/2 right-1 flex -translate-y-1/2 items-center justify-center rounded-md p-1.5 text-slate-400 transition-colors hover:text-sky-300"
           :disabled="isLocating"
           :title="locateError ?? 'Use my location'"
           @click="geolocate"
@@ -145,58 +144,51 @@ function geolocate(): void {
             <line x1="2" y1="12" x2="5" y2="12" />
             <line x1="19" y1="12" x2="22" y2="12" />
           </svg>
-          <span
-            v-else
-            class="size-4 rounded-full border-2 border-slate-700 border-t-slate-300 animate-spin"
-            aria-hidden="true"
-          />
+          <span v-else class="size-4 animate-spin rounded-full border-2 border-slate-700 border-t-slate-300" aria-hidden="true" />
           <span class="sr-only">Use my location</span>
         </button>
 
         <div
           v-if="isOpen && (results.length || favourites.length || recent.length || isSearching || searchError)"
-          class="absolute z-40 mt-1 w-full bg-slate-900 border border-slate-800 rounded-lg shadow-xl overflow-hidden"
+          class="absolute z-40 mt-1 w-full overflow-hidden rounded-lg border border-slate-800 bg-slate-900 shadow-xl"
         >
           <div v-if="isSearching" class="px-3 py-2 text-xs text-slate-500">Searching…</div>
           <div v-else-if="searchError" class="px-3 py-2 text-xs text-rose-400">{{ searchError }}</div>
 
           <div v-if="results.length" class="max-h-64 overflow-y-auto">
-            <button
-              v-for="r in results"
-              :key="`${r.id}-${r.latitude}`"
-              class="w-full text-left px-3 py-2 text-sm hover:bg-slate-800 flex justify-between gap-3"
-              @click="pick(r)"
-            >
+            <button v-for="r in results" :key="`${r.id}-${r.latitude}`" class="flex w-full justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-slate-800" @click="pick(r)">
               <span class="truncate">{{ formatLocation(r) }}</span>
-              <span class="text-slate-500 tabular-nums shrink-0 text-xs">
-                {{ r.latitude.toFixed(2) }}, {{ r.longitude.toFixed(2) }}
-              </span>
+              <span class="shrink-0 text-xs text-slate-500 tabular-nums"> {{ r.latitude.toFixed(2) }}, {{ r.longitude.toFixed(2) }} </span>
             </button>
           </div>
 
           <template v-if="!query && favourites.length">
-            <div class="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-slate-500">Favourites</div>
+            <div class="px-3 pt-2 pb-1 text-[10px] tracking-wider text-slate-500 uppercase">Favourites</div>
             <button
               v-for="f in favourites"
               :key="`f-${f.latitude},${f.longitude}`"
-              class="w-full text-left px-3 py-1.5 text-sm hover:bg-slate-800 flex items-center gap-2"
+              class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-slate-800"
               @click="pickSaved(f)"
             >
               <span class="text-amber-400">★</span>
-              <span class="truncate">{{ f.name }}<span v-if="f.detail" class="text-slate-500">, {{ f.detail }}</span></span>
+              <span class="truncate"
+                >{{ f.name }}<span v-if="f.detail" class="text-slate-500">, {{ f.detail }}</span></span
+              >
             </button>
           </template>
 
           <template v-if="!query && recent.length">
-            <div class="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-slate-500">Recent</div>
+            <div class="px-3 pt-2 pb-1 text-[10px] tracking-wider text-slate-500 uppercase">Recent</div>
             <button
               v-for="r in recent.slice(0, 5)"
               :key="`r-${r.latitude},${r.longitude}`"
-              class="w-full text-left px-3 py-1.5 text-sm hover:bg-slate-800 flex items-center gap-2"
+              class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-slate-800"
               @click="pickSaved(r)"
             >
               <span class="text-slate-500">↻</span>
-              <span class="truncate">{{ r.name }}<span v-if="r.detail" class="text-slate-500">, {{ r.detail }}</span></span>
+              <span class="truncate"
+                >{{ r.name }}<span v-if="r.detail" class="text-slate-500">, {{ r.detail }}</span></span
+              >
             </button>
           </template>
         </div>

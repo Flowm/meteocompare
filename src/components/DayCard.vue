@@ -1,42 +1,38 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import WeatherIcon from './WeatherIcon.vue'
-import ConfidenceBadge from './ConfidenceBadge.vue'
-import { useUnits } from '@/composables/useUnits'
-import { weatherLabel } from '@/domain/weatherCodes'
+import { computed } from "vue";
+
+import { useUnits } from "@/composables/useUnits";
+import { weatherLabel } from "@/domain/weatherCodes";
+
+import ConfidenceBadge from "./ConfidenceBadge.vue";
+import WeatherIcon from "./WeatherIcon.vue";
 
 const props = defineProps<{
-  date: string
-  code: number
-  high: number
-  low: number
-  precipProb: number | null
-  precipSum: number | null
-  windSpeed: number | null
-  windDirection: number | null
-  confidence: number
-  highlight?: boolean
-}>()
+  date: string;
+  code: number;
+  high: number;
+  low: number;
+  precipProb: number | null;
+  precipSum: number | null;
+  windSpeed: number | null;
+  windDirection: number | null;
+  confidence: number;
+  highlight?: boolean;
+}>();
 
-const { formatTemp, formatPercent, formatPrecip, formatWind, compassPoint } = useUnits()
+const { formatTemp, formatPercent, formatPrecip, formatWind, compassPoint } = useUnits();
 
 /** The arrow visually points where the wind is going TO. Meteorological convention
  *  reports the direction the wind is coming FROM, so we rotate by direction + 180°. */
-const arrowRotation = computed(() =>
-  props.windDirection != null && !Number.isNaN(props.windDirection)
-    ? (props.windDirection + 180) % 360
-    : 0,
-)
+const arrowRotation = computed(() => (props.windDirection != null && !Number.isNaN(props.windDirection) ? (props.windDirection + 180) % 360 : 0));
 
 const dayLabel = computed(() => {
-  const d = new Date(props.date)
-  if (props.highlight) return 'Today'
-  return d.toLocaleDateString([], { weekday: 'short' })
-})
+  const d = new Date(props.date);
+  if (props.highlight) return "Today";
+  return d.toLocaleDateString([], { weekday: "short" });
+});
 
-const dateLabel = computed(() =>
-  new Date(props.date).toLocaleDateString([], { day: 'numeric', month: 'short' }),
-)
+const dateLabel = computed(() => new Date(props.date).toLocaleDateString([], { day: "numeric", month: "short" }));
 </script>
 
 <template>
@@ -48,17 +44,17 @@ const dateLabel = computed(() =>
       <span class="text-sm font-semibold text-slate-200">{{ dayLabel }}</span>
       <span class="text-[10px] text-slate-500">{{ dateLabel }}</span>
     </div>
-    <div class="flex justify-center my-2">
+    <div class="my-2 flex justify-center">
       <WeatherIcon :code="code" size="2.25rem" />
     </div>
-    <div class="text-center text-xs text-slate-400 truncate" :title="weatherLabel(code)">
+    <div class="truncate text-center text-xs text-slate-400" :title="weatherLabel(code)">
       {{ weatherLabel(code) }}
     </div>
-    <div class="flex items-center justify-center gap-2 mt-2 tabular-nums text-sm">
-      <span class="text-rose-300 font-medium">{{ formatTemp(high, 0) }}</span>
+    <div class="mt-2 flex items-center justify-center gap-2 text-sm tabular-nums">
+      <span class="font-medium text-rose-300">{{ formatTemp(high, 0) }}</span>
       <span class="text-sky-300">{{ formatTemp(low, 0) }}</span>
     </div>
-    <div class="flex items-center justify-center gap-1 text-xs text-slate-400 mt-1 tabular-nums">
+    <div class="mt-1 flex items-center justify-center gap-1 text-xs text-slate-400 tabular-nums">
       <template v-if="precipProb != null && precipProb > 5">
         💧 {{ formatPercent(precipProb) }}
         <template v-if="precipSum && precipSum > 0.1">
@@ -72,7 +68,7 @@ const dateLabel = computed(() =>
     </div>
     <div
       v-if="windSpeed != null && !Number.isNaN(windSpeed)"
-      class="flex items-center justify-center gap-1 text-xs text-slate-400 mt-1 tabular-nums"
+      class="mt-1 flex items-center justify-center gap-1 text-xs text-slate-400 tabular-nums"
       :title="`Wind from ${compassPoint(windDirection)} (${windDirection != null ? Math.round(windDirection) + '°' : '–'})`"
     >
       <svg

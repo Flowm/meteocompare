@@ -1,8 +1,9 @@
-import { createApp } from 'vue'
-import App from './App.vue'
-import { router } from './router'
-import { setupECharts } from './echartsSetup'
+import { createApp } from "vue";
 
-setupECharts()
+import App from "./App.vue";
+import { setupECharts } from "./echartsSetup";
+import { router } from "./router";
 
-createApp(App).use(router).mount('#app')
+setupECharts();
+
+createApp(App).use(router).mount("#app");

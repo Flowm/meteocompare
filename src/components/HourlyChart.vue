@@ -1,103 +1,99 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import VChart from 'vue-echarts'
-import type { EChartsOption } from 'echarts'
-import type { HourlyAggregate } from '@/composables/useForecast'
-import { useUnits } from '@/composables/useUnits'
+import type { EChartsOption } from "echarts";
+import { computed, ref } from "vue";
+import VChart from "vue-echarts";
+
+import type { HourlyAggregate } from "@/composables/useForecast";
+import { useUnits } from "@/composables/useUnits";
 
 const props = defineProps<{
-  hourly: HourlyAggregate
+  hourly: HourlyAggregate;
   /** Current local time at the location (open-meteo's `current.time`).
    *  Used to grey out elapsed hours and mark "Now". */
-  currentTime: string
-}>()
+  currentTime: string;
+}>();
 
-const { temp, precip, formatTemp, formatPrecip } = useUnits()
+const { temp, precip, formatTemp, formatPrecip } = useUnits();
 
 const WINDOW_CHOICES = [
-  { hours: 24, label: '24h' },
-  { hours: 72, label: '3d' },
-  { hours: 168, label: '7d' },
-] as const
+  { hours: 24, label: "24h" },
+  { hours: 72, label: "3d" },
+  { hours: 168, label: "7d" },
+] as const;
 
-const hoursWindow = ref<number>(72)
-const n = computed(() => Math.min(hoursWindow.value, props.hourly.times.length))
-const tempUnit = computed(() => (temp.value === 'f' ? '°F' : '°C'))
-const precipUnit = computed(() => (precip.value === 'in' ? 'in' : 'mm'))
+const hoursWindow = ref<number>(72);
+const n = computed(() => Math.min(hoursWindow.value, props.hourly.times.length));
+const tempUnit = computed(() => (temp.value === "f" ? "°F" : "°C"));
+const precipUnit = computed(() => (precip.value === "in" ? "in" : "mm"));
 
 function toTempUnit(v: number | null | undefined): number | null {
-  if (v == null || Number.isNaN(v)) return null
-  return temp.value === 'f' ? v * 9 / 5 + 32 : v
+  if (v == null || Number.isNaN(v)) return null;
+  return temp.value === "f" ? (v * 9) / 5 + 32 : v;
 }
 function toPrecipUnit(v: number | null | undefined): number | null {
-  if (v == null || Number.isNaN(v)) return null
-  return precip.value === 'in' ? v / 25.4 : v
+  if (v == null || Number.isNaN(v)) return null;
+  return precip.value === "in" ? v / 25.4 : v;
 }
 
 /** Find the first index in `times` whose timestamp is at or after `currentTime`.
  *  Both are local-time ISO strings from open-meteo (same TZ), so string compare works. */
 function findNowIndex(times: string[], nowStr: string): number {
   for (let i = 0; i < times.length; i++) {
-    if (times[i] >= nowStr) return i
+    if (times[i] >= nowStr) return i;
   }
-  return -1
+  return -1;
 }
 
 const option = computed<EChartsOption>(() => {
-  const times = props.hourly.times.slice(0, n.value)
-  const temps = props.hourly.series.temperature_2m.slice(0, n.value)
-  const precips = props.hourly.series.precipitation.slice(0, n.value)
-  const nowIdx = findNowIndex(times, props.currentTime)
+  const times = props.hourly.times.slice(0, n.value);
+  const temps = props.hourly.series.temperature_2m.slice(0, n.value);
+  const precips = props.hourly.series.precipitation.slice(0, n.value);
+  const nowIdx = findNowIndex(times, props.currentTime);
 
-  const tempValues = temps.map((p) => toTempUnit(p.value))
-  const tempLower = temps.map((p) => toTempUnit(p.value - p.stdDev))
+  const tempValues = temps.map((p) => toTempUnit(p.value));
+  const tempLower = temps.map((p) => toTempUnit(p.value - p.stdDev));
   // ECharts confidence-band trick: a transparent baseline + a stacked filled "delta".
-  const tempDelta = temps.map((p) =>
-    Number.isFinite(p.stdDev) ? (temp.value === 'f' ? (p.stdDev * 2 * 9) / 5 : p.stdDev * 2) : 0,
-  )
-  const precipValues = precips.map((p) => toPrecipUnit(p.value))
+  const tempDelta = temps.map((p) => (Number.isFinite(p.stdDev) ? (temp.value === "f" ? (p.stdDev * 2 * 9) / 5 : p.stdDev * 2) : 0));
+  const precipValues = precips.map((p) => toPrecipUnit(p.value));
 
   const labels = times.map((t) => {
-    const d = new Date(t)
-    const h = d.getHours()
-    const isMidnight = h === 0
-    return isMidnight
-      ? d.toLocaleDateString([], { weekday: 'short' })
-      : `${h.toString().padStart(2, '0')}:00`
-  })
+    const d = new Date(t);
+    const h = d.getHours();
+    const isMidnight = h === 0;
+    return isMidnight ? d.toLocaleDateString([], { weekday: "short" }) : `${h.toString().padStart(2, "0")}:00`;
+  });
 
   return {
-    backgroundColor: 'transparent',
-    textStyle: { color: '#cbd5e1' },
+    backgroundColor: "transparent",
+    textStyle: { color: "#cbd5e1" },
     grid: { left: 48, right: 48, top: 32, bottom: 36 },
     tooltip: {
-      trigger: 'axis',
-      backgroundColor: 'rgba(15, 23, 42, 0.95)',
-      borderColor: '#334155',
-      textStyle: { color: '#e2e8f0' },
+      trigger: "axis",
+      backgroundColor: "rgba(15, 23, 42, 0.95)",
+      borderColor: "#334155",
+      textStyle: { color: "#e2e8f0" },
       formatter: (params: unknown) => {
-        const arr = params as Array<{ axisValue: string; seriesName: string; value: number; color: string }>
-        const t = arr[0]?.axisValue ?? ''
-        const idx = labels.indexOf(t)
-        const tempP = temps[idx]
-        const precP = precips[idx]
-        if (!tempP) return ''
-        const date = new Date(times[idx])
-        const header = date.toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })
-        const tempStr = `<span style="color:#fda4af">${formatTemp.value(tempP.value, 1)}</span>` +
-          ` <span style="color:#94a3b8">± ${formatTemp.value(tempP.stdDev, 1).replace(/°[CF]/, '')} ${tempUnit.value}</span>`
-        const precStr = precP.value > 0.05
-          ? `<br/><span style="color:#7dd3fc">${formatPrecip.value(precP.value, 1)}</span>`
-          : ''
-        return `<div style="font-weight:600;margin-bottom:4px">${header}</div>${tempStr}${precStr}`
+        const arr = params as Array<{ axisValue: string; seriesName: string; value: number; color: string }>;
+        const t = arr[0]?.axisValue ?? "";
+        const idx = labels.indexOf(t);
+        const tempP = temps[idx];
+        const precP = precips[idx];
+        if (!tempP) return "";
+        const date = new Date(times[idx]);
+        const header = date.toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" });
+        const tempStr =
+          `<span style="color:#fda4af">${formatTemp.value(tempP.value, 1)}</span>` +
+          ` <span style="color:#94a3b8">± ${formatTemp.value(tempP.stdDev, 1).replace(/°[CF]/, "")} ${tempUnit.value}</span>`;
+        const precStr = precP.value > 0.05 ? `<br/><span style="color:#7dd3fc">${formatPrecip.value(precP.value, 1)}</span>` : "";
+        return `<div style="font-weight:600;margin-bottom:4px">${header}</div>${tempStr}${precStr}`;
       },
     },
     xAxis: {
-      type: 'category',
+      type: "category",
       data: labels,
-      axisLine: { lineStyle: { color: '#475569' } },
+      axisLine: { lineStyle: { color: "#475569" } },
       axisLabel: {
-        color: '#94a3b8',
+        color: "#94a3b8",
         // 24h → every 3 h, 3d → every 12 h, 7d → every 24 h.
         interval: hoursWindow.value <= 24 ? 2 : hoursWindow.value <= 72 ? 11 : 23,
         hideOverlap: true,
@@ -106,96 +102,96 @@ const option = computed<EChartsOption>(() => {
     },
     yAxis: [
       {
-        type: 'value',
+        type: "value",
         name: tempUnit.value,
-        nameTextStyle: { color: '#94a3b8' },
+        nameTextStyle: { color: "#94a3b8" },
         axisLine: { show: false },
-        axisLabel: { color: '#94a3b8' },
-        splitLine: { lineStyle: { color: '#1e293b' } },
+        axisLabel: { color: "#94a3b8" },
+        splitLine: { lineStyle: { color: "#1e293b" } },
       },
       {
-        type: 'value',
+        type: "value",
         name: precipUnit.value,
-        nameTextStyle: { color: '#94a3b8' },
-        position: 'right',
+        nameTextStyle: { color: "#94a3b8" },
+        position: "right",
         min: 0,
         axisLine: { show: false },
-        axisLabel: { color: '#94a3b8' },
+        axisLabel: { color: "#94a3b8" },
         splitLine: { show: false },
       },
     ],
     series: [
       {
-        name: 'precipitation',
-        type: 'bar',
+        name: "precipitation",
+        type: "bar",
         yAxisIndex: 1,
         data: precipValues,
-        itemStyle: { color: 'rgba(56, 189, 248, 0.7)' },
-        barWidth: '60%',
+        itemStyle: { color: "rgba(56, 189, 248, 0.7)" },
+        barWidth: "60%",
       },
       // Confidence band: invisible bottom + filled "delta" stacked on top.
       {
-        name: 'band_base',
-        type: 'line',
-        stack: 'band',
-        symbol: 'none',
+        name: "band_base",
+        type: "line",
+        stack: "band",
+        symbol: "none",
         lineStyle: { opacity: 0 },
         itemStyle: { opacity: 0 },
         tooltip: { show: false },
         data: tempLower,
       },
       {
-        name: 'band_range',
-        type: 'line',
-        stack: 'band',
-        symbol: 'none',
+        name: "band_range",
+        type: "line",
+        stack: "band",
+        symbol: "none",
         lineStyle: { opacity: 0 },
-        areaStyle: { color: 'rgba(244, 114, 182, 0.18)' },
+        areaStyle: { color: "rgba(244, 114, 182, 0.18)" },
         tooltip: { show: false },
         data: tempDelta,
       },
       {
-        name: 'temperature',
-        type: 'line',
+        name: "temperature",
+        type: "line",
         data: tempValues,
         smooth: true,
-        symbol: 'none',
-        lineStyle: { width: 2.5, color: '#f472b6' },
+        symbol: "none",
+        lineStyle: { width: 2.5, color: "#f472b6" },
         z: 5,
         markArea:
           nowIdx > 0
             ? {
                 silent: true,
-                itemStyle: { color: 'rgba(2, 6, 23, 0.7)' },
+                itemStyle: { color: "rgba(2, 6, 23, 0.7)" },
                 z: 50,
                 data: [[{ xAxis: 0 }, { xAxis: nowIdx - 1 }]],
               }
             : undefined,
       },
     ],
-  }
-})
+  };
+});
 </script>
 
 <template>
-  <section class="rounded-2xl bg-slate-900/60 ring-1 ring-slate-800 p-4 sm:p-6">
-    <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
-      <h2 class="text-sm font-medium text-slate-300 uppercase tracking-wider">Hourly forecast</h2>
+  <section class="rounded-2xl bg-slate-900/60 p-4 ring-1 ring-slate-800 sm:p-6">
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+      <h2 class="text-sm font-medium tracking-wider text-slate-300 uppercase">Hourly forecast</h2>
       <div class="flex items-center gap-3">
-        <span class="text-xs text-slate-500 hidden sm:inline">Shaded: model spread (±1σ)</span>
-        <div class="flex rounded-md bg-slate-950 ring-1 ring-slate-800 overflow-hidden text-xs">
+        <span class="hidden text-xs text-slate-500 sm:inline">Shaded: model spread (±1σ)</span>
+        <div class="flex overflow-hidden rounded-md bg-slate-950 text-xs ring-1 ring-slate-800">
           <button
             v-for="c in WINDOW_CHOICES"
             :key="c.hours"
             class="px-3 py-1.5 transition-colors"
-            :class="hoursWindow === c.hours
-              ? 'bg-slate-700 text-slate-100'
-              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'"
+            :class="hoursWindow === c.hours ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'"
             @click="hoursWindow = c.hours"
-          >{{ c.label }}</button>
+          >
+            {{ c.label }}
+          </button>
         </div>
       </div>
     </div>
-    <VChart style="height: 18rem;" :option="option" autoresize />
+    <VChart style="height: 18rem" :option="option" autoresize />
   </section>
 </template>

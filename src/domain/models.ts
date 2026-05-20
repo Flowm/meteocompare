@@ -4,181 +4,174 @@
 // component (e.g. AROME inside France, ARPEGE elsewhere) — we still treat
 // the whole product as one logical "model" for the user.
 
-export type ModelKind = 'global' | 'regional-cam' | 'regional-mid'
+export type ModelKind = "global" | "regional-cam" | "regional-mid";
 
 export interface BBox {
   /** lat min, lat max */
-  lat: [number, number]
+  lat: [number, number];
   /** lon min, lon max */
-  lon: [number, number]
+  lon: [number, number];
 }
 
 export interface ModelDef {
-  id: string
-  label: string
-  provider: string
-  kind: ModelKind
+  id: string;
+  label: string;
+  provider: string;
+  kind: ModelKind;
   /** Approximate maximum useful lead time, hours. Past this the value returned
    *  by open-meteo may be from a lower-resolution fallback or null. */
-  maxLeadHours: number
+  maxLeadHours: number;
   /** Geographic region where this model has a structural advantage.
    *  `null` for genuinely global models (ECMWF, GFS). */
-  homeRegion: BBox | null
+  homeRegion: BBox | null;
   /** Short description shown in the model breakdown UI. */
-  description: string
+  description: string;
 }
 
 export const MODELS: ModelDef[] = [
   {
-    id: 'ecmwf_ifs025',
-    label: 'ECMWF IFS',
-    provider: 'ECMWF',
-    kind: 'global',
+    id: "ecmwf_ifs025",
+    label: "ECMWF IFS",
+    provider: "ECMWF",
+    kind: "global",
     maxLeadHours: 240,
     homeRegion: null,
-    description: '25 km global; the medium-range gold standard.',
+    description: "25 km global; the medium-range gold standard.",
   },
   {
-    id: 'gfs_global',
-    label: 'NOAA GFS',
-    provider: 'NOAA',
-    kind: 'global',
+    id: "gfs_global",
+    label: "NOAA GFS",
+    provider: "NOAA",
+    kind: "global",
     maxLeadHours: 384,
     homeRegion: null,
-    description: '13–25 km global; long horizon, fast updates.',
+    description: "13–25 km global; long horizon, fast updates.",
   },
   {
-    id: 'gfs_hrrr',
-    label: 'NOAA HRRR',
-    provider: 'NOAA',
-    kind: 'regional-cam',
+    id: "gfs_hrrr",
+    label: "NOAA HRRR",
+    provider: "NOAA",
+    kind: "regional-cam",
     maxLeadHours: 48,
     homeRegion: { lat: [21, 53], lon: [-135, -60] },
-    description: '3 km CONUS convection-allowing, hourly updates.',
+    description: "3 km CONUS convection-allowing, hourly updates.",
   },
   {
-    id: 'icon_global',
-    label: 'DWD ICON',
-    provider: 'DWD',
-    kind: 'global',
+    id: "icon_global",
+    label: "DWD ICON",
+    provider: "DWD",
+    kind: "global",
     maxLeadHours: 180,
     homeRegion: null,
-    description: '11 km global; strong all-rounder, 6-hourly updates.',
+    description: "11 km global; strong all-rounder, 6-hourly updates.",
   },
   {
-    id: 'icon_eu',
-    label: 'DWD ICON-EU',
-    provider: 'DWD',
-    kind: 'regional-mid',
+    id: "icon_eu",
+    label: "DWD ICON-EU",
+    provider: "DWD",
+    kind: "regional-mid",
     maxLeadHours: 120,
     homeRegion: { lat: [29, 70], lon: [-23, 45] },
-    description: '7 km regional, strongest over Europe.',
+    description: "7 km regional, strongest over Europe.",
   },
   {
-    id: 'icon_d2',
-    label: 'DWD ICON-D2',
-    provider: 'DWD',
-    kind: 'regional-cam',
+    id: "icon_d2",
+    label: "DWD ICON-D2",
+    provider: "DWD",
+    kind: "regional-cam",
     maxLeadHours: 48,
     homeRegion: { lat: [43, 58], lon: [-3, 20] },
-    description: '2 km convection-allowing over central Europe.',
+    description: "2 km convection-allowing over central Europe.",
   },
   {
-    id: 'gem_seamless',
-    label: 'EC GEM',
-    provider: 'Environment Canada',
-    kind: 'regional-mid',
+    id: "gem_seamless",
+    label: "EC GEM",
+    provider: "Environment Canada",
+    kind: "regional-mid",
     maxLeadHours: 240,
     homeRegion: { lat: [25, 72], lon: [-170, -50] },
-    description: '2.5–15 km, strongest over North America.',
+    description: "2.5–15 km, strongest over North America.",
   },
   {
-    id: 'meteofrance_seamless',
-    label: 'Météo-France',
-    provider: 'Météo-France',
-    kind: 'regional-cam',
+    id: "meteofrance_seamless",
+    label: "Météo-France",
+    provider: "Météo-France",
+    kind: "regional-cam",
     maxLeadHours: 102,
     homeRegion: { lat: [41, 52], lon: [-5, 10] },
-    description: 'AROME (1.3 km) over France, ARPEGE globally.',
+    description: "AROME (1.3 km) over France, ARPEGE globally.",
   },
   {
-    id: 'ukmo_seamless',
-    label: 'UKMO',
-    provider: 'UK Met Office',
-    kind: 'regional-mid',
+    id: "ukmo_seamless",
+    label: "UKMO",
+    provider: "UK Met Office",
+    kind: "regional-mid",
     maxLeadHours: 168,
     homeRegion: { lat: [49, 61], lon: [-11, 2] },
-    description: '2 km UKV over the British Isles, 10 km global.',
+    description: "2 km UKV over the British Isles, 10 km global.",
   },
   {
-    id: 'knmi_seamless',
-    label: 'KNMI Harmonie',
-    provider: 'KNMI',
-    kind: 'regional-cam',
+    id: "knmi_seamless",
+    label: "KNMI Harmonie",
+    provider: "KNMI",
+    kind: "regional-cam",
     maxLeadHours: 60,
     homeRegion: { lat: [49, 54], lon: [2, 8] },
-    description: '2.5 km over the Benelux & North Sea.',
+    description: "2.5 km over the Benelux & North Sea.",
   },
   {
-    id: 'metno_seamless',
-    label: 'MET Norway',
-    provider: 'MET Norway',
-    kind: 'regional-cam',
+    id: "metno_seamless",
+    label: "MET Norway",
+    provider: "MET Norway",
+    kind: "regional-cam",
     maxLeadHours: 60,
     homeRegion: { lat: [55, 72], lon: [-5, 35] },
-    description: '2.5 km MEPS over Scandinavia.',
+    description: "2.5 km MEPS over Scandinavia.",
   },
   {
-    id: 'jma_seamless',
-    label: 'JMA',
-    provider: 'JMA',
-    kind: 'regional-mid',
+    id: "jma_seamless",
+    label: "JMA",
+    provider: "JMA",
+    kind: "regional-mid",
     maxLeadHours: 264,
     homeRegion: { lat: [24, 46], lon: [122, 146] },
-    description: 'GSM + MSM, strongest over Japan & nearby seas.',
+    description: "GSM + MSM, strongest over Japan & nearby seas.",
   },
   {
-    id: 'kma_seamless',
-    label: 'KMA',
-    provider: 'KMA',
-    kind: 'regional-mid',
+    id: "kma_seamless",
+    label: "KMA",
+    provider: "KMA",
+    kind: "regional-mid",
     maxLeadHours: 288,
     homeRegion: { lat: [33, 43], lon: [124, 132] },
-    description: '1.5–13 km, strongest over the Korean peninsula.',
+    description: "1.5–13 km, strongest over the Korean peninsula.",
   },
   {
-    id: 'bom_access_global',
-    label: 'BOM ACCESS-G',
-    provider: 'BOM',
-    kind: 'global',
+    id: "bom_access_global",
+    label: "BOM ACCESS-G",
+    provider: "BOM",
+    kind: "global",
     maxLeadHours: 240,
     homeRegion: { lat: [-45, -10], lon: [110, 155] },
-    description: '15 km, strongest over Australasia.',
+    description: "15 km, strongest over Australasia.",
   },
-]
+];
 
-export const MODEL_IDS: string[] = MODELS.map((m) => m.id)
+export const MODEL_IDS: string[] = MODELS.map((m) => m.id);
 
-const MODEL_INDEX: Record<string, ModelDef> = Object.fromEntries(
-  MODELS.map((m) => [m.id, m]),
-)
+const MODEL_INDEX: Record<string, ModelDef> = Object.fromEntries(MODELS.map((m) => [m.id, m]));
 
 export function getModel(id: string): ModelDef | undefined {
-  return MODEL_INDEX[id]
+  return MODEL_INDEX[id];
 }
 
 export function isInBBox(lat: number, lon: number, bbox: BBox): boolean {
-  return (
-    lat >= bbox.lat[0] &&
-    lat <= bbox.lat[1] &&
-    lon >= bbox.lon[0] &&
-    lon <= bbox.lon[1]
-  )
+  return lat >= bbox.lat[0] && lat <= bbox.lat[1] && lon >= bbox.lon[0] && lon <= bbox.lon[1];
 }
 
 /** 0..0.3 bonus when (lat,lon) sits inside the model's home region. */
 export function regionBonus(model: ModelDef, lat: number, lon: number): number {
-  if (!model.homeRegion) return 0
-  if (!isInBBox(lat, lon, model.homeRegion)) return 0
-  return model.kind === 'regional-cam' ? 0.3 : 0.2
+  if (!model.homeRegion) return 0;
+  if (!isInBBox(lat, lon, model.homeRegion)) return 0;
+  return model.kind === "regional-cam" ? 0.3 : 0.2;
 }

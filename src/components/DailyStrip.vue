@@ -1,29 +1,27 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { DailyAggregate } from '@/composables/useForecast'
-import DayCard from './DayCard.vue'
+import { computed } from "vue";
 
-const props = defineProps<{ daily: DailyAggregate }>()
+import type { DailyAggregate } from "@/composables/useForecast";
+
+import DayCard from "./DayCard.vue";
+
+const props = defineProps<{ daily: DailyAggregate }>();
 
 interface DayRow {
-  date: string
-  code: number
-  high: number
-  low: number
-  precipProb: number | null
-  precipSum: number | null
-  windSpeed: number | null
-  windDirection: number | null
-  confidence: number
+  date: string;
+  code: number;
+  high: number;
+  low: number;
+  precipProb: number | null;
+  precipSum: number | null;
+  windSpeed: number | null;
+  windDirection: number | null;
+  confidence: number;
 }
 
 const days = computed<DayRow[]>(() =>
   props.daily.times.map((date, i) => {
-    const conf = [
-      props.daily.confidence.temperature_2m_max[i] ?? 0,
-      props.daily.confidence.weather_code[i] ?? 0,
-      props.daily.confidence.precipitation_sum[i] ?? 0,
-    ]
+    const conf = [props.daily.confidence.temperature_2m_max[i] ?? 0, props.daily.confidence.weather_code[i] ?? 0, props.daily.confidence.precipitation_sum[i] ?? 0];
     return {
       date,
       code: Math.round(props.daily.series.weather_code[i]?.value ?? 0),
@@ -34,15 +32,15 @@ const days = computed<DayRow[]>(() =>
       windSpeed: props.daily.series.wind_speed_10m_max[i]?.value ?? null,
       windDirection: props.daily.series.wind_direction_10m_dominant[i]?.value ?? null,
       confidence: conf.reduce((a, b) => a + b, 0) / conf.length,
-    }
+    };
   }),
-)
+);
 </script>
 
 <template>
   <section>
-    <h2 class="text-sm font-medium text-slate-300 uppercase tracking-wider mb-3">10-day outlook</h2>
-    <div class="flex gap-3 overflow-x-auto pb-2 -mx-2 px-2 snap-x">
+    <h2 class="mb-3 text-sm font-medium tracking-wider text-slate-300 uppercase">10-day outlook</h2>
+    <div class="-mx-2 flex snap-x gap-3 overflow-x-auto px-2 pb-2">
       <DayCard
         v-for="(d, i) in days"
         :key="d.date"
