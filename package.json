@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "oxlint src && oxfmt src --check && vue-tsc",
-    "lint:fix": "oxlint src --fix && oxfmt src --write"
+    "lint:fix": "oxlint src --fix && oxfmt src --write",
+    "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
     "@vueuse/core": "^11.2.0",
@@ -33,6 +34,7 @@
     "typescript": "~5.6.3",
     "vite": "^6.0.3",
     "vitest": "^2.1.8",
-    "vue-tsc": "^2.1.10"
+    "vue-tsc": "^2.1.10",
+    "wrangler": "^4.93.0"
   }
 }
