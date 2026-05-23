@@ -93,6 +93,7 @@ const option = computed<EChartsOption>(() => {
   const aggregateSeries = {
     name: "Aggregate",
     type: "line" as const,
+    color: "#e2e8f0",
     data: props.hourly.series[variable.value].slice(0, n).map((p) => convertValue(p.value, variable.value)),
     smooth: true,
     symbol: "none",
@@ -127,17 +128,24 @@ const option = computed<EChartsOption>(() => {
         : undefined,
   };
 
+  // Palette index is fixed to each model's position in `contributingModels`
+  // so colors stay stable as models are toggled on/off, and match the legend.
   const perModelSeries = props.contributingModels
-    .filter((m) => selected.value.has(m.id))
-    .map((m, i) => ({
-      name: m.label,
-      type: "line" as const,
-      data: (props.hourly.perModel[variable.value][m.id] ?? []).slice(0, n).map((v) => convertValue(v, variable.value)),
-      smooth: true,
-      symbol: "none",
-      lineStyle: { width: 1.25, color: palette[i % palette.length] },
-      opacity: 0.85,
-    }));
+    .map((m, i) => ({ m, i }))
+    .filter(({ m }) => selected.value.has(m.id))
+    .map(({ m, i }) => {
+      const color = palette[i % palette.length];
+      return {
+        name: m.label,
+        type: "line" as const,
+        color, // drives the tooltip's coloured dot
+        data: (props.hourly.perModel[variable.value][m.id] ?? []).slice(0, n).map((v) => convertValue(v, variable.value)),
+        smooth: true,
+        symbol: "none",
+        lineStyle: { width: 1.25, color },
+        opacity: 0.85,
+      };
+    });
 
   return {
     backgroundColor: "transparent",
