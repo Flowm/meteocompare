@@ -13,6 +13,7 @@ import WeatherIcon from "./WeatherIcon.vue";
 const props = defineProps<{
   raw: ForecastResponse;
   daily: DailyAggregate;
+  solar: { sunrise: string[]; sunset: string[] } | null;
   locationName: string;
 }>();
 
@@ -35,6 +36,24 @@ const todayConfidence = computed(() => {
   return vals.reduce((a, b) => a + b, 0) / vals.length;
 });
 const lastUpdated = computed(() => new Date(props.raw.current.time));
+
+const sunrise = computed(() => props.solar?.sunrise[0] ?? null);
+const sunset = computed(() => props.solar?.sunset[0] ?? null);
+
+function formatClock(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+const dayLength = computed(() => {
+  if (!sunrise.value || !sunset.value) return null;
+  const ms = new Date(sunset.value).getTime() - new Date(sunrise.value).getTime();
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  const totalMin = Math.round(ms / 60_000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return `${h}h ${m.toString().padStart(2, "0")}m`;
+});
 </script>
 
 <template>
@@ -74,6 +93,11 @@ const lastUpdated = computed(() => new Date(props.raw.current.time));
             <span class="mx-2 text-slate-500">·</span>
             <span>💧 {{ formatPercent(todayPrecipProb) }}</span>
           </template>
+        </div>
+        <div v-if="sunrise || sunset" class="flex items-center gap-3 text-xs text-slate-400 tabular-nums">
+          <span title="Sunrise"><span class="text-amber-300">↑</span> {{ formatClock(sunrise) }}</span>
+          <span title="Sunset"><span class="text-orange-400">↓</span> {{ formatClock(sunset) }}</span>
+          <span v-if="dayLength" class="text-slate-500" title="Day length">· {{ dayLength }}</span>
         </div>
         <div class="text-xs text-slate-500" :title="lastUpdated.toString()">Updated {{ lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }}</div>
       </div>

@@ -18,6 +18,9 @@ const DAILY_VARS = [
   "wind_direction_10m_dominant",
 ] as const;
 
+// Astronomical values — not per-model, returned as ISO local-time strings.
+const DAILY_SOLAR_VARS = ["sunrise", "sunset"] as const;
+
 const CURRENT_VARS = ["temperature_2m", "precipitation", "weather_code", "wind_speed_10m", "wind_direction_10m", "is_day"] as const;
 
 export type HourlyVar = (typeof HOURLY_VARS)[number];
@@ -75,7 +78,7 @@ export async function fetchForecast(req: ForecastRequest, signal?: AbortSignal):
     latitude: String(full.lat),
     longitude: String(full.lon),
     hourly: HOURLY_VARS.join(","),
-    daily: DAILY_VARS.join(","),
+    daily: [...DAILY_VARS, ...DAILY_SOLAR_VARS].join(","),
     current: CURRENT_VARS.join(","),
     models: full.models.join(","),
     forecast_days: String(full.forecastDays),
@@ -116,6 +119,21 @@ export function extractDailyByModel(resp: ForecastResponse, variable: DailyVar, 
     if (arr) out[id] = arr;
   }
   return out;
+}
+
+/** Astronomical sunrise/sunset are identical across models (computed from lat/lon),
+ *  but open-meteo suffixes them per model when `models=` is set. Pick any. */
+export function extractDailySolar(resp: ForecastResponse, modelIds: string[]): { sunrise: string[]; sunset: string[] } | null {
+  const daily = resp.daily as { [key: string]: string[] | (number | null)[] | undefined };
+  for (const id of modelIds) {
+    const sunrise = daily[`sunrise_${id}`] as string[] | undefined;
+    const sunset = daily[`sunset_${id}`] as string[] | undefined;
+    if (sunrise && sunset) return { sunrise, sunset };
+  }
+  const sunrise = daily.sunrise as string[] | undefined;
+  const sunset = daily.sunset as string[] | undefined;
+  if (sunrise && sunset) return { sunrise, sunset };
+  return null;
 }
 
 export { HOURLY_VARS, DAILY_VARS, CURRENT_VARS };

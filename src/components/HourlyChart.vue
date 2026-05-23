@@ -11,6 +11,10 @@ const props = defineProps<{
   /** Current local time at the location (open-meteo's `current.time`).
    *  Used to grey out elapsed hours and mark "Now". */
   currentTime: string;
+  /** ISO local-time strings of sunrise per daily index (open-meteo's `daily.sunrise`). */
+  sunrise?: string[];
+  /** ISO local-time strings of sunset per daily index (open-meteo's `daily.sunset`). */
+  sunset?: string[];
 }>();
 
 const { temp, precip, formatTemp, formatPrecip } = useUnits();
@@ -44,6 +48,33 @@ function findNowIndex(times: string[], nowStr: string): number {
   return -1;
 }
 
+/** Map a sunrise/sunset ISO string to the nearest hourly index in [0, count). */
+function isoToHourIndex(iso: string, baseMs: number, count: number): number {
+  const idx = Math.round((new Date(iso).getTime() - baseMs) / 3_600_000);
+  return Math.max(0, Math.min(count - 1, idx));
+}
+
+/** Build [startIdx, endIdx] pairs covering night hours within the visible window. */
+function buildNightRanges(times: string[], sunrise: string[] | undefined, sunset: string[] | undefined): Array<[number, number]> {
+  if (!times.length || !sunrise?.length || !sunset?.length) return [];
+  const baseMs = new Date(times[0]).getTime();
+  const count = times.length;
+  const ranges: Array<[number, number]> = [];
+
+  // Pre-dawn on the first day.
+  const firstRise = isoToHourIndex(sunrise[0], baseMs, count);
+  if (firstRise > 0) ranges.push([0, firstRise]);
+
+  // Sunset of day i → sunrise of day i+1.
+  for (let i = 0; i < sunset.length; i++) {
+    const setIdx = isoToHourIndex(sunset[i], baseMs, count);
+    const nextRiseIso = sunrise[i + 1];
+    const endIdx = nextRiseIso ? isoToHourIndex(nextRiseIso, baseMs, count) : count - 1;
+    if (endIdx > setIdx) ranges.push([setIdx, endIdx]);
+  }
+  return ranges;
+}
+
 const option = computed<EChartsOption>(() => {
   const times = props.hourly.times.slice(0, n.value);
   const temps = props.hourly.series.temperature_2m.slice(0, n.value);
@@ -52,6 +83,7 @@ const option = computed<EChartsOption>(() => {
 
   const tempValues = temps.map((p) => toTempUnit(p.value));
   const tempLower = temps.map((p) => toTempUnit(p.value - p.stdDev));
+  const nightRanges = buildNightRanges(times, props.sunrise, props.sunset);
   // ECharts confidence-band trick: a transparent baseline + a stacked filled "delta".
   const tempDelta = temps.map((p) => (Number.isFinite(p.stdDev) ? (temp.value === "f" ? (p.stdDev * 2 * 9) / 5 : p.stdDev * 2) : 0));
   const precipValues = precips.map((p) => toPrecipUnit(p.value));
@@ -139,6 +171,14 @@ const option = computed<EChartsOption>(() => {
         itemStyle: { opacity: 0 },
         tooltip: { show: false },
         data: tempLower,
+        markArea:
+          nightRanges.length > 0
+            ? {
+                silent: true,
+                itemStyle: { color: "rgba(56, 78, 130, 0.18)", borderWidth: 0 },
+                data: nightRanges.map(([a, b]) => [{ xAxis: a }, { xAxis: b }]),
+              }
+            : undefined,
       },
       {
         name: "band_range",

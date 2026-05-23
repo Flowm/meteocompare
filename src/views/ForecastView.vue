@@ -10,7 +10,7 @@ import { useForecast } from "@/composables/useForecast";
 import { useLocation } from "@/composables/useLocation";
 
 const { current } = useLocation();
-const { loading, error, raw, hourly, daily, contributingModels } = useForecast(current);
+const { loading, error, raw, hourly, daily, solar, contributingModels } = useForecast(current);
 
 const locationLabel = computed(() => {
   const loc = current.value;
@@ -33,8 +33,8 @@ const locationLabel = computed(() => {
       </div>
 
       <template v-if="raw && hourly && daily">
-        <AggregateSummary :raw="raw" :daily="daily" :location-name="locationLabel" />
-        <HourlyChart :hourly="hourly" :current-time="raw.current.time" />
+        <AggregateSummary :raw="raw" :daily="daily" :solar="solar" :location-name="locationLabel" />
+        <HourlyChart :hourly="hourly" :current-time="raw.current.time" :sunrise="solar?.sunrise" :sunset="solar?.sunset" />
         <DailyStrip :daily="daily" />
         <ModelBreakdown :hourly="hourly" :contributing-models="contributingModels" :current-time="raw.current.time" />
       </template>
