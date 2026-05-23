@@ -194,23 +194,25 @@ const option = computed<EChartsOption>(() => {
     </summary>
 
     <div class="space-y-4 px-4 pb-6 sm:px-6">
-      <div class="flex flex-wrap items-center gap-4">
-        <div class="flex items-center gap-2 text-xs">
-          <span class="text-slate-500">Variable:</span>
-          <div class="flex overflow-hidden rounded-md bg-slate-950 ring-1 ring-slate-800">
-            <button
-              v-for="o in variableOptions"
-              :key="o.id"
-              class="px-3 py-1.5 transition-colors"
-              :class="variable === o.id ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'"
-              @click="variable = o.id"
-            >
-              {{ o.label }}
-            </button>
+      <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+        <div class="flex min-w-0 items-center gap-2 text-xs">
+          <span class="shrink-0 text-slate-500">Variable:</span>
+          <div class="min-w-0 flex-1 overflow-x-auto rounded-md bg-slate-950 ring-1 ring-slate-800">
+            <div class="flex">
+              <button
+                v-for="o in variableOptions"
+                :key="o.id"
+                class="px-3 py-1.5 whitespace-nowrap transition-colors"
+                :class="variable === o.id ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'"
+                @click="variable = o.id"
+              >
+                {{ o.label }}
+              </button>
+            </div>
           </div>
         </div>
 
-        <div class="ml-auto flex items-center gap-2 text-xs">
+        <div class="flex items-center gap-2 text-xs sm:ml-auto">
           <span class="text-slate-500">Window:</span>
           <div class="flex overflow-hidden rounded-md bg-slate-950 ring-1 ring-slate-800">
             <button
