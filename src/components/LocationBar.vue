@@ -7,7 +7,7 @@ import { useLocation, type Location } from "@/composables/useLocation";
 
 import UnitsToggle from "./UnitsToggle.vue";
 
-const { current, favourites, recent, setLocation } = useLocation();
+const { favourites, recent, setLocation } = useLocation();
 
 const query = ref("");
 const results = ref<GeocodingResult[]>([]);

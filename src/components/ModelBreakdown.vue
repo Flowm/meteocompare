@@ -104,7 +104,7 @@ const option = computed<EChartsOption>(() => {
         ? {
             silent: true,
             itemStyle: { color: "rgba(56, 78, 130, 0.18)", borderWidth: 0 },
-            data: nightRanges.map(([a, b]) => [{ xAxis: a }, { xAxis: b }]),
+            data: nightRanges.map(([a, b]): [{ xAxis: number }, { xAxis: number }] => [{ xAxis: a }, { xAxis: b }]),
           }
         : undefined,
     markLine:
@@ -113,12 +113,12 @@ const option = computed<EChartsOption>(() => {
             silent: true,
             animation: false,
             symbol: ["none", "none"],
-            lineStyle: { color: "rgba(248, 250, 252, 0.85)", width: 1.5, type: "solid" },
+            lineStyle: { color: "rgba(248, 250, 252, 0.85)", width: 1.5, type: "solid" as const },
             label: {
               formatter: "Now",
               color: "#f8fafc",
               fontSize: 11,
-              position: "end",
+              position: "end" as const,
               backgroundColor: "rgba(15, 23, 42, 0.85)",
               borderRadius: 4,
               padding: [2, 6, 2, 6],
