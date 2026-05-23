@@ -2,26 +2,26 @@
 @import "weather-icons/css/weather-icons.min.css";
 
 @theme {
-    --color-confidence-high: #22c55e;
-    --color-confidence-mid: #f59e0b;
-    --color-confidence-low: #ef4444;
+  --color-confidence-high: #22c55e;
+  --color-confidence-mid: #f59e0b;
+  --color-confidence-low: #ef4444;
 }
 
 html,
 body,
 #app {
-    height: 100%;
+  height: 100%;
 }
 
 body {
-    font-family:
-        ui-sans-serif,
-        system-ui,
-        -apple-system,
-        "Segoe UI",
-        Roboto,
-        "Helvetica Neue",
-        Arial,
-        sans-serif;
-    -webkit-font-smoothing: antialiased;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
