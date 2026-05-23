@@ -8,19 +8,17 @@ import type { HourlyAggregate } from "@/composables/useForecast";
 import { useUnits } from "@/composables/useUnits";
 import type { ModelDef } from "@/domain/models";
 
+import { buildNightRanges, findNowIndex } from "./chartHelpers";
+
 const props = defineProps<{
   hourly: HourlyAggregate;
   contributingModels: ModelDef[];
   /** Current local time at the location (open-meteo's `current.time`). */
   currentTime: string;
+  /** ISO local-time strings of sunrise/sunset per daily index. */
+  sunrise?: string[];
+  sunset?: string[];
 }>();
-
-function findNowIndex(times: string[], nowStr: string): number {
-  for (let i = 0; i < times.length; i++) {
-    if (times[i] >= nowStr) return i;
-  }
-  return -1;
-}
 
 const { temp, precip, wind, formatTemp, formatPrecip, formatWind } = useUnits();
 
@@ -86,6 +84,7 @@ const option = computed<EChartsOption>(() => {
   const n = Math.min(hoursWindow.value, props.hourly.times.length);
   const times = props.hourly.times.slice(0, n);
   const nowIdx = findNowIndex(times, props.currentTime);
+  const nightRanges = buildNightRanges(times, props.sunrise, props.sunset);
   const labels = times.map((t) => {
     const d = new Date(t);
     return d.getHours() === 0 ? d.toLocaleDateString([], { weekday: "short" }) : `${d.getHours().toString().padStart(2, "0")}:00`;
@@ -99,14 +98,31 @@ const option = computed<EChartsOption>(() => {
     symbol: "none",
     lineStyle: { width: 3, color: "#e2e8f0" },
     z: 10,
-    // Dim already-elapsed timestamps so the past reads as context, not forecast.
     markArea:
-      nowIdx > 0
+      nightRanges.length > 0
         ? {
             silent: true,
-            itemStyle: { color: "rgba(2, 6, 23, 0.7)" },
-            z: 50,
-            data: [[{ xAxis: 0 }, { xAxis: nowIdx - 1 }]],
+            itemStyle: { color: "rgba(56, 78, 130, 0.18)", borderWidth: 0 },
+            data: nightRanges.map(([a, b]) => [{ xAxis: a }, { xAxis: b }]),
+          }
+        : undefined,
+    markLine:
+      nowIdx >= 0
+        ? {
+            silent: true,
+            animation: false,
+            symbol: ["none", "none"],
+            lineStyle: { color: "rgba(248, 250, 252, 0.85)", width: 1.5, type: "solid" },
+            label: {
+              formatter: "Now",
+              color: "#f8fafc",
+              fontSize: 11,
+              position: "end",
+              backgroundColor: "rgba(15, 23, 42, 0.85)",
+              borderRadius: 4,
+              padding: [2, 6, 2, 6],
+            },
+            data: [{ xAxis: nowIdx }],
           }
         : undefined,
   };
@@ -126,7 +142,7 @@ const option = computed<EChartsOption>(() => {
   return {
     backgroundColor: "transparent",
     textStyle: { color: "#cbd5e1" },
-    grid: { left: 48, right: 24, top: 12, bottom: 36 },
+    grid: { left: 48, right: 24, top: 28, bottom: 36 },
     tooltip: {
       trigger: "axis",
       backgroundColor: "rgba(15, 23, 42, 0.95)",

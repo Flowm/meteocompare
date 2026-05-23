@@ -6,6 +6,8 @@ import VChart from "vue-echarts";
 import type { HourlyAggregate } from "@/composables/useForecast";
 import { useUnits } from "@/composables/useUnits";
 
+import { buildNightRanges, findNowIndex } from "./chartHelpers";
+
 const props = defineProps<{
   hourly: HourlyAggregate;
   /** Current local time at the location (open-meteo's `current.time`).
@@ -37,42 +39,6 @@ function toTempUnit(v: number | null | undefined): number | null {
 function toPrecipUnit(v: number | null | undefined): number | null {
   if (v == null || Number.isNaN(v)) return null;
   return precip.value === "in" ? v / 25.4 : v;
-}
-
-/** Find the first index in `times` whose timestamp is at or after `currentTime`.
- *  Both are local-time ISO strings from open-meteo (same TZ), so string compare works. */
-function findNowIndex(times: string[], nowStr: string): number {
-  for (let i = 0; i < times.length; i++) {
-    if (times[i] >= nowStr) return i;
-  }
-  return -1;
-}
-
-/** Map a sunrise/sunset ISO string to the nearest hourly index in [0, count). */
-function isoToHourIndex(iso: string, baseMs: number, count: number): number {
-  const idx = Math.round((new Date(iso).getTime() - baseMs) / 3_600_000);
-  return Math.max(0, Math.min(count - 1, idx));
-}
-
-/** Build [startIdx, endIdx] pairs covering night hours within the visible window. */
-function buildNightRanges(times: string[], sunrise: string[] | undefined, sunset: string[] | undefined): Array<[number, number]> {
-  if (!times.length || !sunrise?.length || !sunset?.length) return [];
-  const baseMs = new Date(times[0]).getTime();
-  const count = times.length;
-  const ranges: Array<[number, number]> = [];
-
-  // Pre-dawn on the first day.
-  const firstRise = isoToHourIndex(sunrise[0], baseMs, count);
-  if (firstRise > 0) ranges.push([0, firstRise]);
-
-  // Sunset of day i → sunrise of day i+1.
-  for (let i = 0; i < sunset.length; i++) {
-    const setIdx = isoToHourIndex(sunset[i], baseMs, count);
-    const nextRiseIso = sunrise[i + 1];
-    const endIdx = nextRiseIso ? isoToHourIndex(nextRiseIso, baseMs, count) : count - 1;
-    if (endIdx > setIdx) ranges.push([setIdx, endIdx]);
-  }
-  return ranges;
 }
 
 const option = computed<EChartsOption>(() => {
@@ -198,13 +164,23 @@ const option = computed<EChartsOption>(() => {
         symbol: "none",
         lineStyle: { width: 2.5, color: "#f472b6" },
         z: 5,
-        markArea:
-          nowIdx > 0
+        markLine:
+          nowIdx >= 0
             ? {
                 silent: true,
-                itemStyle: { color: "rgba(2, 6, 23, 0.7)" },
-                z: 50,
-                data: [[{ xAxis: 0 }, { xAxis: nowIdx - 1 }]],
+                animation: false,
+                symbol: ["none", "none"],
+                lineStyle: { color: "rgba(248, 250, 252, 0.85)", width: 1.5, type: "solid" },
+                label: {
+                  formatter: "Now",
+                  color: "#f8fafc",
+                  fontSize: 11,
+                  position: "end",
+                  backgroundColor: "rgba(15, 23, 42, 0.85)",
+                  borderRadius: 4,
+                  padding: [2, 6, 2, 6],
+                },
+                data: [{ xAxis: nowIdx }],
               }
             : undefined,
       },

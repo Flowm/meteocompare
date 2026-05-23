@@ -36,7 +36,7 @@ const locationLabel = computed(() => {
         <AggregateSummary :raw="raw" :daily="daily" :solar="solar" :location-name="locationLabel" />
         <HourlyChart :hourly="hourly" :current-time="raw.current.time" :sunrise="solar?.sunrise" :sunset="solar?.sunset" />
         <DailyStrip :daily="daily" />
-        <ModelBreakdown :hourly="hourly" :contributing-models="contributingModels" :current-time="raw.current.time" />
+        <ModelBreakdown :hourly="hourly" :contributing-models="contributingModels" :current-time="raw.current.time" :sunrise="solar?.sunrise" :sunset="solar?.sunset" />
       </template>
     </main>
 
