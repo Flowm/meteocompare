@@ -1,6 +1,4 @@
 /// <reference types="vitest/config" />
-import { fileURLToPath, URL } from "node:url";
-
 import tailwindcss from "@tailwindcss/vite";
 import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vite";
@@ -11,8 +9,7 @@ export default defineConfig({
     vue(),
     tailwindcss(),
     VitePWA({
-      registerType: "autoUpdate",
-      injectRegister: "auto",
+      registerType: "prompt",
       pwaAssets: {
         htmlPreset: "2023",
         preset: {
@@ -20,7 +17,7 @@ export default defineConfig({
           maskable: { sizes: [512], padding: 0 },
           apple: { sizes: [180], padding: 0 },
         },
-        image: "public/favicon.svg",
+        image: "public/logo.svg",
       },
       manifest: {
         name: "MeteoCompare",
@@ -30,9 +27,12 @@ export default defineConfig({
         background_color: "#0f172a",
         display: "standalone",
         start_url: "/",
+        scope: "/",
+        id: "meteocompare",
+        orientation: "natural",
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest}"],
+        globPatterns: ["**/*.{js,css,html,svg,png,ico}"],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/api\.open-meteo\.com\/.*/i,
@@ -56,12 +56,14 @@ export default defineConfig({
           },
         ],
       },
+      devOptions: {
+        // enabled: true,
+        type: "module",
+      },
     }),
   ],
   resolve: {
-    alias: {
-      "@": fileURLToPath(new URL("./src", import.meta.url)),
-    },
+    tsconfigPaths: true,
   },
   test: {
     environment: "jsdom",

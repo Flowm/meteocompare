@@ -51,22 +51,22 @@ The badge maps the result to one of three tiers — high (≥70 %, emerald), mid
 
 ## Models
 
-| Open-meteo id        | Provider         | Resolution / scope        | Class            | Max lead |
-| -------------------- | ---------------- | ------------------------- | ---------------- | -------- |
-| `ecmwf_ifs025`       | ECMWF            | 25 km global              | global           | 240 h    |
-| `gfs_global`         | NOAA             | 13–25 km global           | global           | 384 h    |
-| `gfs_hrrr`           | NOAA             | 3 km CONUS CAM            | regional-cam     | 48 h     |
-| `icon_global`        | DWD              | 11 km global              | global           | 180 h    |
-| `icon_eu`            | DWD              | 7 km Europe               | regional-mid     | 120 h    |
-| `icon_d2`            | DWD              | 2 km central Europe CAM   | regional-cam     | 48 h     |
-| `gem_seamless`       | Environment Canada | 2.5–15 km, NA focus     | regional-mid     | 240 h    |
-| `meteofrance_seamless` | Météo-France   | 1.3 km AROME / 25 km ARPEGE | regional-cam   | 102 h    |
-| `ukmo_seamless`      | UK Met Office    | 2 km UKV / 10 km global   | regional-mid     | 168 h    |
-| `knmi_seamless`      | KNMI             | 2.5 km Benelux            | regional-cam     | 60 h     |
-| `metno_seamless`     | MET Norway       | 2.5 km Nordics            | regional-cam     | 60 h     |
-| `jma_seamless`       | JMA              | 5 km Japan / 55 km global | regional-mid     | 264 h    |
-| `kma_seamless`       | KMA              | 1.5–13 km, Korea focus    | regional-mid     | 288 h    |
-| `bom_access_global`  | BOM              | 15 km global, Aus. focus  | global           | 240 h    |
+| Open-meteo id          | Provider           | Resolution / scope          | Class        | Max lead |
+| ---------------------- | ------------------ | --------------------------- | ------------ | -------- |
+| `ecmwf_ifs025`         | ECMWF              | 25 km global                | global       | 240 h    |
+| `gfs_global`           | NOAA               | 13–25 km global             | global       | 384 h    |
+| `gfs_hrrr`             | NOAA               | 3 km CONUS CAM              | regional-cam | 48 h     |
+| `icon_global`          | DWD                | 11 km global                | global       | 180 h    |
+| `icon_eu`              | DWD                | 7 km Europe                 | regional-mid | 120 h    |
+| `icon_d2`              | DWD                | 2 km central Europe CAM     | regional-cam | 48 h     |
+| `gem_seamless`         | Environment Canada | 2.5–15 km, NA focus         | regional-mid | 240 h    |
+| `meteofrance_seamless` | Météo-France       | 1.3 km AROME / 25 km ARPEGE | regional-cam | 102 h    |
+| `ukmo_seamless`        | UK Met Office      | 2 km UKV / 10 km global     | regional-mid | 168 h    |
+| `knmi_seamless`        | KNMI               | 2.5 km Benelux              | regional-cam | 60 h     |
+| `metno_seamless`       | MET Norway         | 2.5 km Nordics              | regional-cam | 60 h     |
+| `jma_seamless`         | JMA                | 5 km Japan / 55 km global   | regional-mid | 264 h    |
+| `kma_seamless`         | KMA                | 1.5–13 km, Korea focus      | regional-mid | 288 h    |
+| `bom_access_global`    | BOM                | 15 km global, Aus. focus    | global       | 240 h    |
 
 ## Tech
 

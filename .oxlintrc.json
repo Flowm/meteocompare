@@ -6,8 +6,13 @@
     "suspicious": "warn",
     "perf": "warn"
   },
-  "rules": {},
+  "rules": {
+    "import/no-unassigned-import": ["warn", { "allow": ["**/*.css"] }]
+  },
   "env": {
-    "builtin": true
-  }
+    "builtin": true,
+    "browser": true,
+    "vue": true
+  },
+  "ignorePatterns": ["dist"]
 }

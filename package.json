@@ -5,12 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc --noEmit && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "oxlint src && oxfmt src --check && vue-tsc",
-    "lint:fix": "oxlint src --fix && oxfmt src --write",
+    "lint": "oxlint && oxfmt --check && vue-tsc",
+    "lint:fix": "oxlint --fix && oxfmt --write",
     "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
