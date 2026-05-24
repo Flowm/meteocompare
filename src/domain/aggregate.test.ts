@@ -29,8 +29,8 @@ describe("aggregateSeries (temperature)", () => {
       baseTime,
     });
     expect(out).toHaveLength(4);
-    expect(out[0].value).toBeCloseTo(10, 5);
-    expect(out[3].value).toBeCloseTo(13, 5);
+    expect(out[0]?.value).toBeCloseTo(10, 5);
+    expect(out[3]?.value).toBeCloseTo(13, 5);
     for (const p of out) expect(p.stdDev).toBeCloseTo(0, 5);
   });
 
@@ -50,9 +50,9 @@ describe("aggregateSeries (temperature)", () => {
       lon: PARIS.lon,
       baseTime,
     });
-    expect(out[0].stdDev).toBeGreaterThan(0);
-    expect(out[0].value).toBeGreaterThan(10);
-    expect(out[0].value).toBeLessThan(14);
+    expect(out[0]?.stdDev).toBeGreaterThan(0);
+    expect(out[0]?.value).toBeGreaterThan(10);
+    expect(out[0]?.value).toBeLessThan(14);
   });
 
   it("handles null per-model values without crashing", () => {
@@ -71,7 +71,7 @@ describe("aggregateSeries (temperature)", () => {
       lon: PARIS.lon,
       baseTime,
     });
-    expect(out[0].value).toBeCloseTo(10, 5);
+    expect(out[0]?.value).toBeCloseTo(10, 5);
   });
 });
 
@@ -98,7 +98,10 @@ describe("aggregateSeries (wind_direction_10m)", () => {
       },
     );
     // Allow either side of the wrap.
-    const v = out[0].value;
+    const p0 = out[0];
+    expect(p0).toBeDefined();
+    if (!p0) return;
+    const v = p0.value;
     const distFromNorth = Math.min(v, 360 - v);
     expect(distFromNorth).toBeLessThan(2);
   });
@@ -120,8 +123,8 @@ describe("aggregateSeries (wind_direction_10m)", () => {
         baseTime,
       },
     );
-    expect(out[0].value).toBeCloseTo(180, 0);
-    expect(out[0].stdDev).toBeLessThan(10);
+    expect(out[0]?.value).toBeCloseTo(180, 0);
+    expect(out[0]?.stdDev).toBeLessThan(10);
   });
 
   it("reports a large angular stddev when models are opposite", () => {
@@ -142,7 +145,7 @@ describe("aggregateSeries (wind_direction_10m)", () => {
       },
     );
     // Mean resultant length → 0, so circular stddev should be huge.
-    expect(out[0].stdDev).toBeGreaterThan(90);
+    expect(out[0]?.stdDev).toBeGreaterThan(90);
   });
 });
 
@@ -165,6 +168,6 @@ describe("aggregateSeries (weather_code)", () => {
       baseTime,
     });
     // Should land somewhere in the rain group.
-    expect([61, 63, 80]).toContain(out[0].value);
+    expect([61, 63, 80]).toContain(out[0]?.value);
   });
 });

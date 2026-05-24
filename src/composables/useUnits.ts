@@ -17,7 +17,7 @@ export function formatPercent(v: number | null | undefined): string {
 export function compassPoint(deg: number | null | undefined): string {
   if (deg == null || Number.isNaN(deg)) return "–";
   const idx = Math.round((((deg % 360) + 360) % 360) / 45) % 8;
-  return COMPASS[idx];
+  return COMPASS[idx] ?? "–";
 }
 
 export function useUnits() {

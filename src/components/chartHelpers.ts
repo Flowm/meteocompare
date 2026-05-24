@@ -6,7 +6,8 @@
 /** First index in `times` whose timestamp is at or after `nowStr`. */
 export function findNowIndex(times: string[], nowStr: string): number {
   for (let i = 0; i < times.length; i++) {
-    if (times[i] >= nowStr) return i;
+    const t = times[i];
+    if (t !== undefined && t >= nowStr) return i;
   }
   return -1;
 }
@@ -20,17 +21,22 @@ function isoToHourIndex(iso: string, baseMs: number, count: number): number {
 /** Build [startIdx, endIdx] pairs covering night hours within the visible window. */
 export function buildNightRanges(times: string[], sunrise: string[] | undefined, sunset: string[] | undefined): Array<[number, number]> {
   if (!times.length || !sunrise?.length || !sunset?.length) return [];
-  const baseMs = new Date(times[0]).getTime();
+  const firstTime = times[0];
+  const firstSunrise = sunrise[0];
+  if (firstTime === undefined || firstSunrise === undefined) return [];
+  const baseMs = new Date(firstTime).getTime();
   const count = times.length;
   const ranges: Array<[number, number]> = [];
 
   // Pre-dawn on the first day.
-  const firstRise = isoToHourIndex(sunrise[0], baseMs, count);
+  const firstRise = isoToHourIndex(firstSunrise, baseMs, count);
   if (firstRise > 0) ranges.push([0, firstRise]);
 
   // Sunset of day i → sunrise of day i+1.
   for (let i = 0; i < sunset.length; i++) {
-    const setIdx = isoToHourIndex(sunset[i], baseMs, count);
+    const sunsetTime = sunset[i];
+    if (sunsetTime === undefined) continue;
+    const setIdx = isoToHourIndex(sunsetTime, baseMs, count);
     const nextRiseIso = sunrise[i + 1];
     const endIdx = nextRiseIso ? isoToHourIndex(nextRiseIso, baseMs, count) : count - 1;
     if (endIdx > setIdx) ranges.push([setIdx, endIdx]);

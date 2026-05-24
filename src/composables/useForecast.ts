@@ -101,7 +101,9 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
     const data = raw.value;
     if (!data) return null;
     const times = data.hourly.time;
-    const baseTime = new Date(times[0]);
+    const firstHourlyTime = times[0];
+    if (firstHourlyTime === undefined) return null;
+    const baseTime = new Date(firstHourlyTime);
     const series: Record<HourlyVar, AggregatePoint[]> = {} as never;
     const confidence: Record<HourlyVar, number[]> = {} as never;
     const perModel: Record<HourlyVar, Record<string, (number | null)[]>> = {} as never;
@@ -125,7 +127,9 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
     const data = raw.value;
     if (!data) return null;
     const times = data.daily.time;
-    const baseTime = new Date(times[0]);
+    const firstDailyTime = times[0];
+    if (firstDailyTime === undefined) return null;
+    const baseTime = new Date(firstDailyTime);
     const series: Record<DailyVar, AggregatePoint[]> = {} as never;
     const confidence: Record<DailyVar, number[]> = {} as never;
     const perModel: Record<DailyVar, Record<string, (number | null)[]>> = {} as never;

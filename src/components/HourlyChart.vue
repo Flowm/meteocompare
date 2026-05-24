@@ -76,13 +76,14 @@ const option = computed<EChartsOption>(() => {
         const idx = labels.indexOf(t);
         const tempP = temps[idx];
         const precP = precips[idx];
-        if (!tempP) return "";
-        const date = new Date(times[idx]);
+        const timeStr = times[idx];
+        if (!tempP || timeStr === undefined) return "";
+        const date = new Date(timeStr);
         const header = date.toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" });
         const tempStr =
           `<span style="color:#fda4af">${formatTemp.value(tempP.value, 1)}</span>` +
           ` <span style="color:#94a3b8">± ${formatTemp.value(tempP.stdDev, 1).replace(/°[CF]/, "")} ${tempUnit.value}</span>`;
-        const precStr = precP.value > 0.05 ? `<br/><span style="color:#7dd3fc">${formatPrecip.value(precP.value, 1)}</span>` : "";
+        const precStr = precP != null && precP.value > 0.05 ? `<br/><span style="color:#7dd3fc">${formatPrecip.value(precP.value, 1)}</span>` : "";
         return `<div style="font-weight:600;margin-bottom:4px">${header}</div>${tempStr}${precStr}`;
       },
     },

@@ -27,11 +27,11 @@ export interface AggregateOptions {
   baseTime: Date;
 }
 
-function leadHoursAt(times: string[], i: number, baseTime: Date): number {
+function leadHoursAt(time: string, baseTime: Date): number {
   // open-meteo returns timezone-shifted ISO strings without a TZ marker.
   // Both the times array and our cursor are in the same local frame, so a
   // direct millisecond diff is correct.
-  const t = new Date(times[i]).getTime();
+  const t = new Date(time).getTime();
   return Math.max(0, (t - baseTime.getTime()) / 3_600_000);
 }
 
@@ -53,11 +53,15 @@ function weightedMean(perModel: ModelSamples, weights: Map<string, number>): { m
   let varSum = 0;
   for (const id in used) {
     const v = perModel[id];
-    if (v == null) continue;
-    varSum += (used[id] / totalW) * (v - mean) ** 2;
+    const w = used[id];
+    if (v == null || w === undefined) continue;
+    varSum += (w / totalW) * (v - mean) ** 2;
   }
   // Renormalize so the exposed weights sum to 1 even after dropping nulls.
-  for (const id in used) used[id] = used[id] / totalW;
+  for (const id in used) {
+    const w = used[id];
+    if (w !== undefined) used[id] = w / totalW;
+  }
   return { mean, stdDev: Math.sqrt(varSum), effectiveWeights: used };
 }
 
@@ -88,7 +92,10 @@ function weightedCircularMean(perModel: ModelSamples, weights: Map<string, numbe
   const R = Math.min(1, Math.sqrt(mx * mx + my * my));
   // Circular standard deviation in radians: sqrt(-2 * ln(R)). Convert to degrees.
   const stdDev = R > 0 ? (Math.sqrt(-2 * Math.log(R)) * 180) / Math.PI : 180;
-  for (const id in used) used[id] = used[id] / totalW;
+  for (const id in used) {
+    const w = used[id];
+    if (w !== undefined) used[id] = w / totalW;
+  }
   return { mean, stdDev, effectiveWeights: used };
 }
 
@@ -125,7 +132,10 @@ function severityWeightedMode(perModel: ModelSamples, weights: Map<string, numbe
       bestCodeW = w;
     }
   }
-  for (const id in used) used[id] = used[id] / totalW;
+  for (const id in used) {
+    const w = used[id];
+    if (w !== undefined) used[id] = w / totalW;
+  }
   return { code: bestCode, effectiveWeights: used };
 }
 
@@ -135,7 +145,9 @@ export function aggregateSeries(times: string[], series: Record<string, (number 
   const { variable, models, lat, lon, baseTime } = opts;
   const result: AggregatePoint[] = [];
   for (let i = 0; i < times.length; i++) {
-    const leadH = leadHoursAt(times, i, baseTime);
+    const timeStr = times[i];
+    if (timeStr === undefined) continue;
+    const leadH = leadHoursAt(timeStr, baseTime);
     const weights = normalizedWeights(models, leadH, lat, lon, variable);
     const perModel: ModelSamples = {};
     for (const m of models) {
@@ -150,7 +162,7 @@ export function aggregateSeries(times: string[], series: Record<string, (number 
       }
       const { code, effectiveWeights } = severityWeightedMode(perModel, weights);
       result.push({
-        time: times[i],
+        time: timeStr,
         value: code,
         stdDev: 0,
         weights: effectiveWeights,
@@ -159,7 +171,7 @@ export function aggregateSeries(times: string[], series: Record<string, (number 
     } else if (variable === "wind_direction_10m") {
       const { mean, stdDev, effectiveWeights } = weightedCircularMean(perModel, weights);
       result.push({
-        time: times[i],
+        time: timeStr,
         value: mean,
         stdDev,
         weights: effectiveWeights,
@@ -168,7 +180,7 @@ export function aggregateSeries(times: string[], series: Record<string, (number 
     } else {
       const { mean, stdDev, effectiveWeights } = weightedMean(perModel, weights);
       result.push({
-        time: times[i],
+        time: timeStr,
         value: mean,
         stdDev,
         weights: effectiveWeights,
