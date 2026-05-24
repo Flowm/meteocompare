@@ -4,7 +4,6 @@
 import { MODEL_IDS } from "@/domain/models";
 
 const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
-const CACHE_TTL_MS = 30 * 60 * 1000;
 
 const HOURLY_VARS = ["temperature_2m", "precipitation", "precipitation_probability", "weather_code", "wind_speed_10m", "wind_direction_10m", "cloud_cover"] as const;
 
@@ -51,17 +50,6 @@ export interface ForecastResponse {
   current_units: Record<string, string>;
 }
 
-interface CacheEntry {
-  data: ForecastResponse;
-  expiresAt: number;
-}
-
-const cache = new Map<string, CacheEntry>();
-
-function cacheKey(req: Required<ForecastRequest>): string {
-  return `${req.lat.toFixed(3)},${req.lon.toFixed(3)}|${req.models.join(",")}|${req.forecastDays}`;
-}
-
 export async function fetchForecast(req: ForecastRequest, signal?: AbortSignal): Promise<ForecastResponse> {
   const full: Required<ForecastRequest> = {
     lat: req.lat,
@@ -69,10 +57,6 @@ export async function fetchForecast(req: ForecastRequest, signal?: AbortSignal):
     models: req.models ?? MODEL_IDS,
     forecastDays: req.forecastDays ?? 10,
   };
-  const key = cacheKey(full);
-  const now = Date.now();
-  const hit = cache.get(key);
-  if (hit && hit.expiresAt > now) return hit.data;
 
   const params = new URLSearchParams({
     latitude: String(full.lat),
@@ -94,9 +78,7 @@ export async function fetchForecast(req: ForecastRequest, signal?: AbortSignal):
     const text = await res.text().catch(() => "");
     throw new Error(`open-meteo forecast ${res.status}: ${text || res.statusText}`);
   }
-  const data = (await res.json()) as ForecastResponse;
-  cache.set(key, { data, expiresAt: now + CACHE_TTL_MS });
-  return data;
+  return (await res.json()) as ForecastResponse;
 }
 
 /** Pull a per-model hourly series for one base variable.

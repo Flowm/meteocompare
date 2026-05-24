@@ -1,4 +1,4 @@
-import { computed, ref, shallowRef, watch, type Ref } from "vue";
+import { computed, onScopeDispose, ref, shallowRef, watch, type Ref } from "vue";
 
 import { fetchForecast, extractHourlyByModel, extractDailyByModel, extractDailySolar, type ForecastResponse, type HourlyVar, type DailyVar } from "@/api/openMeteo";
 import { aggregateSeries, type AggregatePoint } from "@/domain/aggregate";
@@ -96,6 +96,22 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
     () => void refresh(),
     { immediate: true },
   );
+
+  // The forecast SW cache uses StaleWhileRevalidate: the initial fetch resolves with
+  // the stale response (or nothing on cold cache), and the SW broadcasts when the
+  // background revalidation produces fresher data. Re-run refresh so the UI swaps in.
+  if (typeof BroadcastChannel !== "undefined") {
+    const channel = new BroadcastChannel("open-meteo-forecast-update");
+    channel.addEventListener("message", (event: MessageEvent) => {
+      const data = event.data as { type?: string; payload?: { updatedURL?: string } } | null;
+      if (data?.type !== "CACHE_UPDATED") return;
+      const url = data.payload?.updatedURL ?? "";
+      const lat = location.value.latitude.toString();
+      const lon = location.value.longitude.toString();
+      if (url.includes(`latitude=${lat}`) && url.includes(`longitude=${lon}`)) void refresh();
+    });
+    onScopeDispose(() => channel.close());
+  }
 
   const hourly = computed<HourlyAggregate | null>(() => {
     const data = raw.value;

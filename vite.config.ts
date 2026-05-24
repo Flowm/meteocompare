@@ -32,16 +32,19 @@ export default defineConfig({
         orientation: "natural",
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,svg,png,ico}"],
+        globPatterns: ["**/*.{js,css,html,svg,png,ico,woff,woff2}"],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/api\.open-meteo\.com\/.*/i,
-            handler: "NetworkFirst",
+            handler: "StaleWhileRevalidate",
             options: {
               cacheName: "open-meteo-forecast",
-              networkTimeoutSeconds: 5,
               expiration: { maxEntries: 50, maxAgeSeconds: 60 * 15 },
               cacheableResponse: { statuses: [0, 200] },
+              broadcastUpdate: {
+                channelName: "open-meteo-forecast-update",
+                options: { headersToCheck: ["content-length", "etag", "last-modified"] },
+              },
             },
           },
           {
