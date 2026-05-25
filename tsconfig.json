@@ -9,7 +9,8 @@
     "types": ["vite/client", "vite-plugin-pwa/client"],
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "lib": ["DOM", "DOM.Iterable", "ESNext", "WebWorker"]
   },
   "include": ["env.d.ts", "src", "vite.config.ts"]
 }

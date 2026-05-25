@@ -1,11 +1,19 @@
 import { CacheableResponsePlugin } from "workbox-cacheable-response";
 import type { WorkboxPlugin } from "workbox-core";
+import { clientsClaim } from "workbox-core";
 import { ExpirationPlugin } from "workbox-expiration";
 import { cleanupOutdatedCaches, precacheAndRoute } from "workbox-precaching";
 import { registerRoute } from "workbox-routing";
 import { NetworkFirst, StaleWhileRevalidate } from "workbox-strategies";
 
 declare const self: ServiceWorkerGlobalScope;
+
+// Allow the client (virtual:pwa-register) to trigger activation of a waiting SW.
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
+});
+
+clientsClaim();
 
 // eslint-disable-next-line no-underscore-dangle
 precacheAndRoute(self.__WB_MANIFEST);
