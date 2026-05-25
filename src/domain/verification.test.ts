@@ -1,8 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import type { AggregatePoint } from "./aggregate";
-
-import { bias, buildDailyVerification, classifyHours, HOURS_PER_DAY, mae, maxNonNull, meanFinite, minNonNull, sumNonNull, timingHitRate, WET_THRESHOLD_MM_PER_H } from "./verification";
+import {
+  bias,
+  buildDailyVerification,
+  classifyHours,
+  HOURS_PER_DAY,
+  mae,
+  maxNonNull,
+  meanFinite,
+  minNonNull,
+  sumNonNull,
+  timingHitRate,
+  WET_THRESHOLD_MM_PER_H,
+} from "./verification";
 
 describe("bias", () => {
   it("returns the signed mean error", () => {
@@ -11,7 +22,7 @@ describe("bias", () => {
   });
 
   it("skips pairs where either side is null", () => {
-    expect(bias([10, null, 14], [9, 11, 13])).toBeCloseTo(((10 - 9) + (14 - 13)) / 2);
+    expect(bias([10, null, 14], [9, 11, 13])).toBeCloseTo((10 - 9 + (14 - 13)) / 2);
     expect(bias([10, 12, null], [null, 11, 13])).toBeCloseTo(12 - 11);
   });
 
@@ -138,15 +149,15 @@ describe("WET_THRESHOLD_MM_PER_H", () => {
   });
 });
 
+function aggregate(value: number): AggregatePoint {
+  return { time: "ignored", value, stdDev: 0, weights: {}, perModel: {} };
+}
+
+function array<T>(n: number, fn: (i: number) => T): T[] {
+  return Array.from({ length: n }, (_, i) => fn(i));
+}
+
 describe("buildDailyVerification", () => {
-  function aggregate(value: number): AggregatePoint {
-    return { time: "ignored", value, stdDev: 0, weights: {}, perModel: {} };
-  }
-
-  function array(n: number, fn: (i: number) => number): number[] {
-    return Array.from({ length: n }, (_, i) => fn(i));
-  }
-
   it("emits one entry per full 24-hour day, dropping any trailing partial day", () => {
     const hours = HOURS_PER_DAY * 7 + 5; // 7 full days plus a stub
     const result = buildDailyVerification({
