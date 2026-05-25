@@ -178,8 +178,10 @@ const option = computed<EChartsOption>(() => {
         if (props.showTemp && truT != null) lines.push(`<span style="color:${TRUTH_COLOR}">truth</span> ${formatTemp.value(truT, 1)}`);
         const aggP = precipForecast[idx];
         const truP = precipTruth[idx];
-        if (props.showPrecip && aggP != null && aggP > 0.05) lines.push(`<span style="color:#7dd3fc">forecast precip</span> ${formatPrecip.value(aggP, 1)}`);
-        if (props.showPrecip && truP != null && truP > 0.05) lines.push(`<span style="color:${TRUTH_COLOR}">truth precip</span> ${formatPrecip.value(truP, 1)}`);
+        // Always show precip rows (even at 0 mm) so the comparison is explicit —
+        // a 0 mm forecast vs 2 mm truth is meaningful information, not noise.
+        if (props.showPrecip && aggP != null) lines.push(`<span style="color:#7dd3fc">forecast precip</span> ${formatPrecip.value(aggP, 1)}`);
+        if (props.showPrecip && truP != null) lines.push(`<span style="color:${TRUTH_COLOR}">truth precip</span> ${formatPrecip.value(truP, 1)}`);
         return `<div style="font-weight:600;margin-bottom:4px">${header}</div>${lines.join("<br/>")}`;
       },
     },
