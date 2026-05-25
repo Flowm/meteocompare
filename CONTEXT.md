@@ -66,8 +66,8 @@ Comparing a past forecast against truth, producing per-variable error scores. Th
 _Avoid_: backtest (finance-flavoured), hindcast (different concept: re-running models against past dates with current model versions), analysis (overloaded).
 
 **Truth** (or **Ground truth**):
-The reference field a forecast is scored against. In this app, always the reanalysis we trust for that purpose — see ADR 0001 for which one and why.
-_Avoid_: observation (we don't use point observations; the truth is a gridded field).
+The reference field a forecast is scored against. In this app, always **ERA5-Seamless** (requested from open-meteo's historical-weather API with `models=era5_seamless`), which stitches ERA5-Land at 9 km for variables it provides (temperature, cloud cover) with ERA5 at 25 km elsewhere (precipitation, wind). The Best Match default is explicitly avoided because it includes IFS HRES — see ADR 0001.
+_Avoid_: observation (we don't use point observations; the truth is a gridded field). "ERA5-Land" alone (it lacks precipitation).
 
 **Reanalysis**:
 A backward-looking model rerun that assimilates all available observations into a consistent gridded history. The basis for the truth field. Distinct from a forecast (which is forward-looking) and from an analysis (which is just the assimilated initial-condition snapshot at one moment).
@@ -85,6 +85,9 @@ Per-hour categorical outcomes for precipitation, with a ±1 h timing tolerance:
 - **Miss** — truth is wet AND no forecast wet hour within tolerance.
 - **False alarm** — forecast says wet AND no truth wet hour within tolerance.
 - **Correct dry** — both dry.
+
+**Weather code on truth**:
+Not provided. ERA5-Seamless has no WMO weather code, so the verification page shows the forecast aggregate's weather icon but no truth-side icon. Deliberately not derived from precipitation + cloud + temperature — that would score the forecast against our own derivation rule, not against truth.
 
 **Timing hit rate**:
 Fraction of truth's wet hours classified as hits. The "did rain fall at roughly the right time?" score per day.

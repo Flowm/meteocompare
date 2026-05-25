@@ -1,7 +1,0 @@
-# ERA5-Land as the sole ground truth for verification
-
-The verification page needs a reference field to score past forecasts against. Open-meteo's historical-weather API offers several candidates — ERA5-Land reanalysis (~9 km, ~5-day lag), ERA5 reanalysis (~25 km, same lag), and the ECMWF IFS analysis (~9 km, ~1-day lag). We pick **ERA5-Land exclusively, with no user-facing choice**.
-
-ECMWF IFS analysis is rejected because verifying ECMWF IFS *forecasts* against ECMWF IFS *analysis* is the textbook self-verification trap: the analysis is literally the model's own next-cycle initial condition after assimilating observations, so ECMWF will look unrealistically good and the comparison is corrupt. ERA5 is rejected because its 25 km resolution is too coarse to fairly score the 1–3 km CAM models in the registry (HRRR, ICON-D2, etc.). ERA5-Land is the standard verification truth in the NWP literature and resolves this for us at 9 km. The 5-day lag forces a hard floor on the run-date picker (`today − 12`, so the 7-day forward window fully fits inside available truth) which is a constraint, not a problem — verifying a forecast from at least two weeks ago is the right framing anyway.
-
-Not offering a user-facing truth-source picker is deliberate: it would mostly enable methodologically junk comparisons (ECMWF-vs-ECMWF-analysis) and the residual ECMWF-favouring bias from ERA5-Land's shared ECMWF lineage is well-understood and small.
