@@ -3,7 +3,7 @@ import type { EChartsOption } from "echarts";
 import { computed, ref } from "vue";
 import VChart from "vue-echarts";
 
-import type { HourlyVar } from "@/api/openMeteo";
+import type { HourlyVar } from "@/api/omForecast";
 import type { HourlyAggregate } from "@/composables/useForecast";
 import { useUnits } from "@/composables/useUnits";
 import type { ModelDef } from "@/domain/models";

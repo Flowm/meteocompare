@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import type { ForecastResponse } from "@/api/openMeteo";
+import type { ForecastResponse } from "@/api/omForecast";
 import type { DailyAggregate } from "@/composables/useForecast";
 import { useLocation } from "@/composables/useLocation";
 import { useUnits } from "@/composables/useUnits";
