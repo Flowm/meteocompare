@@ -85,7 +85,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
             />
           </label>
 
-          <fieldset class="flex items-center gap-3 text-slate-400">
+          <fieldset v-if="!showModels" class="flex items-center gap-3 text-slate-400">
             <label class="flex items-center gap-1">
               <input v-model="showTemp" type="checkbox" class="accent-pink-400" />
               <span>Temperature</span>
