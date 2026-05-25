@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 
+import { usePostHog } from "@/composables/usePostHog";
 import ForecastView from "@/views/ForecastView.vue";
 
 export const router = createRouter({
@@ -12,3 +13,5 @@ export const router = createRouter({
     },
   ],
 });
+
+usePostHog();
