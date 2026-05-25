@@ -1,7 +1,7 @@
 import { computed, ref, shallowRef, watch, type Ref } from "vue";
 
 import { extractHourly as extractTruthHourly, fetchHistoricalWeather, type HistoricalWeatherResponse } from "@/api/omHistoricalWeather";
-import { extractHourlyByModel, fetchSingleRuns, type SingleRunsResponse } from "@/api/omSingleRuns";
+import { extractDailyByModel, extractHourlyByModel, fetchSingleRuns, type SingleRunsResponse } from "@/api/omSingleRuns";
 import { aggregateSeries, type AggregatePoint } from "@/domain/aggregate";
 import { confidenceFor } from "@/domain/confidence";
 import { MODEL_IDS, MODELS, type ModelDef } from "@/domain/models";
@@ -29,7 +29,11 @@ export interface UseVerificationReturn {
   error: Ref<string | null>;
   hourly: Ref<VerificationHourly | null>;
   daily: Ref<DailyVerification[] | null>;
-  /** Subset of MODELS that returned non-null temperature data for this run date. */
+  /** Per-day aggregate WMO weather codes, indexed by dayIndex. Used purely for
+   *  the forecast-row icon on each card; never scored against truth (CONTEXT.md
+   *  flags this — ERA5-Seamless has no weather_code). */
+  weatherCodes: Ref<number[]>;
+  /** Subset of MODELS that returned non-null data (temp or precip) for this run date. */
   availableModels: Ref<ModelDef[]>;
   refresh: () => Promise<void>;
 }
@@ -146,6 +150,26 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
     });
   });
 
+  const weatherCodes = computed<number[]>(() => {
+    const runs = runsResp.value;
+    if (!runs) return [];
+    const dailyTimes = runs.daily.time;
+    const firstDailyTime = dailyTimes[0];
+    if (!firstDailyTime) return [];
+    const baseTime = new Date(firstDailyTime);
+    // Same severity-weighted-mode aggregation as the forecast view's daily strip,
+    // reusing aggregateSeries with the weather_code variable handler.
+    const byModel = extractDailyByModel(runs, "weather_code", MODEL_IDS);
+    const agg = aggregateSeries(dailyTimes, byModel, {
+      variable: "weather_code",
+      models: MODELS,
+      lat: location.value.latitude,
+      lon: location.value.longitude,
+      baseTime,
+    });
+    return agg.map((p) => Math.round(p.value));
+  });
+
   const availableModels = computed<ModelDef[]>(() => {
     const runs = runsResp.value;
     if (!runs) return [];
@@ -163,7 +187,7 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
     return MODELS.filter((m) => ids.has(m.id));
   });
 
-  return { loading, error, hourly, daily, availableModels, refresh };
+  return { loading, error, hourly, daily, weatherCodes, availableModels, refresh };
 }
 
 /** Add `days` to an ISO `YYYY-MM-DD` date using UTC arithmetic so the result

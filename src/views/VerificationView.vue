@@ -47,7 +47,7 @@ const showTemp = ref(true);
 const showPrecip = ref(true);
 const showModels = ref(false);
 
-const { loading, error, hourly, daily, availableModels } = useVerification(current, runDate);
+const { loading, error, hourly, daily, weatherCodes, availableModels } = useVerification(current, runDate);
 
 const locationLabel = computed(() => {
   const loc = current.value;
@@ -123,7 +123,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
       <section v-if="daily && daily.length">
         <h2 class="mb-3 text-sm font-medium tracking-wider text-slate-300 uppercase">Daily breakdown</h2>
         <div class="-mx-2 flex snap-x gap-3 overflow-x-auto px-2 py-1">
-          <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" :show-models="showModels" />
+          <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" :show-models="showModels" :weather-code="weatherCodes[d.dayIndex]" />
         </div>
       </section>
     </main>
