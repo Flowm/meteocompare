@@ -28,7 +28,10 @@ const dayLabel = computed(() => {
   return d.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" });
 });
 
-const leadLabel = computed(() => `Day ${props.day.dayIndex + 1} · ${props.day.leadHoursStart}-${props.day.leadHoursEnd}h`);
+// U5: 0-indexed day label so Day 0 = the run day itself (matches the lead
+// hours, where Day 0 covers 0–24 h lead). Avoids the "Day 1 means tomorrow,
+// or the run day?" ambiguity from the previous 1-indexed labelling.
+const leadLabel = computed(() => `Day ${props.day.dayIndex} · ${props.day.leadHoursStart}-${props.day.leadHoursEnd}h`);
 
 // Look up labels in the full MODELS registry, not the subset that contributed
 // to the aggregate's temperature axis — a model can return precip-only data
@@ -119,7 +122,7 @@ function signed(n: number, digits = 1): string {
       leave-to-class="max-h-0 opacity-0"
     >
       <div v-if="showModels && perModelEntries.length" class="mt-3 space-y-1 border-t border-slate-800 pt-3 text-[11px] tabular-nums">
-        <div v-for="[modelId, scores] in perModelEntries" :key="modelId" class="grid grid-cols-[6rem_1fr_1fr] items-baseline gap-2">
+        <div v-for="[modelId, scores] in perModelEntries" :key="modelId" class="grid grid-cols-[7rem_1fr_1fr] items-baseline gap-2">
           <span class="truncate text-slate-500">{{ modelLabel(modelId) }}</span>
           <span class="text-slate-400">
             <template v-if="scores.temperature">T {{ signed(scores.temperature.bias) }}/{{ scores.temperature.mae.toFixed(1) }} °C</template>

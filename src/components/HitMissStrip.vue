@@ -25,10 +25,21 @@ const LEGEND: Record<HourClassification, string> = {
 };
 
 const cells = computed(() => props.classification.map((c, i) => ({ cls: c, tone: TONE[c], title: `${props.hourLabel?.(i) ?? `hour ${i}`} · ${LEGEND[c]}` })));
+
+// P7: surface a wrapper-level tooltip explaining the colour palette, and a
+// visible "no precipitation events" label when the whole row is dry — keeps
+// the strip from looking broken on dry days.
+const isDryDay = computed(() => props.classification.every((c) => c === "correct_dry"));
+const wrapperTitle = computed(() => (isDryDay.value ? "No precipitation events on this day" : "Per-hour outcomes — green: hit, amber: miss, red: false alarm, dark: correct dry"));
 </script>
 
 <template>
-  <div class="flex w-full gap-px overflow-hidden rounded-sm ring-1 ring-slate-800">
-    <div v-for="(c, i) in cells" :key="i" class="h-3 flex-1" :class="c.tone" :title="c.title" />
+  <div class="relative" :title="wrapperTitle">
+    <div class="flex w-full gap-px overflow-hidden rounded-sm ring-1 ring-slate-800">
+      <div v-for="(c, i) in cells" :key="i" class="h-3 flex-1" :class="c.tone" :title="c.title" />
+    </div>
+    <div v-if="isDryDay" class="pointer-events-none absolute inset-0 flex items-center justify-center text-[9px] tracking-wider text-slate-500 uppercase">
+      No precipitation events
+    </div>
   </div>
 </template>

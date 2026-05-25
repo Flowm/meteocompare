@@ -81,7 +81,10 @@ const option = computed<EChartsOption>(() => {
   const labels = times.map((t) => {
     const d = new Date(t);
     const h = d.getHours();
-    return h === 0 ? d.toLocaleDateString([], { weekday: "short" }) : `${h.toString().padStart(2, "0")}:00`;
+    // P3: show ISO-8601 date (en-CA produces YYYY-MM-DD) at midnight so users
+    // hopping between historical run-dates can see which date a tick refers to
+    // without guessing from the weekday alone.
+    return h === 0 ? d.toLocaleDateString("en-CA") : `${h.toString().padStart(2, "0")}:00`;
   });
 
   // Pre-computed value series (in current units, with NaN/null normalised).
