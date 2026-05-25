@@ -275,4 +275,24 @@ describe("buildDailyVerification", () => {
     expect(result[0]?.aggregate.precipitation).toBeNull();
     expect(result[0]?.aggregate.temperature).not.toBeNull();
   });
+
+  it("returns null precipitation score when forecast is all-null but truth has data (B1)", () => {
+    const hours = HOURS_PER_DAY;
+    const result = buildDailyVerification({
+      runDate: "2026-05-11",
+      times: array(hours, (i) => String(i)),
+      aggregateTemp: array(hours, () => 20).map(aggregate),
+      aggregatePrecip: array(hours, () => NaN).map(aggregate),
+      confidenceTemp: array(hours, () => 0.8),
+      confidencePrecip: array(hours, () => 0.5),
+      perModelTemp: {},
+      // Model with no precipitation data at all — used to be scored as
+      // amountError = −truthSum, which was misleading.
+      perModelPrecip: { ghost_model: Array.from({ length: hours }, () => null) },
+      truthTemp: array(hours, () => 20),
+      truthPrecip: array(hours, (i) => (i >= 10 && i <= 13 ? 2 : 0)),
+    });
+    expect(result[0]?.aggregate.precipitation).toBeNull();
+    expect(result[0]?.perModel.ghost_model?.precipitation).toBeNull();
+  });
 });

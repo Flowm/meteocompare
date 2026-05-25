@@ -123,7 +123,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
       <section v-if="daily && daily.length">
         <h2 class="mb-3 text-sm font-medium tracking-wider text-slate-300 uppercase">Daily breakdown</h2>
         <div class="-mx-2 flex snap-x gap-3 overflow-x-auto px-2 py-1">
-          <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" :show-models="showModels" :models="availableModels" />
+          <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" :show-models="showModels" />
         </div>
       </section>
     </main>

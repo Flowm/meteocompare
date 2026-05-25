@@ -2,7 +2,7 @@
 import { computed } from "vue";
 
 import { useUnits } from "@/composables/useUnits";
-import type { ModelDef } from "@/domain/models";
+import { MODELS } from "@/domain/models";
 import type { DailyVerification } from "@/domain/verification";
 
 import ConfidenceBadge from "./ConfidenceBadge.vue";
@@ -13,11 +13,8 @@ const props = defineProps<{
   day: DailyVerification;
   /** When true, per-model rows are revealed (page-level toggle). */
   showModels: boolean;
-  /** Registered model metadata, for label lookup on per-model rows. */
-  models: ModelDef[];
   /** Aggregate weather_code for this day (icon only, no scoring — see CONTEXT.md
-   *  "Weather code on truth"). Optional: omit to skip the icon entirely, which
-   *  is what Phase 1 does pending daily aggregation in the composable. */
+   *  "Weather code on truth"). Optional: omit to skip the icon entirely. */
   weatherCode?: number;
 }>();
 
@@ -33,7 +30,11 @@ const dayLabel = computed(() => {
 
 const leadLabel = computed(() => `Day ${props.day.dayIndex + 1} · ${props.day.leadHoursStart}-${props.day.leadHoursEnd}h`);
 
-const modelLabel = (id: string): string => props.models.find((m) => m.id === id)?.label ?? id;
+// Look up labels in the full MODELS registry, not the subset that contributed
+// to the aggregate's temperature axis — a model can return precip-only data
+// for a given run date, in which case it's absent from `availableModels` but
+// still present in `day.perModel`.
+const modelLabel = (id: string): string => MODELS.find((m) => m.id === id)?.label ?? id;
 
 const perModelEntries = computed(() =>
   Object.entries(props.day.perModel)

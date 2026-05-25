@@ -223,11 +223,15 @@ function scoreTemperature(forecast: readonly (number | null)[], truth: readonly 
 }
 
 function scorePrecipitation(forecast: readonly (number | null)[], truth: readonly (number | null)[], confidence: number): PrecipitationScores | null {
-  const classification = classifyHours(forecast, truth);
-  // Skip the score entirely if both sides are completely empty / all-null.
+  // If the forecast side has no data at all, there's nothing to score. The
+  // earlier behaviour treated null forecasts as 0 mm/h, which produced a
+  // misleading `amountError = −truthSum` for models that simply didn't return
+  // precipitation data (i.e. claiming the model predicted a completely dry
+  // week, when really it predicted nothing). Mirrors how temperature handles
+  // the same case implicitly via `bias()`/`mae()` returning NaN.
   const anyForecast = forecast.some((v) => v != null);
-  const anyTruth = truth.some((v) => v != null);
-  if (!anyForecast && !anyTruth) return null;
+  if (!anyForecast) return null;
+  const classification = classifyHours(forecast, truth);
   return {
     amountError: sumNonNull(forecast) - sumNonNull(truth),
     timingHitRate: timingHitRate(classification),

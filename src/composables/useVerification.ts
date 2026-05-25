@@ -151,8 +151,14 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
     if (!runs) return [];
     const ids = new Set<string>();
     for (const id of MODEL_IDS) {
-      const arr = runs.hourly[`temperature_2m_${id}`];
-      if (arr && arr.some((x) => x != null)) ids.add(id);
+      // Honest availability: include any model that returned a non-null value
+      // for at least one variable (temperature OR precipitation). The earlier
+      // temp-only check undercounted models that had precip-only data.
+      const tempArr = runs.hourly[`temperature_2m_${id}`];
+      const precipArr = runs.hourly[`precipitation_${id}`];
+      const hasTemp = tempArr && tempArr.some((x) => x != null);
+      const hasPrecip = precipArr && precipArr.some((x) => x != null);
+      if (hasTemp || hasPrecip) ids.add(id);
     }
     return MODELS.filter((m) => ids.has(m.id));
   });

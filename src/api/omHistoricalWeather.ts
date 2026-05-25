@@ -28,10 +28,10 @@ export interface HistoricalWeatherResponse {
   utc_offset_seconds: number;
   timezone: string;
   timezone_abbreviation: string;
-  /** Open-meteo returns variables either bare (`temperature_2m`) or suffixed
-   *  with the model id (`temperature_2m_era5_seamless`) depending on whether
-   *  `models=` is set; the permissive shape covers both. */
-  hourly: { time: string[] } & Partial<Record<string, (number | null)[]>>;
+  /** Open-meteo's archive endpoint returns variables under their bare names
+   *  (e.g. `temperature_2m`), not suffixed with the model id, even when
+   *  `models=` is set — verified against the live response. */
+  hourly: { time: string[] } & Partial<Record<HistoricalHourlyVar, (number | null)[]>>;
   hourly_units: Record<string, string>;
 }
 
@@ -57,13 +57,9 @@ export async function fetchHistoricalWeather(req: HistoricalWeatherRequest, sign
   return (await res.json()) as HistoricalWeatherResponse;
 }
 
-/** Pull an hourly truth series for one variable, tolerating both the
- *  bare and suffixed key shapes open-meteo may return. */
+/** Pull an hourly truth series for one variable. */
 export function extractHourly(resp: HistoricalWeatherResponse, variable: HistoricalHourlyVar): (number | null)[] {
-  const suffixed = resp.hourly[`${variable}_${TRUTH_MODEL_ID}`];
-  if (suffixed) return suffixed;
-  const bare = resp.hourly[variable];
-  return bare ?? [];
+  return resp.hourly[variable] ?? [];
 }
 
 export { HOURLY_VARS, TRUTH_MODEL_ID };
