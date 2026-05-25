@@ -42,7 +42,18 @@ const variableOptions: { id: HourlyVar; label: string }[] = [
 
 const palette = ["#f472b6", "#60a5fa", "#34d399", "#fbbf24", "#a78bfa", "#fb7185", "#22d3ee", "#f87171", "#facc15", "#4ade80", "#c084fc"];
 
+const modelHasData = computed<Record<string, boolean>>(() => {
+  const out: Record<string, boolean> = {};
+  const byModel = props.hourly.perModel[variable.value] ?? {};
+  for (const m of props.contributingModels) {
+    const arr = byModel[m.id];
+    out[m.id] = !!arr && arr.some((v) => v != null);
+  }
+  return out;
+});
+
 function toggle(id: string): void {
+  if (!modelHasData.value[id]) return;
   const next = new Set(selected.value);
   if (next.has(id)) next.delete(id);
   else next.add(id);
@@ -50,7 +61,7 @@ function toggle(id: string): void {
 }
 
 function selectAll(): void {
-  selected.value = new Set(props.contributingModels.map((m) => m.id));
+  selected.value = new Set(props.contributingModels.filter((m) => modelHasData.value[m.id]).map((m) => m.id));
 }
 
 function selectNone(): void {
@@ -236,8 +247,15 @@ const option = computed<EChartsOption>(() => {
           v-for="(m, i) in contributingModels"
           :key="m.id"
           class="rounded-md px-2 py-1 tabular-nums ring-1 transition-colors"
-          :class="selected.has(m.id) ? 'bg-slate-800 text-slate-100 ring-slate-700' : 'bg-slate-950 text-slate-500 ring-slate-800 hover:text-slate-300'"
-          :title="`${m.provider} · ${m.description}`"
+          :class="
+            !modelHasData[m.id]
+              ? 'cursor-not-allowed bg-slate-950 text-slate-600 line-through opacity-50 ring-slate-900'
+              : selected.has(m.id)
+                ? 'bg-slate-800 text-slate-100 ring-slate-700'
+                : 'bg-slate-950 text-slate-500 ring-slate-800 hover:text-slate-300'
+          "
+          :disabled="!modelHasData[m.id]"
+          :title="modelHasData[m.id] ? `${m.provider} · ${m.description}` : `${m.provider} · no data for this variable`"
           @click="toggle(m.id)"
         >
           <span class="mr-1.5 inline-block size-2 rounded-full" :style="{ backgroundColor: palette[i % palette.length] }" />{{ m.label }}
