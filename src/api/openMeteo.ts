@@ -46,7 +46,7 @@ export interface ForecastResponse {
   hourly_units: Record<string, string>;
   daily: { time: string[] } & Partial<Record<string, (number | null)[]>>;
   daily_units: Record<string, string>;
-  current: { time: string } & Partial<Record<string, number | null>>;
+  current: { time: string; interval: number } & Partial<Record<string, number | null>>;
   current_units: Record<string, string>;
 }
 

@@ -13,6 +13,9 @@ export default defineConfig({
     vue(),
     tailwindcss(),
     VitePWA({
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
       registerType: "prompt",
       pwaAssets: {
         htmlPreset: "2023",
@@ -35,33 +38,8 @@ export default defineConfig({
         id: "meteocompare",
         orientation: "natural",
       },
-      workbox: {
+      injectManifest: {
         globPatterns: ["**/*.{js,css,html,svg,png,ico,woff,woff2}"],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/api\.open-meteo\.com\/.*/i,
-            handler: "StaleWhileRevalidate",
-            options: {
-              cacheName: "open-meteo-forecast",
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 15 },
-              cacheableResponse: { statuses: [0, 200] },
-              broadcastUpdate: {
-                channelName: "open-meteo-forecast-update",
-                options: { headersToCheck: ["content-length", "etag", "last-modified"] },
-              },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/geocoding-api\.open-meteo\.com\/.*/i,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "open-meteo-geocoding",
-              networkTimeoutSeconds: 5,
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-        ],
       },
       devOptions: {
         // enabled: true,
