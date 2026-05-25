@@ -36,12 +36,7 @@ function modelCountFactor(point: AggregatePoint): number {
   return Math.min(1, Object.keys(point.weights).length / 3);
 }
 
-export function confidenceFor(
-  point: AggregatePoint,
-  variable: Variable,
-  leadHours: number,
-  resolution: "hourly" | "daily" = "hourly",
-): number {
+export function confidenceFor(point: AggregatePoint, variable: Variable, leadHours: number, resolution: "hourly" | "daily" = "hourly"): number {
   const mcf = modelCountFactor(point);
   if (variable === "weather_code") {
     return weatherCodeConfidence(point) * mcf;

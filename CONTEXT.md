@@ -56,7 +56,7 @@ A 0..1 score expressing how much to trust an aggregate value at a timestep, deri
 **Confidence tier**:
 Categorical bucket of a confidence value: `high` (≥0.7), `mid` (≥0.4), `low` (<0.4).
 
-**Overall confidence** *(forecast-view only, under review)*:
+**Overall confidence** _(forecast-view only, under review)_:
 The single 0..1 number shown on the forecast view's confidence badge. Currently computed as the unweighted mean of per-variable confidences. Flagged for reconsideration once the verification page produces calibration evidence.
 
 ### Verification
@@ -81,6 +81,7 @@ Mean absolute error over a window. The magnitude of being wrong, regardless of d
 
 **Hit / Miss / False alarm / Correct dry**:
 Per-hour categorical outcomes for precipitation, with a ±1 h timing tolerance:
+
 - **Hit** — forecast says wet AND truth is wet (within tolerance).
 - **Miss** — truth is wet AND no forecast wet hour within tolerance.
 - **False alarm** — forecast says wet AND no truth wet hour within tolerance.
@@ -92,16 +93,16 @@ Not provided. ERA5-Seamless has no WMO weather code, so the verification page sh
 **Timing hit rate**:
 Fraction of truth's wet hours classified as hits. The "did rain fall at roughly the right time?" score per day.
 
-**Amount error** *(precipitation only)*:
+**Amount error** _(precipitation only)_:
 Signed daily-sum forecast minus daily-sum truth, in mm. The "was the total roughly right?" score per day. Distinct from MAE; coexists with timing hit rate.
 
 ## Flagged ambiguities
 
 **"Confidence", unqualified.**
-The per-variable primitive (one number per variable per timestep) lives in the domain layer and is what the verification page exposes. The single-number "overall confidence" shown on the forecast view's badge is a UI-side unweighted-mean collapse of the primitive across three variables (temp, precip, weather_code). Always say *per-variable confidence* or *overall confidence* when the distinction matters.
+The per-variable primitive (one number per variable per timestep) lives in the domain layer and is what the verification page exposes. The single-number "overall confidence" shown on the forecast view's badge is a UI-side unweighted-mean collapse of the primitive across three variables (temp, precip, weather*code). Always say \_per-variable confidence* or _overall confidence_ when the distinction matters.
 
 **"Analysis".**
-In meteorology, the **analysis** is a model's initial-condition field after assimilating observations — *not* a verification activity. The user-facing analysis-comparison surface in this app is therefore called **Verification**, never "Analysis". The route is `/verify`, not `/analyze`.
+In meteorology, the **analysis** is a model's initial-condition field after assimilating observations — _not_ a verification activity. The user-facing analysis-comparison surface in this app is therefore called **Verification**, never "Analysis". The route is `/verify`, not `/analyze`.
 
 **"Model".**
 Always refers to an NWP source (ECMWF, GFS, ICON, etc.), never to a UI/data shape or a domain type. When you mean a TypeScript type, name it explicitly (`ModelDef`, `ModelRow`).
@@ -118,7 +119,7 @@ Always refers to an NWP source (ECMWF, GFS, ICON, etc.), never to a UI/data shap
 >
 > **Dev:** And the per-variable confidence on that point was high?
 >
-> **Domain:** Yes — high agreement, low spread. Which is honest: the models *did* agree, they were just all wrong in the same direction. Confidence measures agreement, not correctness. The verification page exists to make that distinction visible.
+> **Domain:** Yes — high agreement, low spread. Which is honest: the models _did_ agree, they were just all wrong in the same direction. Confidence measures agreement, not correctness. The verification page exists to make that distinction visible.
 >
 > **Dev:** What about the timing hit rate? It says 40% — that's bad, right?
 >
