@@ -2,8 +2,9 @@
 import { computed } from "vue";
 
 import type { DailyAggregate } from "@/composables/useForecast";
+import { MODELS } from "@/domain/models";
 
-import DayCard from "./DayCard.vue";
+import DayCard, { type ModelRow } from "./DayCard.vue";
 
 const props = defineProps<{ daily: DailyAggregate }>();
 
@@ -17,11 +18,19 @@ interface DayRow {
   windSpeed: number | null;
   windDirection: number | null;
   confidence: number;
+  models: ModelRow[];
 }
 
 const days = computed<DayRow[]>(() =>
   props.daily.times.map((date, i) => {
     const conf = [props.daily.confidence.temperature_2m_max[i] ?? 0, props.daily.confidence.weather_code[i] ?? 0, props.daily.confidence.precipitation_sum[i] ?? 0];
+    const models: ModelRow[] = MODELS.map((m) => ({
+      id: m.id,
+      label: m.label,
+      high: props.daily.perModel.temperature_2m_max[m.id]?.[i] ?? null,
+      low: props.daily.perModel.temperature_2m_min[m.id]?.[i] ?? null,
+      precipProb: props.daily.perModel.precipitation_probability_max[m.id]?.[i] ?? null,
+    }));
     return {
       date,
       code: Math.round(props.daily.series.weather_code[i]?.value ?? 0),
@@ -32,6 +41,7 @@ const days = computed<DayRow[]>(() =>
       windSpeed: props.daily.series.wind_speed_10m_max[i]?.value ?? null,
       windDirection: props.daily.series.wind_direction_10m_dominant[i]?.value ?? null,
       confidence: conf.reduce((a, b) => a + b, 0) / conf.length,
+      models,
     };
   }),
 );
@@ -55,6 +65,7 @@ const days = computed<DayRow[]>(() =>
         :wind-direction="d.windDirection"
         :confidence="d.confidence"
         :highlight="i === 0"
+        :models="d.models"
       />
     </div>
   </section>
