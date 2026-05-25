@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { useDebounceFn, onClickOutside } from "@vueuse/core";
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
+import { useRoute } from "vue-router";
 
 import { searchLocations, formatLocation, type GeocodingResult } from "@/api/geocoding";
 import { useLocation, type Location } from "@/composables/useLocation";
 
 import SettingsMenu from "./SettingsMenu.vue";
 
+const route = useRoute();
 const { favourites, recent, setLocation } = useLocation();
 
 const query = ref("");
@@ -17,6 +19,21 @@ const searchError = ref<string | null>(null);
 const isLocating = ref(false);
 const locateError = ref<string | null>(null);
 const root = ref<HTMLElement | null>(null);
+
+// View-switcher dropdown — replaces the side-by-side links so a single
+// affordance works on every viewport size.
+const viewOpen = ref(false);
+const viewRoot = ref<HTMLElement | null>(null);
+onClickOutside(viewRoot, () => (viewOpen.value = false));
+
+const VIEW_LABEL: Record<string, string> = { forecast: "Forecast", verify: "Verify" };
+const currentView = computed(() => VIEW_LABEL[String(route.name ?? "")] ?? "Forecast");
+
+// Keep the full query string when navigating between views so a runDate
+// chosen on /verify survives a quick detour through /forecast and back.
+// Location params (lat/lon/name/…) are already handled by useLocation and
+// thread through identically.
+const preservedQuery = computed(() => ({ ...route.query }));
 
 onClickOutside(root, () => (isOpen.value = false));
 
@@ -106,19 +123,41 @@ function geolocate(): void {
 <template>
   <header ref="root" class="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/90 backdrop-blur">
     <div class="mx-auto grid max-w-4xl grid-cols-[1fr_minmax(0,36rem)_1fr] items-center gap-3 px-4 py-3 sm:px-6">
-      <div class="flex items-baseline gap-4 justify-self-start">
-        <span class="text-lg font-semibold tracking-tight sm:text-xl">MeteoCompare</span>
-        <nav class="hidden items-baseline gap-3 text-xs sm:flex">
-          <RouterLink
-            to="/"
-            class="text-slate-500 transition-colors hover:text-slate-200"
-            active-class="!text-slate-100"
-            :class="$route.name === 'forecast' ? '!text-slate-100' : ''"
+      <div class="flex items-center gap-2 justify-self-start sm:gap-3">
+        <span class="hidden text-lg font-semibold tracking-tight sm:inline sm:text-xl">MeteoCompare</span>
+        <!-- View switcher: visible on every viewport so mobile users can navigate. -->
+        <div ref="viewRoot" class="relative">
+          <button
+            type="button"
+            class="flex items-center gap-1 rounded-md bg-slate-900 px-2.5 py-1.5 text-xs text-slate-200 ring-1 ring-slate-800 hover:bg-slate-800"
+            :aria-expanded="viewOpen"
+            aria-haspopup="menu"
+            @click="viewOpen = !viewOpen"
           >
-            Forecast
-          </RouterLink>
-          <RouterLink to="/verify" class="text-slate-500 transition-colors hover:text-slate-200" active-class="!text-slate-100"> Verify </RouterLink>
-        </nav>
+            {{ currentView }}
+            <span class="text-slate-500 transition-transform" :class="{ 'rotate-180': viewOpen }">▾</span>
+          </button>
+          <div v-if="viewOpen" role="menu" class="absolute top-full left-0 z-40 mt-1 min-w-[8rem] overflow-hidden rounded-md bg-slate-900 shadow-lg ring-1 ring-slate-800">
+            <RouterLink
+              :to="{ path: '/', query: preservedQuery }"
+              role="menuitem"
+              class="block px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+              active-class="bg-slate-800 text-slate-100"
+              @click="viewOpen = false"
+            >
+              Forecast
+            </RouterLink>
+            <RouterLink
+              :to="{ path: '/verify', query: preservedQuery }"
+              role="menuitem"
+              class="block px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+              active-class="bg-slate-800 text-slate-100"
+              @click="viewOpen = false"
+            >
+              Verify
+            </RouterLink>
+          </div>
+        </div>
       </div>
 
       <div class="relative w-full">
