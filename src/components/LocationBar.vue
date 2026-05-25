@@ -106,8 +106,19 @@ function geolocate(): void {
 <template>
   <header ref="root" class="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/90 backdrop-blur">
     <div class="mx-auto grid max-w-4xl grid-cols-[1fr_minmax(0,36rem)_1fr] items-center gap-3 px-4 py-3 sm:px-6">
-      <div class="flex items-baseline justify-self-start">
+      <div class="flex items-baseline gap-4 justify-self-start">
         <span class="text-lg font-semibold tracking-tight sm:text-xl">MeteoCompare</span>
+        <nav class="hidden items-baseline gap-3 text-xs sm:flex">
+          <RouterLink
+            to="/"
+            class="text-slate-500 transition-colors hover:text-slate-200"
+            active-class="!text-slate-100"
+            :class="$route.name === 'forecast' ? '!text-slate-100' : ''"
+          >
+            Forecast
+          </RouterLink>
+          <RouterLink to="/verify" class="text-slate-500 transition-colors hover:text-slate-200" active-class="!text-slate-100"> Verify </RouterLink>
+        </nav>
       </div>
 
       <div class="relative w-full">
