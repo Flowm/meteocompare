@@ -5,7 +5,7 @@ import { ref, watch } from "vue";
 import { searchLocations, formatLocation, type GeocodingResult } from "@/api/geocoding";
 import { useLocation, type Location } from "@/composables/useLocation";
 
-import UnitsToggle from "./UnitsToggle.vue";
+import SettingsMenu from "./SettingsMenu.vue";
 
 const { favourites, recent, setLocation } = useLocation();
 
@@ -105,12 +105,12 @@ function geolocate(): void {
 
 <template>
   <header ref="root" class="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/90 backdrop-blur">
-    <div class="mx-auto flex max-w-4xl items-center gap-3 px-4 py-3 sm:px-6">
-      <div class="flex flex-shrink-0 items-baseline gap-2">
+    <div class="mx-auto grid max-w-4xl grid-cols-[1fr_minmax(0,36rem)_1fr] items-center gap-3 px-4 py-3 sm:px-6">
+      <div class="flex items-baseline justify-self-start">
         <span class="text-lg font-semibold tracking-tight sm:text-xl">MeteoCompare</span>
       </div>
 
-      <div class="relative max-w-md flex-1">
+      <div class="relative w-full">
         <input
           v-model="query"
           type="search"
@@ -194,7 +194,9 @@ function geolocate(): void {
         </div>
       </div>
 
-      <UnitsToggle />
+      <div class="flex justify-self-end">
+        <SettingsMenu />
+      </div>
     </div>
   </header>
 </template>
