@@ -8,7 +8,7 @@ Frontend-only (Vue 3 + Vite). Forecasts come straight from [open-meteo.com](http
 
 - **11 NWP models**, automatically dropped in/out based on geographic coverage and forecast horizon.
 - **Aggregate-first UI**: temperature + ±1σ confidence band, precipitation bars, daily strip with weather icon / high / low / precip prob / wind.
-- **Confidence score** per timestep — derived from inter-model agreement, spread normalised against typical seasonal spread, and lead-time decay.
+- **Confidence score** per timestep — derived from inter-model spread normalised against typical seasonal spread, a model-count penalty, and lead-time decay encoded in the model weights.
 - **Multi-model breakdown** (opt-in) — spaghetti chart of every contributing model with per-model toggles, switchable between temperature, precipitation, precipitation probability, wind speed, and cloud cover.
 - **Window toggle** — 24 h / 3 d / 7 d on both charts.
 - **Locations** — open-meteo geocoding search, browser geolocation, URL-shareable state, favourites and recent-search in localStorage.
@@ -22,7 +22,7 @@ Per timestep and per variable:
 2. **Weight them.**
    - Base weight = 1.
    - Region bonus of +0.2 (mid-resolution) or +0.3 (convection-allowing) when the location is inside the model's home region.
-   - Lead-time decay per model class: convection-allowing models fade out by 60 h, mid-resolution regionals by 120 h, globals stay flat.
+   - Lead-time decay per model class: convection-allowing models fade out by 60 h, mid-resolution regionals by 120 h, globals decay gently from 72 h → 0.4× by 240 h.
    - Variable boost: CAMs get ×1.3 for precipitation, since they explicitly resolve convection.
 3. **Aggregate**:
    - **Temperature / precip / cloud cover / wind speed** → weighted mean + weighted standard deviation.
@@ -34,18 +34,23 @@ Per timestep and per variable:
 For each numeric variable:
 
 ```
-agreement   = share of contributing weight whose values fall within ±tolerance of the weighted mean
-              (tolerance: 1.5 °C, 1 mm/h, 15 pp, 3 km/h, …)
+spreadScore  = clamp(1 − stdDev / typicalSpread, 0, 1)
+               typicalSpread ramps with lead time; daily accumulated variables
+               (precipitation_sum) use a day-scale calibration (mm/day) rather
+               than the hourly rate scale (mm/h).
 
-spreadScore = clamp(1 − stdDev / typicalSpread, 0, 1)
-              (typicalSpread ramps with lead time)
+modelFactor  = min(1, n / 3)   where n = number of contributing models
+               1 model → ⅓,  2 models → ⅔,  3+ models → 1
 
-leadDecay   = piecewise(1.0 up to 48 h, → 0.9 @72 h, → 0.6 @168 h, → 0.2 @240 h)
-
-confidence  = clamp((0.6 × agreement + 0.4 × spreadScore) × leadDecay, 0, 1)
+confidence   = clamp(spreadScore × modelFactor, 0, 1)
 ```
 
-Wind direction uses a circular variant of the same formula (signed angular delta within ±30°).
+Wind direction uses the same formula with circular standard deviation in degrees.
+Weather codes have no meaningful stdDev, so they use severity-group agreement instead:
+`confidence = clamp(weightShare(same severity group) × modelFactor, 0, 1)`.
+
+Lead-time decay is handled entirely in the model weighting layer (not as a separate
+multiplier here): CAMs fade out by 60 h, regionals by 120 h, globals decay past 72 h.
 
 The badge maps the result to one of three tiers — high (≥70 %, emerald), mid (≥40 %, amber), low (rose).
 
@@ -92,7 +97,7 @@ The badge maps the result to one of three tiers — high (≥70 %, emerald), mid
 │  WeatherIcon       │             │   │  useUnits        │   │   ─ weighted mean / circ. mean │
 │  ConfidenceBadge ──┘             │   │   ─ formatters   │   │   ─ severity-weighted mode     │
 └──────────────────────────────────┘   └──────────────────┘   │  confidence.ts                 │
-                                                              │   ─ agreement + spread + decay │
+                                                              │   ─ spread + model-count factor │
                                                               │  weatherCodes.ts               │
                                                               │   ─ WMO ↔ icon ↔ severity      │
                                                               └────────────────────────────────┘

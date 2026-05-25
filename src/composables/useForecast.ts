@@ -162,7 +162,7 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
       });
       series[v] = agg;
       // Lead in hours: day index * 24 + 12 (noonish anchor for confidence calc).
-      confidence[v] = agg.map((p, i) => confidenceFor(p, baseVar, i * 24 + 12));
+      confidence[v] = agg.map((p, i) => confidenceFor(p, baseVar, i * 24 + 12, "daily"));
     }
     return { times, series, confidence, perModel };
   });

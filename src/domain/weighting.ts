@@ -18,10 +18,13 @@ function leadFactor(model: ModelDef, leadHours: number): number {
       if (leadHours <= 48) return 1;
       if (leadHours >= 120) return 0.3;
       return 1 - ((leadHours - 48) / 72) * 0.7;
-    case "global":
-      // Globals carry the medium-range; ECMWF gets a small bonus past 72 h.
-      if (model.id === "ecmwf_ifs025" && leadHours > 72) return 1.1;
-      return 1;
+    case "global": {
+      // Decay gently past 3 days (1.0 → 0.4 by 240 h) so the weight
+      // system is the single source of lead-time authority.
+      const longRangeDecay = leadHours <= 72 ? 1.0 : Math.max(0.4, 1 - ((leadHours - 72) / 168) * 0.6);
+      if (model.id === "ecmwf_ifs025" && leadHours > 72) return 1.1 * longRangeDecay;
+      return longRangeDecay;
+    }
   }
 }
 
