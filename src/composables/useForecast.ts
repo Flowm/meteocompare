@@ -1,6 +1,6 @@
 import { computed, onScopeDispose, ref, shallowRef, watch, type Ref } from "vue";
 
-import { fetchForecast, extractHourlyByModel, extractDailyByModel, extractDailySolar, type ForecastResponse, type HourlyVar, type DailyVar } from "@/api/openMeteo";
+import { fetchForecast, extractHourlyByModel, extractDailyByModel, extractDailySolar, type ForecastResponse, type HourlyVar, type DailyVar } from "@/api/omForecast";
 import { aggregateSeries, type AggregatePoint } from "@/domain/aggregate";
 import { confidenceFor } from "@/domain/confidence";
 import { MODELS, MODEL_IDS, type ModelDef } from "@/domain/models";
