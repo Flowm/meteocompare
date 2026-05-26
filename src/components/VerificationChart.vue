@@ -75,6 +75,11 @@ function toPrecipUnit(v: number | null | undefined): number | null {
   return precip.value === "in" ? v / 25.4 : v;
 }
 
+// ECharts runtime supports `show` on series objects but its published TS types
+// omit the property. `EChartsOption["series"]` is `SeriesOption | SeriesOption[]`,
+// so we first Extract the array member before indexing with [number].
+type ChartSeriesItem = Extract<NonNullable<EChartsOption["series"]>, unknown[]>[number] & { show?: boolean };
+
 // ---- Chart option -----------------------------------------------------------
 const option = computed<EChartsOption>(() => {
   const times = props.hourly.times;
@@ -96,7 +101,7 @@ const option = computed<EChartsOption>(() => {
   const precipForecast = props.hourly.aggregatePrecip.map((p) => toPrecipUnit(p.value));
   const precipTruth = props.hourly.truthPrecip.map(toPrecipUnit);
 
-  const series: NonNullable<EChartsOption["series"]> = [];
+  const series: ChartSeriesItem[] = [];
 
   if (props.showModels) {
     // -------- Spaghetti mode: single variable, per-model picker --------------
@@ -108,33 +113,32 @@ const option = computed<EChartsOption>(() => {
     const perModelData = isTemp ? props.hourly.perModelTemp : props.hourly.perModelPrecip;
     const aggLineWidth = 4; // U4: thicker so the aggregate stays visible inside the spaghetti.
 
-    if (showForecast.value) {
-      series.push({
-        name: "Aggregate",
-        type: "line",
-        yAxisIndex: yIndex,
-        data: aggData,
-        smooth: isTemp,
-        symbol: "none",
-        lineStyle: { width: aggLineWidth, color: FORECAST_COLOR },
-        z: 5,
-      });
-    }
-    if (showTruth.value) {
-      series.push({
-        name: "Truth",
-        type: "line",
-        yAxisIndex: yIndex,
-        data: truthData,
-        smooth: false,
-        step: isTemp ? false : "middle",
-        symbol: "none",
-        lineStyle: { width: 3, color: TRUTH_COLOR },
-        z: 6,
-      });
-    }
+    // Always push Aggregate + Truth; use `show` so ECharts can toggle them
+    // without a full series-count change (avoids re-animation on toggle).
+    series.push({
+      name: "Aggregate",
+      type: "line",
+      yAxisIndex: yIndex,
+      data: aggData,
+      smooth: isTemp,
+      symbol: "none",
+      lineStyle: { width: aggLineWidth, color: FORECAST_COLOR },
+      z: 5,
+      show: showForecast.value,
+    });
+    series.push({
+      name: "Truth",
+      type: "line",
+      yAxisIndex: yIndex,
+      data: truthData,
+      smooth: false,
+      step: isTemp ? false : "middle",
+      symbol: "none",
+      lineStyle: { width: 3, color: TRUTH_COLOR },
+      z: 6,
+      show: showTruth.value,
+    });
     for (const [i, m] of props.availableModels.entries()) {
-      if (!enabledModels.value.has(m.id)) continue;
       const arr = perModelData[m.id];
       if (!arr) continue;
       const transform = isTemp ? toTempUnit : toPrecipUnit;
@@ -147,6 +151,9 @@ const option = computed<EChartsOption>(() => {
         symbol: "none",
         lineStyle: { width: 1, color: MODEL_PALETTE[i % MODEL_PALETTE.length], opacity: 0.6 },
         z: 4,
+        // `show` keeps the series in the array so ECharts merges rather than
+        // re-creating it — no flicker/re-animation on chip toggle.
+        show: enabledModels.value.has(m.id),
       });
     }
   } else {
@@ -160,6 +167,7 @@ const option = computed<EChartsOption>(() => {
         itemStyle: { color: PRECIP_FORECAST_COLOR },
         barWidth: "60%",
         z: 1,
+        show: showForecast.value,
       });
       series.push({
         name: "Truth precip",
@@ -171,6 +179,7 @@ const option = computed<EChartsOption>(() => {
         lineStyle: { width: 2, color: TRUTH_COLOR },
         areaStyle: { color: "rgba(250, 204, 21, 0.12)" },
         z: 2,
+        show: showTruth.value,
       });
     }
     if (props.showTemp) {
@@ -183,6 +192,7 @@ const option = computed<EChartsOption>(() => {
         itemStyle: { opacity: 0 },
         tooltip: { show: false },
         data: tempLower,
+        show: showForecast.value,
       });
       series.push({
         name: "band_range",
@@ -193,6 +203,7 @@ const option = computed<EChartsOption>(() => {
         areaStyle: { color: "rgba(244, 114, 182, 0.16)" },
         tooltip: { show: false },
         data: tempDelta,
+        show: showForecast.value,
       });
       series.push({
         name: "Aggregate temp",
@@ -202,6 +213,7 @@ const option = computed<EChartsOption>(() => {
         symbol: "none",
         lineStyle: { width: 2.5, color: FORECAST_COLOR },
         z: 5,
+        show: showForecast.value,
       });
       series.push({
         name: "Truth temp",
@@ -211,6 +223,7 @@ const option = computed<EChartsOption>(() => {
         symbol: "none",
         lineStyle: { width: 3, color: TRUTH_COLOR },
         z: 6,
+        show: showTruth.value,
       });
     }
   }
@@ -242,12 +255,14 @@ const option = computed<EChartsOption>(() => {
         const precipVisible = props.showModels ? variable.value === "precipitation" : props.showPrecip;
         const aggT = tempForecast[idx];
         const truT = tempTruth[idx];
-        if (tempVisible && aggT != null) lines.push(`<span style="color:${FORECAST_COLOR}">forecast</span> ${formatTemp.value(aggT, 1)}`);
-        if (tempVisible && truT != null) lines.push(`<span style="color:${TRUTH_COLOR}">truth</span> ${formatTemp.value(truT, 1)}`);
+        if (tempVisible && aggT != null) lines.push(`<span style="color:${FORECAST_COLOR}">Forecast</span> ${formatTemp.value(aggT, 1)}`);
+        if (tempVisible && truT != null) lines.push(`<span style="color:${TRUTH_COLOR}">Truth</span> ${formatTemp.value(truT, 1)}`);
         const aggP = precipForecast[idx];
         const truP = precipTruth[idx];
-        if (precipVisible && aggP != null) lines.push(`<span style="color:#7dd3fc">forecast precip</span> ${formatPrecip.value(aggP, 1)}`);
-        if (precipVisible && truP != null) lines.push(`<span style="color:${TRUTH_COLOR}">truth precip</span> ${formatPrecip.value(truP, 1)}`);
+        // Always show Forecast precip when variable is visible — use 0 when the
+        // aggregate is null (no contributing models reported precip that hour).
+        if (precipVisible) lines.push(`<span style="color:#7dd3fc">Forecast precip</span> ${formatPrecip.value(aggP ?? 0, 1)}`);
+        if (precipVisible && truP != null) lines.push(`<span style="color:${TRUTH_COLOR}">Truth precip</span> ${formatPrecip.value(truP, 1)}`);
         return `<div style="font-weight:600;margin-bottom:4px">${header}</div>${lines.join("<br/>")}`;
       },
     },
@@ -308,7 +323,7 @@ const modelHasData = computed<Record<string, boolean>>(() => {
       </span>
     </div>
 
-    <!-- Spaghetti-mode controls: variable selector + Forecast/Truth toggles. -->
+    <!-- Spaghetti-mode controls: variable selector only. -->
     <div v-if="showModels" class="mb-3 flex flex-wrap items-center gap-3 text-xs">
       <div class="flex items-center gap-2">
         <span class="text-slate-500">Variable:</span>
@@ -331,44 +346,55 @@ const modelHasData = computed<Record<string, boolean>>(() => {
           </button>
         </div>
       </div>
-
-      <fieldset class="flex items-center gap-3 text-slate-400 sm:ml-auto">
-        <label class="flex items-center gap-1">
-          <input v-model="showForecast" type="checkbox" class="accent-pink-400" />
-          <span>Forecast</span>
-        </label>
-        <label class="flex items-center gap-1">
-          <input v-model="showTruth" type="checkbox" class="accent-yellow-400" />
-          <span>Truth</span>
-        </label>
-      </fieldset>
     </div>
 
     <VChart style="height: 22rem" :option="option" autoresize />
 
-    <!-- Per-model chips in spaghetti mode. -->
-    <div v-if="showModels" class="mt-4 flex flex-wrap items-center gap-2 text-xs">
-      <span class="mr-1 text-slate-500">Models:</span>
+    <!-- Forecast / Truth toggles (always visible) + per-model chips (spaghetti mode only). -->
+    <div class="mt-4 flex flex-wrap items-center gap-2 text-xs">
+      <!-- Forecast toggle chip -->
       <button
-        v-for="(m, i) in availableModels"
-        :key="m.id"
         type="button"
         class="rounded-md px-2 py-1 ring-1 transition-colors"
-        :class="
-          !modelHasData[m.id]
-            ? 'cursor-not-allowed bg-slate-950 text-slate-600 line-through opacity-50 ring-slate-900'
-            : enabledModels.has(m.id)
-              ? 'bg-slate-800 text-slate-100 ring-slate-700'
-              : 'bg-slate-950 text-slate-500 ring-slate-800 hover:text-slate-300'
-        "
-        :disabled="!modelHasData[m.id]"
-        :title="modelHasData[m.id] ? `${m.provider} · ${m.description}` : `${m.provider} · no data for this variable`"
-        @click="toggleModel(m.id)"
+        :class="showForecast ? 'bg-slate-800 text-slate-100 ring-slate-700' : 'bg-slate-950 text-slate-500 ring-slate-800 hover:text-slate-300'"
+        @click="showForecast = !showForecast"
       >
-        <span class="mr-1.5 inline-block size-2 rounded-full" :style="{ backgroundColor: MODEL_PALETTE[i % MODEL_PALETTE.length] }" />{{ m.label }}
+        <span class="mr-1.5 inline-block size-2 rounded-full" :style="{ backgroundColor: FORECAST_COLOR }" />Forecast
       </button>
-      <button type="button" class="ml-2 text-slate-500 underline hover:text-slate-300" @click="selectAllModels">all</button>
-      <button type="button" class="text-slate-500 underline hover:text-slate-300" @click="selectNoModels">none</button>
+      <!-- Truth toggle chip -->
+      <button
+        type="button"
+        class="rounded-md px-2 py-1 ring-1 transition-colors"
+        :class="showTruth ? 'bg-slate-800 text-slate-100 ring-slate-700' : 'bg-slate-950 text-slate-500 ring-slate-800 hover:text-slate-300'"
+        @click="showTruth = !showTruth"
+      >
+        <span class="mr-1.5 inline-block size-2 rounded-full" :style="{ backgroundColor: TRUTH_COLOR }" />Truth
+      </button>
+
+      <!-- Per-model chips: only in spaghetti mode. -->
+      <template v-if="showModels">
+        <span class="mr-1 ml-2 text-slate-500">Models:</span>
+        <button
+          v-for="(m, i) in availableModels"
+          :key="m.id"
+          type="button"
+          class="rounded-md px-2 py-1 ring-1 transition-colors"
+          :class="
+            !modelHasData[m.id]
+              ? 'cursor-not-allowed bg-slate-950 text-slate-600 line-through opacity-50 ring-slate-900'
+              : enabledModels.has(m.id)
+                ? 'bg-slate-800 text-slate-100 ring-slate-700'
+                : 'bg-slate-950 text-slate-500 ring-slate-800 hover:text-slate-300'
+          "
+          :disabled="!modelHasData[m.id]"
+          :title="modelHasData[m.id] ? `${m.provider} · ${m.description}` : `${m.provider} · no data for this variable`"
+          @click="toggleModel(m.id)"
+        >
+          <span class="mr-1.5 inline-block size-2 rounded-full" :style="{ backgroundColor: MODEL_PALETTE[i % MODEL_PALETTE.length] }" />{{ m.label }}
+        </button>
+        <button type="button" class="ml-2 text-slate-500 underline hover:text-slate-300" @click="selectAllModels">all</button>
+        <button type="button" class="text-slate-500 underline hover:text-slate-300" @click="selectNoModels">none</button>
+      </template>
     </div>
   </section>
 </template>
