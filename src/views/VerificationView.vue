@@ -43,8 +43,6 @@ function setRunDate(newDate: string): void {
   void router.replace({ query: { ...route.query, runDate: newDate } });
 }
 
-const showTemp = ref(true);
-const showPrecip = ref(true);
 const showModels = ref(false);
 
 const { loading, error, hourly, daily, weatherCodes, availableModels } = useVerification(current, runDate);
@@ -85,17 +83,6 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
             />
           </label>
 
-          <fieldset v-if="!showModels" class="flex items-center gap-3 text-slate-400">
-            <label class="flex items-center gap-1">
-              <input v-model="showTemp" type="checkbox" class="accent-pink-400" />
-              <span>Temperature</span>
-            </label>
-            <label class="flex items-center gap-1">
-              <input v-model="showPrecip" type="checkbox" class="accent-sky-400" />
-              <span>Precipitation</span>
-            </label>
-          </fieldset>
-
           <label class="flex items-center gap-1 text-slate-400 sm:ml-auto">
             <input v-model="showModels" type="checkbox" class="accent-slate-400" />
             <span>Show contributing models</span>
@@ -117,7 +104,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
       </div>
 
       <!-- Chart -->
-      <VerificationChart v-if="hourly" :hourly="hourly" :available-models="availableModels" :show-models="showModels" :show-temp="showTemp" :show-precip="showPrecip" />
+      <VerificationChart v-if="hourly" :hourly="hourly" :available-models="availableModels" :show-models="showModels" />
 
       <!-- Daily strip -->
       <section v-if="daily && daily.length">

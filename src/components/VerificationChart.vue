@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { EChartsOption } from "echarts";
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import VChart from "vue-echarts";
 
 import { useUnits } from "@/composables/useUnits";
@@ -10,14 +10,10 @@ import type { ModelDef } from "@/domain/models";
 const props = defineProps<{
   hourly: VerificationHourly;
   availableModels: ModelDef[];
-  /** Page-level toggle. When true the chart switches to "spaghetti mode":
-   *  one variable at a time, per-model lines, model picker and explicit
-   *  Forecast / Truth visibility toggles. When false the chart renders the
-   *  dual-axis overlay (aggregate + truth for both temp & precip). */
+  /** When true the chart switches to "spaghetti mode": one variable at a
+   *  time, per-model lines, model picker below. When false both variables
+   *  are rendered on a dual-axis overlay. */
   showModels: boolean;
-  /** Only consulted when `showModels` is false. */
-  showTemp: boolean;
-  showPrecip: boolean;
 }>();
 
 const { temp, precip, formatTemp, formatPrecip } = useUnits();
@@ -30,17 +26,37 @@ const MODEL_PALETTE = ["#60a5fa", "#34d399", "#a78bfa", "#fb7185", "#22d3ee", "#
 
 type ChartVariable = "temperature" | "precipitation";
 
-// ---- Spaghetti-mode state ---------------------------------------------------
-// Internal to the chart, mirroring ModelBreakdown.vue's pattern. The page-level
-// `showModels` prop decides whether this surface is exposed.
-
-const variable = ref<ChartVariable>("temperature");
+// ---- Variable / Forecast / Truth / model state ------------------------------
+// showTemp + showPrecip drive variable selection in BOTH modes.
+//   Overlay:   both can be true simultaneously (dual-axis).
+//   Spaghetti: selectVariable() enforces single-selection.
+const showTemp = ref(true);
+const showPrecip = ref(true);
 const showForecast = ref(true);
 const showTruth = ref(true);
 const enabledModels = ref<Set<string>>(new Set());
 
-// Re-seed the model selection whenever the available set changes (e.g. user
-// picks a different run date). Default to "all available enabled".
+// Direct reference to the ECharts instance for no-redraw chip toggling.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const chartRef = ref<any>(null);
+
+// Derived active variable for spaghetti mode (whichever is exclusively selected,
+// defaulting to temperature when both are on).
+const variable = computed<ChartVariable>(() => (showPrecip.value && !showTemp.value ? "precipitation" : "temperature"));
+
+function selectVariable(v: ChartVariable): void {
+  if (props.showModels) {
+    // Spaghetti: exclusive selection.
+    showTemp.value = v === "temperature";
+    showPrecip.value = v === "precipitation";
+  } else {
+    // Overlay: independent toggle.
+    if (v === "temperature") showTemp.value = !showTemp.value;
+    else showPrecip.value = !showPrecip.value;
+  }
+}
+
+// Re-seed model selection whenever the available set changes (e.g. new run date).
 watch(
   () => props.availableModels.map((m) => m.id).join(","),
   () => {
@@ -49,17 +65,93 @@ watch(
   { immediate: true },
 );
 
+// Patch a single series' opacity directly on the ECharts instance (merge mode).
+// This avoids a full chart redraw — only the matched series is updated.
+function applyModelVisibility(): void {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const chart = chartRef.value?.chart;
+  if (!chart) return;
+  const isTemp = variable.value === "temperature";
+  const perModelData = isTemp ? props.hourly.perModelTemp : props.hourly.perModelPrecip;
+  const patches = props.availableModels
+    .filter((m) => {
+      const arr = perModelData[m.id];
+      return !!arr && arr.some((v) => v != null);
+    })
+    .map((m) => ({
+      name: m.label,
+      lineStyle: { opacity: enabledModels.value.has(m.id) ? 0.6 : 0 },
+    }));
+  if (patches.length > 0) {
+    // false = merge mode: only the named series are touched, no full rebuild.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    chart.setOption({ series: patches }, false);
+  }
+}
+
 function toggleModel(id: string): void {
   const next = new Set(enabledModels.value);
   if (next.has(id)) next.delete(id);
   else next.add(id);
   enabledModels.value = next;
+
+  // Directly patch the single series — no reactive option recompute.
+  const model = props.availableModels.find((m) => m.id === id);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const chart = chartRef.value?.chart;
+  if (!model || !chart) return;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+  chart.setOption({ series: [{ name: model.label, lineStyle: { opacity: next.has(id) ? 0.6 : 0 } }] }, false);
 }
+
 function selectAllModels(): void {
   enabledModels.value = new Set(props.availableModels.map((m) => m.id));
+  applyModelVisibility();
 }
 function selectNoModels(): void {
   enabledModels.value = new Set();
+  applyModelVisibility();
+}
+
+// Patch F/T series opacity directly on the ECharts instance (merge mode).
+// Handles both spaghetti (named "Aggregate"/"Truth") and overlay layouts.
+function applyFTVisibility(): void {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const chart = chartRef.value?.chart;
+  if (!chart) return;
+  const fOp = showForecast.value ? 1 : 0;
+  const tOp = showTruth.value ? 1 : 0;
+  const patches: object[] = [];
+  if (props.showModels) {
+    patches.push({ name: "Aggregate", lineStyle: { opacity: fOp } });
+    patches.push({ name: "Truth", lineStyle: { opacity: tOp } });
+  } else {
+    if (showTemp.value) {
+      // band_range: toggle fill via areaStyle (lineStyle.opacity is always 0)
+      patches.push({ name: "band_range", areaStyle: { opacity: fOp } });
+      patches.push({ name: "Aggregate temp", lineStyle: { opacity: fOp } });
+      patches.push({ name: "Truth temp", lineStyle: { opacity: tOp } });
+    }
+    if (showPrecip.value) {
+      // bar series: toggle via itemStyle.opacity
+      patches.push({ name: "Forecast precip", itemStyle: { opacity: fOp } });
+      // line + area: toggle both
+      patches.push({ name: "Truth precip", lineStyle: { opacity: tOp }, areaStyle: { opacity: tOp } });
+    }
+  }
+  if (patches.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    chart.setOption({ series: patches }, false);
+  }
+}
+
+function toggleForecast(): void {
+  showForecast.value = !showForecast.value;
+  applyFTVisibility();
+}
+function toggleTruth(): void {
+  showTruth.value = !showTruth.value;
+  applyFTVisibility();
 }
 
 // ---- Unit helpers -----------------------------------------------------------
@@ -75,20 +167,13 @@ function toPrecipUnit(v: number | null | undefined): number | null {
   return precip.value === "in" ? v / 25.4 : v;
 }
 
-// ECharts runtime supports `show` on series objects but its published TS types
-// omit the property. `EChartsOption["series"]` is `SeriesOption | SeriesOption[]`,
-// so we first Extract the array member before indexing with [number].
-type ChartSeriesItem = Extract<NonNullable<EChartsOption["series"]>, unknown[]>[number] & { show?: boolean };
-
 // ---- Chart option -----------------------------------------------------------
 const option = computed<EChartsOption>(() => {
   const times = props.hourly.times;
   const labels = times.map((t) => {
     const d = new Date(t);
     const h = d.getHours();
-    // P3: show ISO-8601 date (en-CA produces YYYY-MM-DD) at midnight so users
-    // hopping between historical run-dates can see which date a tick refers to
-    // without guessing from the weekday alone.
+    // P3: show ISO-8601 date (en-CA produces YYYY-MM-DD) at midnight.
     return h === 0 ? d.toLocaleDateString("en-CA") : `${h.toString().padStart(2, "0")}:00`;
   });
 
@@ -101,10 +186,10 @@ const option = computed<EChartsOption>(() => {
   const precipForecast = props.hourly.aggregatePrecip.map((p) => toPrecipUnit(p.value));
   const precipTruth = props.hourly.truthPrecip.map(toPrecipUnit);
 
-  const series: ChartSeriesItem[] = [];
+  const series: NonNullable<EChartsOption["series"]> = [];
 
   if (props.showModels) {
-    // -------- Spaghetti mode: single variable, per-model picker --------------
+    // -------- Spaghetti mode: single variable, per-model lines ---------------
     const v = variable.value;
     const isTemp = v === "temperature";
     const yIndex = isTemp ? 0 : 1;
@@ -113,8 +198,8 @@ const option = computed<EChartsOption>(() => {
     const perModelData = isTemp ? props.hourly.perModelTemp : props.hourly.perModelPrecip;
     const aggLineWidth = 4; // U4: thicker so the aggregate stays visible inside the spaghetti.
 
-    // Always push Aggregate + Truth; use `show` so ECharts can toggle them
-    // without a full series-count change (avoids re-animation on toggle).
+    // F/T visibility is controlled via applyFTVisibility() opacity patches —
+    // always include both so a rebuild doesn't lose the series.
     series.push({
       name: "Aggregate",
       type: "line",
@@ -124,7 +209,6 @@ const option = computed<EChartsOption>(() => {
       symbol: "none",
       lineStyle: { width: aggLineWidth, color: FORECAST_COLOR },
       z: 5,
-      show: showForecast.value,
     });
     series.push({
       name: "Truth",
@@ -136,7 +220,6 @@ const option = computed<EChartsOption>(() => {
       symbol: "none",
       lineStyle: { width: 3, color: TRUTH_COLOR },
       z: 6,
-      show: showTruth.value,
     });
     for (const [i, m] of props.availableModels.entries()) {
       const arr = perModelData[m.id];
@@ -151,14 +234,13 @@ const option = computed<EChartsOption>(() => {
         symbol: "none",
         lineStyle: { width: 1, color: MODEL_PALETTE[i % MODEL_PALETTE.length], opacity: 0.6 },
         z: 4,
-        // `show` keeps the series in the array so ECharts merges rather than
-        // re-creating it — no flicker/re-animation on chip toggle.
-        show: enabledModels.value.has(m.id),
       });
     }
   } else {
     // -------- Overlay mode: aggregate + truth for both variables -------------
-    if (props.showPrecip) {
+    // F/T visibility is controlled via applyFTVisibility() opacity patches —
+    // always include all series so rebuilds don't lose them.
+    if (showPrecip.value) {
       series.push({
         name: "Forecast precip",
         type: "bar",
@@ -167,7 +249,6 @@ const option = computed<EChartsOption>(() => {
         itemStyle: { color: PRECIP_FORECAST_COLOR },
         barWidth: "60%",
         z: 1,
-        show: showForecast.value,
       });
       series.push({
         name: "Truth precip",
@@ -179,20 +260,21 @@ const option = computed<EChartsOption>(() => {
         lineStyle: { width: 2, color: TRUTH_COLOR },
         areaStyle: { color: "rgba(250, 204, 21, 0.12)" },
         z: 2,
-        show: showTruth.value,
       });
     }
-    if (props.showTemp) {
+    if (showTemp.value) {
       series.push({
         name: "band_base",
         type: "line",
         stack: "tempband",
         symbol: "none",
         lineStyle: { opacity: 0 },
+        // ECharts stacked line series get a default area fill (first palette
+        // colour, blue) unless areaStyle.opacity is explicitly suppressed.
+        areaStyle: { opacity: 0 },
         itemStyle: { opacity: 0 },
         tooltip: { show: false },
         data: tempLower,
-        show: showForecast.value,
       });
       series.push({
         name: "band_range",
@@ -203,7 +285,6 @@ const option = computed<EChartsOption>(() => {
         areaStyle: { color: "rgba(244, 114, 182, 0.16)" },
         tooltip: { show: false },
         data: tempDelta,
-        show: showForecast.value,
       });
       series.push({
         name: "Aggregate temp",
@@ -213,7 +294,6 @@ const option = computed<EChartsOption>(() => {
         symbol: "none",
         lineStyle: { width: 2.5, color: FORECAST_COLOR },
         z: 5,
-        show: showForecast.value,
       });
       series.push({
         name: "Truth temp",
@@ -223,21 +303,23 @@ const option = computed<EChartsOption>(() => {
         symbol: "none",
         lineStyle: { width: 3, color: TRUTH_COLOR },
         z: 6,
-        show: showTruth.value,
       });
     }
   }
 
-  // Y-axis visibility depends on mode:
-  //   - Spaghetti: only the axis matching `variable` is shown.
-  //   - Overlay: each axis shown iff its variable is enabled.
-  const showLeftAxis = props.showModels ? variable.value === "temperature" : props.showTemp;
-  const showRightAxis = props.showModels ? variable.value === "precipitation" : props.showPrecip;
+  // Y-axis visibility:
+  //   Spaghetti: only the axis matching `variable`.
+  //   Overlay:   each axis shown iff its variable is enabled.
+  const showLeftAxis = props.showModels ? variable.value === "temperature" : showTemp.value;
+  const showRightAxis = props.showModels ? variable.value === "precipitation" : showPrecip.value;
 
   return {
     backgroundColor: "transparent",
     textStyle: { color: "#cbd5e1" },
     grid: { left: 48, right: 48, top: 32, bottom: 36 },
+    // animationDurationUpdate: 0 makes toggle updates instant, avoiding
+    // re-animation flicker when series are added / removed.
+    animationDurationUpdate: 0,
     tooltip: {
       trigger: "axis",
       backgroundColor: "rgba(15, 23, 42, 0.95)",
@@ -251,18 +333,20 @@ const option = computed<EChartsOption>(() => {
         if (timeStr === undefined) return "";
         const header = new Date(timeStr).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" });
         const lines: string[] = [];
-        const tempVisible = props.showModels ? variable.value === "temperature" : props.showTemp;
-        const precipVisible = props.showModels ? variable.value === "precipitation" : props.showPrecip;
+        const tempVisible = props.showModels ? variable.value === "temperature" : showTemp.value;
+        const precipVisible = props.showModels ? variable.value === "precipitation" : showPrecip.value;
         const aggT = tempForecast[idx];
         const truT = tempTruth[idx];
-        if (tempVisible && aggT != null) lines.push(`<span style="color:${FORECAST_COLOR}">Forecast</span> ${formatTemp.value(aggT, 1)}`);
-        if (tempVisible && truT != null) lines.push(`<span style="color:${TRUTH_COLOR}">Truth</span> ${formatTemp.value(truT, 1)}`);
+        // showForecast/showTruth are read here at call time (not during option
+        // computation), so they don't register as reactive dependencies of option.
+        if (tempVisible && showForecast.value && aggT != null) lines.push(`<span style="color:${FORECAST_COLOR}">Forecast</span> ${formatTemp.value(aggT, 1)}`);
+        if (tempVisible && showTruth.value && truT != null) lines.push(`<span style="color:${TRUTH_COLOR}">Truth</span> ${formatTemp.value(truT, 1)}`);
         const aggP = precipForecast[idx];
         const truP = precipTruth[idx];
         // Always show Forecast precip when variable is visible — use 0 when the
         // aggregate is null (no contributing models reported precip that hour).
-        if (precipVisible) lines.push(`<span style="color:#7dd3fc">Forecast precip</span> ${formatPrecip.value(aggP ?? 0, 1)}`);
-        if (precipVisible && truP != null) lines.push(`<span style="color:${TRUTH_COLOR}">Truth precip</span> ${formatPrecip.value(truP, 1)}`);
+        if (precipVisible && showForecast.value) lines.push(`<span style="color:#7dd3fc">Forecast precip</span> ${formatPrecip.value(aggP ?? 0, 1)}`);
+        if (precipVisible && showTruth.value && truP != null) lines.push(`<span style="color:${TRUTH_COLOR}">Truth precip</span> ${formatPrecip.value(truP, 1)}`);
         return `<div style="font-weight:600;margin-bottom:4px">${header}</div>${lines.join("<br/>")}`;
       },
     },
@@ -275,15 +359,20 @@ const option = computed<EChartsOption>(() => {
     },
     yAxis: [
       {
+        // Left axis (temperature). Always kept "present" so its splitLine
+        // provides horizontal grid lines even when precipitation is the only
+        // displayed variable. Labels + name are hidden when not needed.
         type: "value",
-        name: tempUnit.value,
+        name: showLeftAxis ? tempUnit.value : "",
         nameTextStyle: { color: "#94a3b8" },
         axisLine: { show: false },
-        axisLabel: { color: "#94a3b8" },
+        axisLabel: { color: "#94a3b8", show: showLeftAxis },
+        axisTick: { show: false },
         splitLine: { lineStyle: { color: "#1e293b" } },
-        show: showLeftAxis,
       },
       {
+        // Right axis (precipitation). Only shown when it is the active axis;
+        // shows its own grid lines only when the left axis is absent.
         type: "value",
         name: precipUnit.value,
         nameTextStyle: { color: "#94a3b8" },
@@ -291,7 +380,7 @@ const option = computed<EChartsOption>(() => {
         min: 0,
         axisLine: { show: false },
         axisLabel: { color: "#94a3b8" },
-        splitLine: { show: false },
+        splitLine: { lineStyle: { color: "#1e293b" }, show: showRightAxis && !showLeftAxis },
         show: showRightAxis,
       },
     ],
@@ -309,46 +398,51 @@ const modelHasData = computed<Record<string, boolean>>(() => {
   }
   return out;
 });
+
+// After a genuine full re-render triggered by variable/mode/data changes,
+// ECharts resets series to their initial state. Re-apply F/T and model
+// visibility so hidden series stay hidden after the rebuild.
+watch(option, () => {
+  void nextTick(() => {
+    applyModelVisibility();
+    applyFTVisibility();
+  });
+});
 </script>
 
 <template>
   <section class="rounded-2xl bg-slate-900/60 p-4 ring-1 ring-slate-800 sm:p-6">
     <div class="mb-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
       <span class="font-medium tracking-wider text-slate-300 uppercase">Hourly verification</span>
-      <span class="hidden text-slate-500 sm:inline">
-        <span class="inline-block size-2 rounded-full" :style="{ backgroundColor: FORECAST_COLOR }" />
-        forecast
-        <span class="ml-2 inline-block size-2 rounded-full" :style="{ backgroundColor: TRUTH_COLOR }" />
-        truth
-      </span>
     </div>
 
-    <!-- Spaghetti-mode controls: variable selector only. -->
-    <div v-if="showModels" class="mb-3 flex flex-wrap items-center gap-3 text-xs">
-      <div class="flex items-center gap-2">
-        <span class="text-slate-500">Variable:</span>
-        <div class="flex overflow-hidden rounded-md bg-slate-950 ring-1 ring-slate-800">
-          <button
-            type="button"
-            class="px-3 py-1.5 transition-colors"
-            :class="variable === 'temperature' ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'"
-            @click="variable = 'temperature'"
-          >
-            Temperature
-          </button>
-          <button
-            type="button"
-            class="px-3 py-1.5 transition-colors"
-            :class="variable === 'precipitation' ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'"
-            @click="variable = 'precipitation'"
-          >
-            Precipitation
-          </button>
-        </div>
+    <!-- Variable selector: always visible above the chart.
+         Overlay mode → independent toggles (both can be active).
+         Spaghetti mode → exclusive selection (selectVariable enforces it). -->
+    <div class="mb-3 flex flex-wrap items-center gap-3 text-xs">
+      <div class="flex overflow-hidden rounded-md bg-slate-950 ring-1 ring-slate-800">
+        <button
+          type="button"
+          class="px-3 py-1.5 transition-colors"
+          :class="(showModels ? variable === 'temperature' : showTemp) ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'"
+          @click="selectVariable('temperature')"
+        >
+          Temperature
+        </button>
+        <button
+          type="button"
+          class="px-3 py-1.5 transition-colors"
+          :class="(showModels ? variable === 'precipitation' : showPrecip) ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'"
+          @click="selectVariable('precipitation')"
+        >
+          Precipitation
+        </button>
       </div>
     </div>
 
-    <VChart style="height: 22rem" :option="option" autoresize />
+    <!-- not-merge: series removals (F/T toggles) are applied immediately.
+         Model chip toggles bypass Vue entirely via direct setOption calls. -->
+    <VChart ref="chartRef" style="height: 22rem" :option="option" :not-merge="true" autoresize />
 
     <!-- Forecast / Truth toggles (always visible) + per-model chips (spaghetti mode only). -->
     <div class="mt-4 flex flex-wrap items-center gap-2 text-xs">
@@ -357,7 +451,7 @@ const modelHasData = computed<Record<string, boolean>>(() => {
         type="button"
         class="rounded-md px-2 py-1 ring-1 transition-colors"
         :class="showForecast ? 'bg-slate-800 text-slate-100 ring-slate-700' : 'bg-slate-950 text-slate-500 ring-slate-800 hover:text-slate-300'"
-        @click="showForecast = !showForecast"
+        @click="toggleForecast"
       >
         <span class="mr-1.5 inline-block size-2 rounded-full" :style="{ backgroundColor: FORECAST_COLOR }" />Forecast
       </button>
@@ -366,7 +460,7 @@ const modelHasData = computed<Record<string, boolean>>(() => {
         type="button"
         class="rounded-md px-2 py-1 ring-1 transition-colors"
         :class="showTruth ? 'bg-slate-800 text-slate-100 ring-slate-700' : 'bg-slate-950 text-slate-500 ring-slate-800 hover:text-slate-300'"
-        @click="showTruth = !showTruth"
+        @click="toggleTruth"
       >
         <span class="mr-1.5 inline-block size-2 rounded-full" :style="{ backgroundColor: TRUTH_COLOR }" />Truth
       </button>
