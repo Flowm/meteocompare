@@ -6,6 +6,7 @@ import { aggregateSeries, type AggregatePoint } from "@/domain/aggregate";
 import { confidenceFor } from "@/domain/confidence";
 import { MODEL_IDS, MODELS, type ModelDef } from "@/domain/models";
 import { buildDailyVerification, type DailyVerification } from "@/domain/verification";
+import { addDaysIso } from "@/utils/date";
 
 import type { Location } from "./useLocation";
 
@@ -55,7 +56,7 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
     try {
       // Fetch truth with a 1-day-wider window than the forecast's 7 days so the
       // TZ-shifted forecast window is fully covered regardless of UTC offset.
-      const truthEndDate = addDays(runDate.value, 7);
+      const truthEndDate = addDaysIso(runDate.value, 7);
       const [runs, truth] = await Promise.all([
         fetchSingleRuns({ lat: location.value.latitude, lon: location.value.longitude, runDate: runDate.value }, signal),
         fetchHistoricalWeather({ lat: location.value.latitude, lon: location.value.longitude, startDate: runDate.value, endDate: truthEndDate }, signal),
@@ -188,12 +189,4 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
   });
 
   return { loading, error, hourly, daily, weatherCodes, availableModels, refresh };
-}
-
-/** Add `days` to an ISO `YYYY-MM-DD` date using UTC arithmetic so the result
- *  is independent of the browser's timezone. */
-function addDays(isoDate: string, days: number): string {
-  const d = new Date(`${isoDate}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
 }

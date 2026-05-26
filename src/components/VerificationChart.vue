@@ -52,6 +52,7 @@ watch(
 // Patch a single series' opacity directly on the ECharts instance (merge mode).
 // This avoids a full chart redraw — only the matched series is updated.
 function applyModelVisibility(): void {
+  if (!props.showModels) return; // s-* series only exist in spaghetti mode
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const chart = chartRef.value?.chart;
   if (!chart) return;

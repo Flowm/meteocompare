@@ -8,6 +8,7 @@ import VerificationDayCard from "@/components/VerificationDayCard.vue";
 import { useLocation } from "@/composables/useLocation";
 import { useVerification } from "@/composables/useVerification";
 import { MODELS } from "@/domain/models";
+import { addDaysIso } from "@/utils/date";
 
 const route = useRoute();
 const router = useRouter();
@@ -22,12 +23,6 @@ const DEFAULT_OFFSET_DAYS = 14;
 
 function todayIsoUTC(): string {
   return new Date().toISOString().slice(0, 10);
-}
-
-function addDaysIso(isoDate: string, days: number): string {
-  const d = new Date(`${isoDate}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
 }
 
 const maxRunDate = computed(() => addDaysIso(todayIsoUTC(), -TRUTH_LAG_DAYS));
