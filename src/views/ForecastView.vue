@@ -2,15 +2,19 @@
 import { computed } from "vue";
 
 import AggregateSummary from "@/components/AggregateSummary.vue";
+import { type ChartViewId } from "@/components/chartHelpers";
 import DailyStrip from "@/components/DailyStrip.vue";
-import HourlyChart from "@/components/HourlyChart.vue";
+import HourlySeriesChart from "@/components/HourlySeriesChart.vue";
 import LocationBar from "@/components/LocationBar.vue";
-import ModelBreakdown from "@/components/ModelBreakdown.vue";
 import { useForecast } from "@/composables/useForecast";
 import { useLocation } from "@/composables/useLocation";
 
 const { current } = useLocation();
-const { loading, error, raw, hourly, daily, solar, contributingModels } = useForecast(current);
+const { loading, error, raw, hourly, daily, solar } = useForecast(current);
+
+// Full variable set: the composite Temp+Precip overview plus the five
+// single-variable views. Temp+Precip is the calm default (variables[0]).
+const FORECAST_VARIABLES: ChartViewId[] = ["temp_precip", "temperature_2m", "precipitation", "precipitation_probability", "wind_speed_10m", "cloud_cover"];
 
 const locationLabel = computed(() => {
   const loc = current.value;
@@ -34,9 +38,8 @@ const locationLabel = computed(() => {
 
       <template v-if="raw && hourly && daily">
         <AggregateSummary :raw="raw" :daily="daily" :solar="solar" :location-name="locationLabel" />
-        <HourlyChart :hourly="hourly" :current-time="raw.current.time" :sunrise="solar?.sunrise" :sunset="solar?.sunset" />
+        <HourlySeriesChart title="Hourly forecast" :data="hourly" :variables="FORECAST_VARIABLES" :solar="solar" :current-time="raw.current.time" :default-window="72" />
         <DailyStrip :daily="daily" />
-        <ModelBreakdown :hourly="hourly" :contributing-models="contributingModels" :current-time="raw.current.time" :sunrise="solar?.sunrise" :sunset="solar?.sunset" />
       </template>
     </main>
 

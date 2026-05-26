@@ -1,28 +1,23 @@
 import { computed, ref, shallowRef, watch, type Ref } from "vue";
 
+import { extractDailySolar } from "@/api/omForecast";
 import { extractHourly as extractTruthHourly, fetchHistoricalWeather, type HistoricalWeatherResponse } from "@/api/omHistoricalWeather";
 import { extractDailyByModel, extractHourlyByModel, fetchSingleRuns, type SingleRunsResponse } from "@/api/omSingleRuns";
-import { aggregateSeries, type AggregatePoint } from "@/domain/aggregate";
+import { aggregateSeries } from "@/domain/aggregate";
 import { confidenceFor } from "@/domain/confidence";
 import { MODEL_IDS, MODELS, type ModelDef } from "@/domain/models";
 import { buildDailyVerification, type DailyVerification } from "@/domain/verification";
 import { addDaysIso } from "@/utils/date";
 
+import type { DataVarId, HourlySeries } from "./hourlySeries";
 import type { Location } from "./useLocation";
 
-export interface VerificationHourly {
-  /** Hourly time axis from the single-runs response (location-local, TZ-shifted). */
-  times: string[];
-  aggregateTemp: AggregatePoint[];
-  aggregatePrecip: AggregatePoint[];
-  /** ERA5-Seamless hourly truth, aligned to `times` (null where alignment fails). */
-  truthTemp: (number | null)[];
-  truthPrecip: (number | null)[];
-  perModelTemp: Record<string, (number | null)[]>;
-  perModelPrecip: Record<string, (number | null)[]>;
-  /** Per-hour aggregate per-variable confidence — input to the daily card's calibration display. */
-  confidenceTemp: number[];
-  confidencePrecip: number[];
+/** Conforms to the unified chart contract (HourlySeries) — temperature and
+ *  precipitation only, the two variables ERA5-Seamless provides truth for. */
+export interface VerificationHourly extends HourlySeries {
+  /** Per-hour aggregate per-variable confidence — input to the daily card's
+   *  calibration display. Keyed by variable id. */
+  confidence: Partial<Record<DataVarId, number[]>>;
 }
 
 export interface UseVerificationReturn {
@@ -36,6 +31,9 @@ export interface UseVerificationReturn {
   weatherCodes: Ref<number[]>;
   /** Subset of MODELS that returned non-null data (temp or precip) for this run date. */
   availableModels: Ref<ModelDef[]>;
+  /** Sunrise/sunset (astronomical, location-local) for the chart's day/night
+   *  shading. Null until the single-runs response lands. */
+  solar: Ref<{ sunrise: string[]; sunset: string[] } | null>;
   refresh: () => Promise<void>;
 }
 
@@ -131,24 +129,41 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
       return i == null ? null : (truthPrecipArr[i] ?? null);
     });
 
-    return { times, aggregateTemp, aggregatePrecip, truthTemp, truthPrecip, perModelTemp, perModelPrecip, confidenceTemp, confidencePrecip };
+    // Re-keyed into the unified HourlySeries shape: variable id → series.
+    // Adding wind/cloud truth later (see CONTEXT.md "Truth") becomes a
+    // data-only change here — no new fields.
+    return {
+      times,
+      aggregate: { temperature_2m: aggregateTemp, precipitation: aggregatePrecip },
+      perModel: { temperature_2m: perModelTemp, precipitation: perModelPrecip },
+      truth: { temperature_2m: truthTemp, precipitation: truthPrecip },
+      confidence: { temperature_2m: confidenceTemp, precipitation: confidencePrecip },
+    };
   });
 
   const daily = computed<DailyVerification[] | null>(() => {
     const h = hourly.value;
     if (!h) return null;
+    // buildDailyVerification keeps its flat, tested signature — we just feed it
+    // from the re-keyed maps. The verification scoring domain stays frozen.
     return buildDailyVerification({
       runDate: runDate.value,
       times: h.times,
-      aggregateTemp: h.aggregateTemp,
-      aggregatePrecip: h.aggregatePrecip,
-      confidenceTemp: h.confidenceTemp,
-      confidencePrecip: h.confidencePrecip,
-      perModelTemp: h.perModelTemp,
-      perModelPrecip: h.perModelPrecip,
-      truthTemp: h.truthTemp,
-      truthPrecip: h.truthPrecip,
+      aggregateTemp: h.aggregate.temperature_2m ?? [],
+      aggregatePrecip: h.aggregate.precipitation ?? [],
+      confidenceTemp: h.confidence.temperature_2m ?? [],
+      confidencePrecip: h.confidence.precipitation ?? [],
+      perModelTemp: h.perModel.temperature_2m ?? {},
+      perModelPrecip: h.perModel.precipitation ?? {},
+      truthTemp: h.truth?.temperature_2m ?? [],
+      truthPrecip: h.truth?.precipitation ?? [],
     });
+  });
+
+  const solar = computed(() => {
+    const runs = runsResp.value;
+    if (!runs) return null;
+    return extractDailySolar(runs, MODEL_IDS);
   });
 
   const weatherCodes = computed<number[]>(() => {
@@ -188,5 +203,5 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
     return MODELS.filter((m) => ids.has(m.id));
   });
 
-  return { loading, error, hourly, daily, weatherCodes, availableModels, refresh };
+  return { loading, error, hourly, daily, weatherCodes, availableModels, solar, refresh };
 }

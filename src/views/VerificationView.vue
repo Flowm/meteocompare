@@ -2,13 +2,18 @@
 import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
+import { type ChartViewId } from "@/components/chartHelpers";
+import HourlySeriesChart from "@/components/HourlySeriesChart.vue";
 import LocationBar from "@/components/LocationBar.vue";
-import VerificationChart from "@/components/VerificationChart.vue";
 import VerificationDayCard from "@/components/VerificationDayCard.vue";
 import { useLocation } from "@/composables/useLocation";
 import { useVerification } from "@/composables/useVerification";
 import { MODELS } from "@/domain/models";
 import { addDaysIso } from "@/utils/date";
+
+// ERA5-Seamless provides truth only for temperature and precipitation
+// (ADR 0001). Wind/cloud truth would be a future, data-only addition.
+const VERIFY_VARIABLES: ChartViewId[] = ["temperature_2m", "precipitation"];
 
 const route = useRoute();
 const router = useRouter();
@@ -40,7 +45,7 @@ function setRunDate(newDate: string): void {
 
 const showModels = ref(false);
 
-const { loading, error, hourly, daily, weatherCodes, availableModels } = useVerification(current, runDate);
+const { loading, error, hourly, daily, weatherCodes, availableModels, solar } = useVerification(current, runDate);
 
 const locationLabel = computed(() => {
   const loc = current.value;
@@ -77,11 +82,8 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
               @input="setRunDate(($event.target as HTMLInputElement).value)"
             />
           </label>
-
-          <label class="flex items-center gap-1 text-slate-400 sm:ml-auto">
-            <input v-model="showModels" type="checkbox" class="accent-slate-400" />
-            <span>Show contributing models</span>
-          </label>
+          <!-- "Show contributing models" now lives on the chart itself (shared
+               with the day cards below via v-model:showModels). -->
         </div>
 
         <p v-if="missingModelCount > 0 && !loading" class="mt-3 text-xs text-slate-500">{{ availableModels.length }} / {{ MODELS.length }} models available for this run date.</p>
@@ -99,7 +101,15 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
       </div>
 
       <!-- Chart -->
-      <VerificationChart v-if="hourly" :hourly="hourly" :available-models="availableModels" :show-models="showModels" />
+      <HourlySeriesChart
+        v-if="hourly"
+        v-model:showModels="showModels"
+        title="Hourly verification"
+        :data="hourly"
+        :variables="VERIFY_VARIABLES"
+        :solar="solar"
+        :default-window="168"
+      />
 
       <!-- Daily strip -->
       <section v-if="daily && daily.length">

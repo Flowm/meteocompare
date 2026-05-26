@@ -17,6 +17,11 @@ const HOURLY_VARS = ["temperature_2m", "precipitation"] as const;
 
 const DAILY_VARS = ["temperature_2m_max", "temperature_2m_min", "precipitation_sum", "weather_code"] as const;
 
+// Astronomical values — ISO local-time strings, not per-model numbers. Kept
+// out of DAILY_VARS (which types as numeric) and consumed via extractDailySolar
+// to drive the chart's day/night shading. Same split the forecast API uses.
+const DAILY_SOLAR_VARS = ["sunrise", "sunset"] as const;
+
 export type SingleRunsHourlyVar = (typeof HOURLY_VARS)[number];
 export type SingleRunsDailyVar = (typeof DAILY_VARS)[number];
 
@@ -42,7 +47,7 @@ export async function fetchSingleRuns(req: SingleRunsRequest, signal?: AbortSign
     longitude: String(req.lon),
     run: `${req.runDate}T00:00`,
     hourly: HOURLY_VARS.join(","),
-    daily: DAILY_VARS.join(","),
+    daily: [...DAILY_VARS, ...DAILY_SOLAR_VARS].join(","),
     models: (req.models ?? MODEL_IDS).join(","),
     forecast_days: String(req.forecastDays ?? 7),
     timezone: "auto",

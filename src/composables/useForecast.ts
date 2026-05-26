@@ -39,9 +39,12 @@ function dailyBase(v: DailyVar): Variable {
   }
 }
 
+// Structurally assignable to HourlySeries (the unified chart contract):
+// `aggregate`/`perModel` are keyed by the same variable ids, just over the
+// full forecast variable set. `confidence` is extra (used by daily cards).
 export interface HourlyAggregate {
   times: string[];
-  series: Record<HourlyVar, AggregatePoint[]>;
+  aggregate: Record<HourlyVar, AggregatePoint[]>;
   confidence: Record<HourlyVar, number[]>;
   perModel: Record<HourlyVar, Record<string, (number | null)[]>>;
 }
@@ -120,7 +123,7 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
     const firstHourlyTime = times[0];
     if (firstHourlyTime === undefined) return null;
     const baseTime = new Date(firstHourlyTime);
-    const series: Record<HourlyVar, AggregatePoint[]> = {} as never;
+    const aggregate: Record<HourlyVar, AggregatePoint[]> = {} as never;
     const confidence: Record<HourlyVar, number[]> = {} as never;
     const perModel: Record<HourlyVar, Record<string, (number | null)[]>> = {} as never;
     for (const v of HOURLY) {
@@ -133,10 +136,10 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
         lon: location.value.longitude,
         baseTime,
       });
-      series[v] = agg;
+      aggregate[v] = agg;
       confidence[v] = agg.map((p, i) => confidenceFor(p, v, i));
     }
-    return { times, series, confidence, perModel };
+    return { times, aggregate, confidence, perModel };
   });
 
   const daily = computed<DailyAggregate | null>(() => {
