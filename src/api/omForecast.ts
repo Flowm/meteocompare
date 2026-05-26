@@ -5,6 +5,24 @@ import { MODEL_IDS } from "@/domain/models";
 
 const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 
+// open-meteo only derives precipitation_probability from ensemble members, so
+// deterministic models return all-null. Where a model has an ensemble-backed
+// "seamless" sibling we fetch that sibling purely for the probability variables
+// and read its series under the deterministic id — no extra aggregation vote.
+// DWD: icon_seamless routes to ICON(-EU/-D2)-EPS, available globally to ~7 days,
+// matching icon_global's coverage, so its probability grafts onto icon_global.
+const PROBABILITY_SOURCE: Readonly<Record<string, string>> = { icon_global: "icon_seamless" };
+const PROBABILITY_VARS = new Set<string>(["precipitation_probability", "precipitation_probability_max"]);
+
+/** The model-id suffix to read a (variable, model) pair from. For probability
+ *  variables on models with an ensemble-backed source, redirects to that source. */
+function sourceSuffix(variable: string, id: string): string {
+  return PROBABILITY_VARS.has(variable) ? (PROBABILITY_SOURCE[id] ?? id) : id;
+}
+
+/** Registry ids plus the extra ensemble sources fetched only for probability. */
+export const FETCH_MODEL_IDS: string[] = [...new Set([...MODEL_IDS, ...Object.values(PROBABILITY_SOURCE)])];
+
 const HOURLY_VARS = ["temperature_2m", "precipitation", "precipitation_probability", "weather_code", "wind_speed_10m", "wind_direction_10m", "cloud_cover"] as const;
 
 const DAILY_VARS = [
@@ -54,7 +72,7 @@ export async function fetchForecast(req: ForecastRequest, signal?: AbortSignal):
   const full: Required<ForecastRequest> = {
     lat: req.lat,
     lon: req.lon,
-    models: req.models ?? MODEL_IDS,
+    models: req.models ?? FETCH_MODEL_IDS,
     forecastDays: req.forecastDays ?? 10,
   };
 
@@ -86,7 +104,7 @@ export async function fetchForecast(req: ForecastRequest, signal?: AbortSignal):
 export function extractHourlyByModel(resp: ForecastResponse, variable: HourlyVar, modelIds: string[]): Record<string, (number | null)[]> {
   const out: Record<string, (number | null)[]> = {};
   for (const id of modelIds) {
-    const key = `${variable}_${id}`;
+    const key = `${variable}_${sourceSuffix(variable, id)}`;
     const arr = resp.hourly[key];
     if (arr) out[id] = arr;
   }
@@ -96,7 +114,7 @@ export function extractHourlyByModel(resp: ForecastResponse, variable: HourlyVar
 export function extractDailyByModel(resp: ForecastResponse, variable: DailyVar, modelIds: string[]): Record<string, (number | null)[]> {
   const out: Record<string, (number | null)[]> = {};
   for (const id of modelIds) {
-    const key = `${variable}_${id}`;
+    const key = `${variable}_${sourceSuffix(variable, id)}`;
     const arr = resp.daily[key];
     if (arr) out[id] = arr;
   }
