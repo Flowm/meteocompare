@@ -3,7 +3,7 @@ import { computed, onScopeDispose, ref, shallowRef, watch, type Ref } from "vue"
 import { fetchForecast, extractHourlyByModel, extractDailyByModel, extractDailySolar, type ForecastResponse, type HourlyVar, type DailyVar } from "@/api/omForecast";
 import { aggregateSeries, type AggregatePoint } from "@/domain/aggregate";
 import { confidenceFor } from "@/domain/confidence";
-import { MODELS, MODEL_IDS, type ModelDef } from "@/domain/models";
+import { MODELS, MODEL_IDS } from "@/domain/models";
 import type { Variable } from "@/domain/weighting";
 
 import type { Location } from "./useLocation";
@@ -64,7 +64,6 @@ export interface UseForecastReturn {
   hourly: Ref<HourlyAggregate | null>;
   daily: Ref<DailyAggregate | null>;
   solar: Ref<{ sunrise: string[]; sunset: string[] } | null>;
-  contributingModels: Ref<ModelDef[]>;
   refresh: () => Promise<void>;
 }
 
@@ -176,19 +175,5 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
     return extractDailySolar(data, MODEL_IDS);
   });
 
-  const contributingModels = computed<ModelDef[]>(() => {
-    const data = raw.value;
-    if (!data) return [];
-    // A model "contributed" if at least one of its variables came back populated.
-    const ids = new Set<string>();
-    for (const v of HOURLY) {
-      for (const id of MODEL_IDS) {
-        const arr = data.hourly[`${v}_${id}`];
-        if (arr && arr.some((x) => x != null)) ids.add(id);
-      }
-    }
-    return MODELS.filter((m) => ids.has(m.id));
-  });
-
-  return { loading, error, lastUpdated, raw, hourly, daily, solar, contributingModels, refresh };
+  return { loading, error, lastUpdated, raw, hourly, daily, solar, refresh };
 }
