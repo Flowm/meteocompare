@@ -27,11 +27,7 @@ const MODEL_PALETTE = ["#60a5fa", "#34d399", "#a78bfa", "#fb7185", "#22d3ee", "#
 type ChartVariable = "temperature" | "precipitation";
 
 // ---- Variable / Forecast / Truth / model state ------------------------------
-// showTemp + showPrecip drive variable selection in BOTH modes.
-//   Overlay:   both can be true simultaneously (dual-axis).
-//   Spaghetti: selectVariable() enforces single-selection.
-const showTemp = ref(true);
-const showPrecip = ref(true);
+const variable = ref<ChartVariable>("temperature");
 const showForecast = ref(true);
 const showTruth = ref(true);
 const enabledModels = ref<Set<string>>(new Set());
@@ -40,20 +36,8 @@ const enabledModels = ref<Set<string>>(new Set());
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const chartRef = ref<any>(null);
 
-// Derived active variable for spaghetti mode (whichever is exclusively selected,
-// defaulting to temperature when both are on).
-const variable = computed<ChartVariable>(() => (showPrecip.value && !showTemp.value ? "precipitation" : "temperature"));
-
 function selectVariable(v: ChartVariable): void {
-  if (props.showModels) {
-    // Spaghetti: exclusive selection.
-    showTemp.value = v === "temperature";
-    showPrecip.value = v === "precipitation";
-  } else {
-    // Overlay: independent toggle.
-    if (v === "temperature") showTemp.value = !showTemp.value;
-    else showPrecip.value = !showPrecip.value;
-  }
+  variable.value = v;
 }
 
 // Re-seed model selection whenever the available set changes (e.g. new run date).
@@ -79,11 +63,11 @@ function applyModelVisibility(): void {
       return !!arr && arr.some((v) => v != null);
     })
     .map((m) => ({
-      name: m.label,
+      id: `s-${m.id}`,
       lineStyle: { opacity: enabledModels.value.has(m.id) ? 0.6 : 0 },
     }));
   if (patches.length > 0) {
-    // false = merge mode: only the named series are touched, no full rebuild.
+    // false = merge mode: only the matched series are touched, no full rebuild.
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     chart.setOption({ series: patches }, false);
   }
@@ -95,13 +79,12 @@ function toggleModel(id: string): void {
   else next.add(id);
   enabledModels.value = next;
 
-  // Directly patch the single series — no reactive option recompute.
-  const model = props.availableModels.find((m) => m.id === id);
+  // Directly patch the single series by id — no reactive option recompute.
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const chart = chartRef.value?.chart;
-  if (!model || !chart) return;
+  if (!chart) return;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-  chart.setOption({ series: [{ name: model.label, lineStyle: { opacity: next.has(id) ? 0.6 : 0 } }] }, false);
+  chart.setOption({ series: [{ id: `s-${id}`, lineStyle: { opacity: next.has(id) ? 0.6 : 0 } }] }, false);
 }
 
 function selectAllModels(): void {
@@ -123,21 +106,16 @@ function applyFTVisibility(): void {
   const tOp = showTruth.value ? 1 : 0;
   const patches: object[] = [];
   if (props.showModels) {
-    patches.push({ name: "Aggregate", lineStyle: { opacity: fOp } });
-    patches.push({ name: "Truth", lineStyle: { opacity: tOp } });
+    patches.push({ id: "s-agg", lineStyle: { opacity: fOp } });
+    patches.push({ id: "s-tr", lineStyle: { opacity: tOp } });
+  } else if (variable.value === "precipitation") {
+    patches.push({ id: "o-fp", itemStyle: { opacity: fOp } });
+    patches.push({ id: "o-tp", lineStyle: { opacity: tOp }, areaStyle: { opacity: tOp } });
   } else {
-    if (showTemp.value) {
-      // band_range: toggle fill via areaStyle (lineStyle.opacity is always 0)
-      patches.push({ name: "band_range", areaStyle: { opacity: fOp } });
-      patches.push({ name: "Aggregate temp", lineStyle: { opacity: fOp } });
-      patches.push({ name: "Truth temp", lineStyle: { opacity: tOp } });
-    }
-    if (showPrecip.value) {
-      // bar series: toggle via itemStyle.opacity
-      patches.push({ name: "Forecast precip", itemStyle: { opacity: fOp } });
-      // line + area: toggle both
-      patches.push({ name: "Truth precip", lineStyle: { opacity: tOp }, areaStyle: { opacity: tOp } });
-    }
+    // band_range: toggle fill via areaStyle (lineStyle.opacity is always 0)
+    patches.push({ id: "o-br", areaStyle: { opacity: fOp } });
+    patches.push({ id: "o-at", lineStyle: { opacity: fOp } });
+    patches.push({ id: "o-tt", lineStyle: { opacity: tOp } });
   }
   if (patches.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
@@ -198,9 +176,12 @@ const option = computed<EChartsOption>(() => {
     const perModelData = isTemp ? props.hourly.perModelTemp : props.hourly.perModelPrecip;
     const aggLineWidth = 4; // U4: thicker so the aggregate stays visible inside the spaghetti.
 
-    // F/T visibility is controlled via applyFTVisibility() opacity patches —
-    // always include both so a rebuild doesn't lose the series.
+    // IDs are required so vue-echarts' hasMissingIds check triggers
+    // replaceMerge:"series" when switching modes, preventing old overlay
+    // series from bleeding into spaghetti series by index position.
+    // F/T visibility is controlled via applyFTVisibility() opacity patches.
     series.push({
+      id: "s-agg",
       name: "Aggregate",
       type: "line",
       yAxisIndex: yIndex,
@@ -211,6 +192,7 @@ const option = computed<EChartsOption>(() => {
       z: 5,
     });
     series.push({
+      id: "s-tr",
       name: "Truth",
       type: "line",
       yAxisIndex: yIndex,
@@ -226,6 +208,7 @@ const option = computed<EChartsOption>(() => {
       if (!arr) continue;
       const transform = isTemp ? toTempUnit : toPrecipUnit;
       series.push({
+        id: `s-${m.id}`,
         name: m.label,
         type: "line",
         yAxisIndex: yIndex,
@@ -237,11 +220,12 @@ const option = computed<EChartsOption>(() => {
       });
     }
   } else {
-    // -------- Overlay mode: aggregate + truth for both variables -------------
-    // F/T visibility is controlled via applyFTVisibility() opacity patches —
-    // always include all series so rebuilds don't lose them.
-    if (showPrecip.value) {
+    // -------- Overlay mode: aggregate + truth for the active variable --------
+    // F/T visibility is controlled via applyFTVisibility() opacity patches.
+    // IDs change between variables/modes, triggering replaceMerge:"series".
+    if (variable.value === "precipitation") {
       series.push({
+        id: "o-fp",
         name: "Forecast precip",
         type: "bar",
         yAxisIndex: 1,
@@ -251,6 +235,7 @@ const option = computed<EChartsOption>(() => {
         z: 1,
       });
       series.push({
+        id: "o-tp",
         name: "Truth precip",
         type: "line",
         yAxisIndex: 1,
@@ -261,9 +246,9 @@ const option = computed<EChartsOption>(() => {
         areaStyle: { color: "rgba(250, 204, 21, 0.12)" },
         z: 2,
       });
-    }
-    if (showTemp.value) {
+    } else {
       series.push({
+        id: "o-bb",
         name: "band_base",
         type: "line",
         stack: "tempband",
@@ -277,6 +262,7 @@ const option = computed<EChartsOption>(() => {
         data: tempLower,
       });
       series.push({
+        id: "o-br",
         name: "band_range",
         type: "line",
         stack: "tempband",
@@ -287,6 +273,7 @@ const option = computed<EChartsOption>(() => {
         data: tempDelta,
       });
       series.push({
+        id: "o-at",
         name: "Aggregate temp",
         type: "line",
         data: tempForecast,
@@ -296,6 +283,7 @@ const option = computed<EChartsOption>(() => {
         z: 5,
       });
       series.push({
+        id: "o-tt",
         name: "Truth temp",
         type: "line",
         data: tempTruth,
@@ -307,11 +295,8 @@ const option = computed<EChartsOption>(() => {
     }
   }
 
-  // Y-axis visibility:
-  //   Spaghetti: only the axis matching `variable`.
-  //   Overlay:   each axis shown iff its variable is enabled.
-  const showLeftAxis = props.showModels ? variable.value === "temperature" : showTemp.value;
-  const showRightAxis = props.showModels ? variable.value === "precipitation" : showPrecip.value;
+  const showLeftAxis = variable.value === "temperature";
+  const showRightAxis = variable.value === "precipitation";
 
   return {
     backgroundColor: "transparent",
@@ -333,8 +318,8 @@ const option = computed<EChartsOption>(() => {
         if (timeStr === undefined) return "";
         const header = new Date(timeStr).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" });
         const lines: string[] = [];
-        const tempVisible = props.showModels ? variable.value === "temperature" : showTemp.value;
-        const precipVisible = props.showModels ? variable.value === "precipitation" : showPrecip.value;
+        const tempVisible = variable.value === "temperature";
+        const precipVisible = variable.value === "precipitation";
         const aggT = tempForecast[idx];
         const truT = tempTruth[idx];
         // showForecast/showTruth are read here at call time (not during option
@@ -416,15 +401,13 @@ watch(option, () => {
       <span class="font-medium tracking-wider text-slate-300 uppercase">Hourly verification</span>
     </div>
 
-    <!-- Variable selector: always visible above the chart.
-         Overlay mode → independent toggles (both can be active).
-         Spaghetti mode → exclusive selection (selectVariable enforces it). -->
+    <!-- Variable selector: exclusive single-select in both modes. -->
     <div class="mb-3 flex flex-wrap items-center gap-3 text-xs">
       <div class="flex overflow-hidden rounded-md bg-slate-950 ring-1 ring-slate-800">
         <button
           type="button"
           class="px-3 py-1.5 transition-colors"
-          :class="(showModels ? variable === 'temperature' : showTemp) ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'"
+          :class="variable === 'temperature' ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'"
           @click="selectVariable('temperature')"
         >
           Temperature
@@ -432,7 +415,7 @@ watch(option, () => {
         <button
           type="button"
           class="px-3 py-1.5 transition-colors"
-          :class="(showModels ? variable === 'precipitation' : showPrecip) ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'"
+          :class="variable === 'precipitation' ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'"
           @click="selectVariable('precipitation')"
         >
           Precipitation
@@ -440,9 +423,9 @@ watch(option, () => {
       </div>
     </div>
 
-    <!-- not-merge: series removals (F/T toggles) are applied immediately.
-         Model chip toggles bypass Vue entirely via direct setOption calls. -->
-    <VChart ref="chartRef" style="height: 22rem" :option="option" :not-merge="true" autoresize />
+    <!-- Series ids ensure vue-echarts uses replaceMerge on mode switches
+         (not index-merge). Chip toggles bypass Vue via direct setOption. -->
+    <VChart ref="chartRef" style="height: 22rem" :option="option" autoresize />
 
     <!-- Forecast / Truth toggles (always visible) + per-model chips (spaghetti mode only). -->
     <div class="mt-4 flex flex-wrap items-center gap-2 text-xs">
