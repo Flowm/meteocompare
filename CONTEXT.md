@@ -10,6 +10,10 @@ Multi-model weather forecast comparison. The app pulls deterministic numerical-w
 A specific NWP product exposed by open-meteo, e.g. ECMWF IFS or DWD ICON-EU. One logical model per row in `src/domain/models.ts`.
 _Avoid_: provider, source, dataset.
 
+**Probability graft**:
+open-meteo derives `precipitation_probability` only from ensembles, so deterministic models return null for it. Where a model has an ensemble-backed _seamless_ sibling, we fetch that sibling solely for the probability variable and read its series under the registered model's id — the _graft_. Today `icon_seamless` is grafted onto DWD ICON (`icon_global`). The **graft source** (`icon_seamless`) is never a Model: no registry row, no chip, no aggregate vote of its own; it supplies one variable under the host model's identity and weight. Note we consume open-meteo's _derived_ probability, never raw ensemble members (see "Aggregate").
+_Avoid_: registering a graft source as a Model.
+
 **Model class**:
 Resolution-and-scope tier: `global`, `regional-mid`, or `regional-cam` (convection-allowing). Drives lead-time decay and precipitation boost.
 
