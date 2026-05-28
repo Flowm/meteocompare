@@ -25,7 +25,7 @@ const precipOptions: { value: PrecipitationUnit; label: string }[] = [
   <div ref="root" class="relative">
     <button
       type="button"
-      class="flex items-center justify-center rounded-md border border-slate-800 p-2 text-slate-300 transition-colors hover:border-slate-600 hover:text-sky-300"
+      class="border-ink-700 bg-ink-900/60 text-paper-300 hover:border-sodium-300/60 hover:text-sodium-300 flex items-center justify-center border p-2 transition-colors"
       :aria-expanded="isOpen"
       aria-haspopup="true"
       title="Settings"
@@ -36,7 +36,7 @@ const precipOptions: { value: PrecipitationUnit; label: string }[] = [
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
-        stroke-width="2"
+        stroke-width="1.5"
         stroke-linecap="round"
         stroke-linejoin="round"
         class="size-4"
@@ -50,20 +50,20 @@ const precipOptions: { value: PrecipitationUnit; label: string }[] = [
       <span class="sr-only">Settings</span>
     </button>
 
-    <div v-if="isOpen" class="absolute right-0 z-40 mt-1 w-56 overflow-hidden rounded-lg border border-slate-800 bg-slate-900 shadow-xl" role="menu">
-      <div class="px-3 pt-2 pb-1 text-[10px] tracking-wider text-slate-500 uppercase">Units</div>
+    <div v-if="isOpen" class="panel-in border-ink-700 bg-ink-900 absolute right-0 z-40 mt-1 w-60 overflow-hidden border shadow-2xl shadow-black/60" role="menu">
+      <div class="border-ink-700 text-paper-400 border-b px-3 py-2 font-mono text-[10px] tracking-[0.22em] uppercase"><span class="text-sodium-300">·</span> Units</div>
 
-      <div class="flex items-center justify-between px-3 py-2 text-sm">
-        <span class="text-slate-300">Temperature</span>
-        <div class="flex gap-1" role="radiogroup" aria-label="Temperature unit">
+      <div class="flex items-center justify-between px-3 py-2.5 text-sm">
+        <span class="text-paper-200 font-mono text-[11px] tracking-[0.14em] uppercase">Temp</span>
+        <div class="border-ink-700 flex border" role="radiogroup" aria-label="Temperature unit">
           <button
             v-for="opt in tempOptions"
             :key="opt.value"
             type="button"
             role="radio"
             :aria-checked="temp === opt.value"
-            class="rounded-md border px-2 py-1 text-xs tabular-nums transition-colors"
-            :class="temp === opt.value ? 'border-sky-600 bg-sky-600/20 text-sky-200' : 'border-slate-800 text-slate-300 hover:border-slate-600'"
+            class="px-3 py-1 font-mono text-[11px] tabular-nums transition-colors"
+            :class="temp === opt.value ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
             @click="temp = opt.value"
           >
             {{ opt.label }}
@@ -71,17 +71,17 @@ const precipOptions: { value: PrecipitationUnit; label: string }[] = [
         </div>
       </div>
 
-      <div class="flex items-center justify-between px-3 pt-1 pb-3 text-sm">
-        <span class="text-slate-300">Precipitation</span>
-        <div class="flex gap-1" role="radiogroup" aria-label="Precipitation unit">
+      <div class="border-ink-700/60 flex items-center justify-between border-t px-3 py-2.5 text-sm">
+        <span class="text-paper-200 font-mono text-[11px] tracking-[0.14em] uppercase">Precip</span>
+        <div class="border-ink-700 flex border" role="radiogroup" aria-label="Precipitation unit">
           <button
             v-for="opt in precipOptions"
             :key="opt.value"
             type="button"
             role="radio"
             :aria-checked="precip === opt.value"
-            class="rounded-md border px-2 py-1 text-xs transition-colors"
-            :class="precip === opt.value ? 'border-sky-600 bg-sky-600/20 text-sky-200' : 'border-slate-800 text-slate-300 hover:border-slate-600'"
+            class="px-3 py-1 font-mono text-[11px] transition-colors"
+            :class="precip === opt.value ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
             @click="precip = opt.value"
           >
             {{ opt.label }}

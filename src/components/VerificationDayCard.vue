@@ -52,64 +52,66 @@ function signed(n: number, digits = 1): string {
 </script>
 
 <template>
-  <article class="min-w-[20rem] flex-shrink-0 snap-start rounded-xl bg-slate-900/40 p-4 ring-1 ring-slate-800">
+  <article class="border-ink-700 bg-ink-900/40 min-w-[20rem] flex-shrink-0 snap-start border">
     <!-- Header -->
-    <div class="flex items-baseline justify-between gap-2">
-      <h3 class="text-sm font-semibold text-slate-200">{{ dayLabel }}</h3>
-      <span class="text-[10px] text-slate-500 tabular-nums">{{ leadLabel }}</span>
+    <div class="border-ink-700/60 flex items-baseline justify-between gap-2 border-b px-4 py-2.5">
+      <h3 class="text-paper-100 font-mono text-[11px] font-semibold tracking-[0.16em] uppercase">{{ dayLabel }}</h3>
+      <span class="text-paper-400 font-mono text-[9px] tracking-[0.14em] uppercase tabular-nums">{{ leadLabel }}</span>
     </div>
 
-    <!-- Forecast vs truth header rows -->
-    <div class="mt-3 space-y-1.5 text-sm tabular-nums">
-      <div v-if="day.aggregate.temperature" class="flex items-center gap-2">
-        <span class="w-16 text-xs text-slate-500">Forecast</span>
-        <WeatherIcon v-if="weatherCode != null" :code="weatherCode" size="1.5rem" />
-        <span v-else class="inline-flex size-6 items-center justify-center text-xs text-slate-700">·</span>
-        <span class="text-rose-300">{{ formatTemp(day.aggregate.temperature.forecastMax, 0) }}</span>
-        <span class="text-sky-300">{{ formatTemp(day.aggregate.temperature.forecastMin, 0) }}</span>
-        <span class="ml-auto text-slate-400">{{ day.aggregate.precipitation ? formatPrecip(day.aggregate.precipitation.forecastSum, 1) : "—" }}</span>
+    <div class="px-4 py-3">
+      <!-- Forecast vs truth header rows -->
+      <div class="space-y-1.5 font-mono text-sm tabular-nums">
+        <div v-if="day.aggregate.temperature" class="flex items-center gap-2">
+          <span class="text-aggregate-400 w-16 text-[9px] tracking-[0.18em] uppercase">Forecast</span>
+          <WeatherIcon v-if="weatherCode != null" :code="weatherCode" size="1.25rem" class="text-sodium-200" />
+          <span v-else class="text-paper-500 inline-flex size-5 items-center justify-center text-xs">·</span>
+          <span class="text-heat-300">{{ formatTemp(day.aggregate.temperature.forecastMax, 0) }}</span>
+          <span class="text-cold-300">{{ formatTemp(day.aggregate.temperature.forecastMin, 0) }}</span>
+          <span class="text-rain-300 ml-auto">{{ day.aggregate.precipitation ? formatPrecip(day.aggregate.precipitation.forecastSum, 1) : "—" }}</span>
+        </div>
+        <div v-if="day.aggregate.temperature" class="flex items-center gap-2">
+          <span class="text-truth-400 w-16 text-[9px] tracking-[0.18em] uppercase">Truth</span>
+          <span class="text-paper-500 inline-flex size-5 items-center justify-center text-xs">—</span>
+          <span class="text-heat-300/70">{{ formatTemp(day.aggregate.temperature.truthMax, 0) }}</span>
+          <span class="text-cold-300/70">{{ formatTemp(day.aggregate.temperature.truthMin, 0) }}</span>
+          <span class="text-rain-300/70 ml-auto">{{ day.aggregate.precipitation ? formatPrecip(day.aggregate.precipitation.truthSum, 1) : "—" }}</span>
+        </div>
       </div>
-      <div v-if="day.aggregate.temperature" class="flex items-center gap-2">
-        <span class="w-16 text-xs text-slate-500">Truth</span>
-        <span class="inline-flex size-6 items-center justify-center text-xs text-slate-700">—</span>
-        <span class="text-rose-300/70">{{ formatTemp(day.aggregate.temperature.truthMax, 0) }}</span>
-        <span class="text-sky-300/70">{{ formatTemp(day.aggregate.temperature.truthMin, 0) }}</span>
-        <span class="ml-auto text-slate-500">{{ day.aggregate.precipitation ? formatPrecip(day.aggregate.precipitation.truthSum, 1) : "—" }}</span>
-      </div>
-    </div>
 
-    <!-- Score lines -->
-    <div class="mt-3 space-y-1.5 text-xs tabular-nums">
-      <div v-if="day.aggregate.temperature" class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-slate-400">
-        <span class="font-medium text-slate-300">Temp</span>
-        <span
-          >bias <span class="text-slate-200">{{ signed(day.aggregate.temperature.bias) }} °C</span></span
-        >
-        <span
-          >|MAE| <span class="text-slate-200">{{ day.aggregate.temperature.mae.toFixed(1) }} °C</span></span
-        >
-        <ConfidenceBadge v-if="Number.isFinite(day.aggregate.temperature.confidence)" :value="day.aggregate.temperature.confidence" size="sm" class="ml-auto" />
+      <!-- Score lines -->
+      <div class="border-ink-700/60 mt-3 space-y-1.5 border-t pt-3 font-mono text-[11px] tabular-nums">
+        <div v-if="day.aggregate.temperature" class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+          <span class="text-paper-300 text-[9px] tracking-[0.18em] uppercase">Temp</span>
+          <span class="text-paper-400"
+            >bias <span class="text-paper-100">{{ signed(day.aggregate.temperature.bias) }}<span class="text-paper-500">°C</span></span></span
+          >
+          <span class="text-paper-400"
+            >|MAE| <span class="text-paper-100">{{ day.aggregate.temperature.mae.toFixed(1) }}<span class="text-paper-500">°C</span></span></span
+          >
+          <ConfidenceBadge v-if="Number.isFinite(day.aggregate.temperature.confidence)" :value="day.aggregate.temperature.confidence" size="sm" class="ml-auto" />
+        </div>
+        <div v-if="day.aggregate.precipitation" class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+          <span class="text-paper-300 text-[9px] tracking-[0.18em] uppercase">Precip</span>
+          <span class="text-paper-400"
+            >amt <span class="text-paper-100">{{ signed(day.aggregate.precipitation.amountError) }}<span class="text-paper-500">mm</span></span></span
+          >
+          <template v-if="Number.isFinite(day.aggregate.precipitation.timingHitRate)">
+            <span class="text-paper-400">
+              timing <span class="text-paper-100">{{ Math.round(day.aggregate.precipitation.timingHitRate * 100) }}<span class="text-paper-500">%</span></span>
+            </span>
+          </template>
+          <template v-else>
+            <span class="text-paper-500 text-[9px] tracking-[0.18em] uppercase">dry day</span>
+          </template>
+          <ConfidenceBadge v-if="Number.isFinite(day.aggregate.precipitation.confidence)" :value="day.aggregate.precipitation.confidence" size="sm" class="ml-auto" />
+        </div>
       </div>
-      <div v-if="day.aggregate.precipitation" class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-slate-400">
-        <span class="font-medium text-slate-300">Precip</span>
-        <span
-          >amount <span class="text-slate-200">{{ signed(day.aggregate.precipitation.amountError) }} mm</span></span
-        >
-        <template v-if="Number.isFinite(day.aggregate.precipitation.timingHitRate)">
-          <span>
-            timing <span class="text-slate-200">{{ Math.round(day.aggregate.precipitation.timingHitRate * 100) }}%</span>
-          </span>
-        </template>
-        <template v-else>
-          <span class="text-slate-600">dry day</span>
-        </template>
-        <ConfidenceBadge v-if="Number.isFinite(day.aggregate.precipitation.confidence)" :value="day.aggregate.precipitation.confidence" size="sm" class="ml-auto" />
-      </div>
-    </div>
 
-    <!-- Per-hour hit/miss strip -->
-    <div v-if="day.aggregate.precipitation" class="mt-3">
-      <HitMissStrip :classification="day.aggregate.precipitation.hourlyClassification" :hour-label="(i) => `${i.toString().padStart(2, '0')}:00`" />
+      <!-- Per-hour hit/miss strip -->
+      <div v-if="day.aggregate.precipitation" class="mt-3">
+        <HitMissStrip :classification="day.aggregate.precipitation.hourlyClassification" :hour-label="(i) => `${i.toString().padStart(2, '0')}:00`" />
+      </div>
     </div>
 
     <!-- Per-model rows (revealed by page-level toggle) -->
@@ -121,19 +123,22 @@ function signed(n: number, digits = 1): string {
       leave-from-class="max-h-[36rem] opacity-100"
       leave-to-class="max-h-0 opacity-0"
     >
-      <div v-if="showModels && perModelEntries.length" class="mt-3 space-y-1 border-t border-slate-800 pt-3 text-[11px] tabular-nums">
+      <div v-if="showModels && perModelEntries.length" class="border-ink-700 bg-ink-950/40 space-y-0.5 border-t px-4 py-3 font-mono text-[10px] tabular-nums">
+        <div class="text-paper-400 mb-1.5 text-[9px] tracking-[0.2em] uppercase">Per-model</div>
         <div v-for="[modelId, scores] in perModelEntries" :key="modelId" class="grid grid-cols-[7rem_1fr_1fr] items-baseline gap-2">
-          <span class="truncate text-slate-500">{{ modelLabel(modelId) }}</span>
-          <span class="text-slate-400">
-            <template v-if="scores.temperature">T {{ signed(scores.temperature.bias) }}/{{ scores.temperature.mae.toFixed(1) }} °C</template>
-            <span v-else class="text-slate-600">T —</span>
+          <span class="text-paper-400 truncate">{{ modelLabel(modelId) }}</span>
+          <span class="text-paper-300">
+            <template v-if="scores.temperature"
+              ><span class="text-paper-500">T</span> {{ signed(scores.temperature.bias) }}/{{ scores.temperature.mae.toFixed(1) }}<span class="text-paper-500">°C</span></template
+            >
+            <span v-else class="text-paper-500">T —</span>
           </span>
-          <span class="text-slate-400">
+          <span class="text-paper-300">
             <template v-if="scores.precipitation">
-              P {{ signed(scores.precipitation.amountError) }} mm
-              <span v-if="Number.isFinite(scores.precipitation.timingHitRate)" class="text-slate-500"> · {{ Math.round(scores.precipitation.timingHitRate * 100) }}% </span>
+              <span class="text-paper-500">P</span> {{ signed(scores.precipitation.amountError) }}<span class="text-paper-500">mm</span>
+              <span v-if="Number.isFinite(scores.precipitation.timingHitRate)" class="text-paper-500"> · {{ Math.round(scores.precipitation.timingHitRate * 100) }}% </span>
             </template>
-            <span v-else class="text-slate-600">P —</span>
+            <span v-else class="text-paper-500">P —</span>
           </span>
         </div>
       </div>

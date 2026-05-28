@@ -36,16 +36,19 @@ const { temp, precip, wind, formatTemp, formatPrecip, formatWind } = useUnits();
 const units = computed<UnitPrefs>(() => ({ temp: temp.value, precip: precip.value, wind: wind.value }));
 
 // ---- Colours ----------------------------------------------------------------
-const AGG_COLOR = "#f472b6"; // pink — aggregate forecast
-const TRUTH_COLOR = "#facc15"; // amber — ERA5-Seamless truth
-const PRECIP_BAR_COLOR = "rgba(56, 189, 248, 0.7)"; // sky — precipitation bars
-const BAND_FILL = "rgba(244, 114, 182, 0.18)"; // pink, low alpha — ±1σ band
-const TRUTH_AREA = "rgba(250, 204, 21, 0.12)"; // amber, low alpha — precip truth fill
-const NIGHT_FILL = "rgba(56, 78, 130, 0.18)";
-const MODEL_PALETTE = ["#60a5fa", "#34d399", "#a78bfa", "#fb7185", "#22d3ee", "#f87171", "#facc15", "#4ade80", "#c084fc", "#fcd34d", "#86efac"];
-const BAND_OPACITY = 0.18;
+// Tuned to the "Observatory" palette: coral = aggregate forecast, sodium amber
+// = truth (ERA5 reference), oxidized teal for cool data, and a model palette
+// drawn from the same warm-cool spectrum rather than the default Tailwind hues.
+const AGG_COLOR = "#e8826b"; // coral — aggregate forecast
+const TRUTH_COLOR = "#f5b942"; // sodium amber — ERA5-Seamless truth
+const PRECIP_BAR_COLOR = "rgba(127, 184, 224, 0.65)"; // dusty rain blue
+const BAND_FILL = "rgba(232, 130, 107, 0.16)"; // coral, low alpha — ±1σ band
+const TRUTH_AREA = "rgba(245, 185, 66, 0.12)"; // sodium, low alpha — precip truth fill
+const NIGHT_FILL = "rgba(10, 16, 24, 0.55)";
+const MODEL_PALETTE = ["#6dc6c2", "#9bb87a", "#bfa9d6", "#f0a285", "#7fb8e0", "#d99a1e", "#e8826b", "#9ddad6", "#c7b69a", "#a8c182", "#b88c8c"];
+const BAND_OPACITY = 0.16;
 const TRUTH_AREA_OPACITY = 0.12;
-const MODEL_OPACITY = 0.6;
+const MODEL_OPACITY = 0.55;
 
 const WINDOW_CHOICES = [
   { hours: 24, label: "24h" },
@@ -219,8 +222,19 @@ const option = computed<EChartsOption>(() => {
           silent: true,
           animation: false,
           symbol: ["none", "none"] as [string, string],
-          lineStyle: { color: "rgba(248, 250, 252, 0.85)", width: 1.5, type: "solid" as const },
-          label: { formatter: "Now", color: "#f8fafc", fontSize: 11, position: "end" as const, backgroundColor: "rgba(15, 23, 42, 0.85)", borderRadius: 4, padding: [2, 6, 2, 6] },
+          lineStyle: { color: "rgba(245, 185, 66, 0.85)", width: 1, type: "solid" as const },
+          label: {
+            formatter: "NOW",
+            color: "#050810",
+            fontSize: 9,
+            fontWeight: 700 as const,
+            fontFamily: "JetBrains Mono, ui-monospace, monospace",
+            position: "end" as const,
+            backgroundColor: "#f5b942",
+            borderRadius: 0,
+            padding: [2, 6, 2, 6],
+            distance: 6,
+          },
           data: [{ xAxis: nowIdx }],
         }
       : undefined;
@@ -376,14 +390,16 @@ const option = computed<EChartsOption>(() => {
 
   return {
     backgroundColor: "transparent",
-    textStyle: { color: "#cbd5e1" },
-    grid: { left: 48, right: 48, top: 32, bottom: 36 },
+    textStyle: { color: "#c9bea4", fontFamily: "JetBrains Mono, ui-monospace, monospace" },
+    grid: { left: 52, right: 52, top: 32, bottom: 36 },
     animationDurationUpdate: 0,
     tooltip: {
       trigger: "axis",
-      backgroundColor: "rgba(15, 23, 42, 0.95)",
-      borderColor: "#334155",
-      textStyle: { color: "#e2e8f0" },
+      backgroundColor: "rgba(10, 16, 24, 0.96)",
+      borderColor: "#1a2638",
+      borderWidth: 1,
+      textStyle: { color: "#f4ecd8", fontFamily: "JetBrains Mono, ui-monospace, monospace", fontSize: 11 },
+      extraCssText: "border-radius: 0; backdrop-filter: blur(6px); box-shadow: 0 8px 32px rgba(0,0,0,0.6);",
       formatter: (params: unknown) => {
         const arr = params as Array<{ dataIndex: number }>;
         const idx = arr[0]?.dataIndex ?? -1;
@@ -423,8 +439,8 @@ const option = computed<EChartsOption>(() => {
     xAxis: {
       type: "category",
       data: labels,
-      axisLine: { lineStyle: { color: "#475569" } },
-      axisLabel: { color: "#94a3b8", interval, hideOverlap: true },
+      axisLine: { lineStyle: { color: "#243349" } },
+      axisLabel: { color: "#93896f", interval, hideOverlap: true, fontSize: 10 },
       axisTick: { show: false },
     },
     yAxis: [
@@ -433,23 +449,23 @@ const option = computed<EChartsOption>(() => {
         // the horizontal grid even when only precipitation is shown.
         type: "value",
         name: leftVar ? leftUnit : "",
-        nameTextStyle: { color: "#94a3b8" },
+        nameTextStyle: { color: "#93896f", fontSize: 10 },
         axisLine: { show: false },
-        axisLabel: { color: "#94a3b8", show: !!leftVar },
+        axisLabel: { color: "#93896f", show: !!leftVar, fontSize: 10 },
         axisTick: { show: false },
-        splitLine: { lineStyle: { color: "#1e293b" } },
+        splitLine: { lineStyle: { color: "#131d2d", type: "dashed" } },
         ...(leftIsPct ? { min: 0, max: 100 } : {}),
       },
       {
         // Right axis (precipitation).
         type: "value",
         name: precipUnit,
-        nameTextStyle: { color: "#94a3b8" },
+        nameTextStyle: { color: "#93896f", fontSize: 10 },
         position: "right",
         min: 0,
         axisLine: { show: false },
-        axisLabel: { color: "#94a3b8" },
-        splitLine: { lineStyle: { color: "#1e293b" }, show: rightActive && !leftVar },
+        axisLabel: { color: "#93896f", fontSize: 10 },
+        splitLine: { lineStyle: { color: "#131d2d", type: "dashed" }, show: rightActive && !leftVar },
         show: rightActive,
       },
     ],
@@ -473,18 +489,23 @@ const showAggregateChip = computed(() => hasTruth.value || showModels.value);
 </script>
 
 <template>
-  <section class="rounded-2xl bg-slate-900/60 p-4 ring-1 ring-slate-800 sm:p-6">
+  <section class="border-ink-700 bg-ink-900/60 relative border p-4 sm:p-6">
     <!-- Header + window selector -->
-    <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-      <h2 class="text-sm font-medium tracking-wider text-slate-300 uppercase">{{ title }}</h2>
-      <div class="flex items-center gap-3">
-        <span v-if="!showModels" class="hidden text-xs text-slate-500 sm:inline">Shaded: model spread (±1σ)</span>
-        <div class="flex overflow-hidden rounded-md bg-slate-950 text-xs ring-1 ring-slate-800">
+    <div class="border-ink-700 mb-4 flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+      <h2 class="eyebrow flex items-center gap-2">
+        <span class="bg-sodium-300/50 inline-block h-px w-6" />
+        {{ title }}
+      </h2>
+      <div class="flex items-center gap-4">
+        <span v-if="!showModels" class="text-paper-400 hidden font-mono text-[10px] tracking-[0.18em] uppercase sm:inline">
+          <span class="text-aggregate-400">▒</span> spread ±1σ
+        </span>
+        <div class="border-ink-700 flex border font-mono text-[11px] tracking-[0.1em] uppercase">
           <button
             v-for="c in WINDOW_CHOICES"
             :key="c.hours"
-            class="px-3 py-1.5 transition-colors"
-            :class="hoursWindow === c.hours ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'"
+            class="px-3 py-1 transition-colors"
+            :class="hoursWindow === c.hours ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
             @click="hoursWindow = c.hours"
           >
             {{ c.label }}
@@ -494,14 +515,14 @@ const showAggregateChip = computed(() => hasTruth.value || showModels.value);
     </div>
 
     <!-- Variable selector + show-models toggle -->
-    <div class="mb-3 flex flex-col gap-3 text-xs sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-      <div class="min-w-0 overflow-x-auto rounded-md bg-slate-950 ring-1 ring-slate-800">
+    <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <div class="border-ink-700 min-w-0 overflow-x-auto border font-mono text-[11px] tracking-[0.1em] uppercase">
         <div class="flex">
           <button
             v-for="vid in variables"
             :key="vid"
-            class="px-3 py-1.5 whitespace-nowrap transition-colors"
-            :class="view === vid ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'"
+            class="border-ink-700 border-r px-3 py-1.5 whitespace-nowrap transition-colors last:border-r-0"
+            :class="view === vid ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
             @click="selectView(vid)"
           >
             {{ CHART_VIEWS[vid].label }}
@@ -509,57 +530,70 @@ const showAggregateChip = computed(() => hasTruth.value || showModels.value);
         </div>
       </div>
 
-      <label class="flex items-center gap-1.5 text-slate-400">
-        <input v-model="showModels" type="checkbox" class="accent-slate-400" />
+      <label class="text-paper-300 flex items-center gap-2 font-mono text-[11px] tracking-[0.14em] uppercase select-none">
+        <input
+          v-model="showModels"
+          type="checkbox"
+          class="border-ink-600 bg-ink-900 checked:border-sodium-300 checked:bg-sodium-300 size-3 appearance-none border transition-colors"
+        />
         <span>Show contributing models</span>
       </label>
     </div>
 
-    <VChart ref="chartRef" style="height: 20rem" :option="option" autoresize />
+    <div class="relative">
+      <!-- Faint graph-paper backplate so the chart reads as an instrument
+           plot, not a flat panel. -->
+      <div class="graph-paper pointer-events-none absolute inset-0 opacity-40" aria-hidden="true" />
+      <VChart ref="chartRef" style="height: 21rem" :option="option" autoresize class="relative" />
+    </div>
 
     <!-- Chip strip: aggregate / truth toggles + per-model chips -->
-    <div v-if="showAggregateChip || hasTruth || showModels" class="mt-4 flex flex-wrap items-center gap-2 text-xs">
+    <div
+      v-if="showAggregateChip || hasTruth || showModels"
+      class="border-ink-700/60 mt-4 flex flex-wrap items-center gap-1.5 border-t pt-3 font-mono text-[10px] tracking-[0.12em] uppercase"
+    >
       <button
         v-if="showAggregateChip"
         type="button"
-        class="rounded-md px-2 py-1 ring-1 transition-colors"
-        :class="showAggregate ? 'bg-slate-800 text-slate-100 ring-slate-700' : 'bg-slate-950 text-slate-500 ring-slate-800 hover:text-slate-300'"
+        class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
+        :class="showAggregate ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
         @click="toggleAggregate"
       >
-        <span class="mr-1.5 inline-block size-2 rounded-full" :style="{ backgroundColor: AGG_COLOR }" />Aggregate forecast
+        <span class="inline-block size-2" :style="{ backgroundColor: AGG_COLOR }" />Aggregate
       </button>
       <button
         v-if="hasTruth"
         type="button"
-        class="rounded-md px-2 py-1 ring-1 transition-colors"
-        :class="showTruth ? 'bg-slate-800 text-slate-100 ring-slate-700' : 'bg-slate-950 text-slate-500 ring-slate-800 hover:text-slate-300'"
+        class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
+        :class="showTruth ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
         @click="toggleTruth"
       >
-        <span class="mr-1.5 inline-block size-2 rounded-full" :style="{ backgroundColor: TRUTH_COLOR }" />Truth
+        <span class="inline-block size-2" :style="{ backgroundColor: TRUTH_COLOR }" />Truth
       </button>
 
       <template v-if="showModels">
-        <span class="mr-1 ml-2 text-slate-500">Models:</span>
+        <span class="text-paper-400 mx-2">Models</span>
         <button
           v-for="m in allModels"
           :key="m.id"
           type="button"
-          class="rounded-md px-2 py-1 ring-1 transition-colors"
+          class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
           :class="
             !modelHasData[m.id]
-              ? 'cursor-not-allowed bg-slate-950 text-slate-600 line-through opacity-50 ring-slate-900'
+              ? 'border-ink-700/50 bg-ink-950 text-paper-500 cursor-not-allowed line-through opacity-50'
               : enabledModels.has(m.id)
-                ? 'bg-slate-800 text-slate-100 ring-slate-700'
-                : 'bg-slate-950 text-slate-500 ring-slate-800 hover:text-slate-300'
+                ? 'border-ink-600 bg-ink-800 text-paper-50'
+                : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'
           "
           :disabled="!modelHasData[m.id]"
           :title="modelHasData[m.id] ? `${m.provider} · ${m.description}` : `${m.provider} · no data for this variable`"
           @click="toggleModel(m.id)"
         >
-          <span class="mr-1.5 inline-block size-2 rounded-full" :style="{ backgroundColor: paletteFor(m.id) }" />{{ m.label }}
+          <span class="inline-block size-2" :style="{ backgroundColor: paletteFor(m.id) }" />{{ m.label }}
         </button>
-        <button type="button" class="ml-2 text-slate-500 underline hover:text-slate-300" @click="selectAllModels">all</button>
-        <button type="button" class="text-slate-500 underline hover:text-slate-300" @click="selectNoModels">none</button>
+        <button type="button" class="text-sodium-300/80 hover:text-sodium-200 ml-2 underline-offset-4 hover:underline" @click="selectAllModels">all</button>
+        <span class="text-paper-500">/</span>
+        <button type="button" class="text-sodium-300/80 hover:text-sodium-200 underline-offset-4 hover:underline" @click="selectNoModels">none</button>
       </template>
     </div>
   </section>

@@ -26,14 +26,20 @@ const locationLabel = computed(() => {
   <div class="flex min-h-screen flex-col">
     <LocationBar />
 
-    <main class="mx-auto w-full max-w-4xl flex-1 space-y-6 px-4 py-6 sm:px-6">
-      <div v-if="error" class="rounded-xl border border-rose-900 bg-rose-950/50 p-4 text-sm text-rose-200">
-        {{ error }}
+    <main class="mx-auto w-full max-w-5xl flex-1 space-y-8 px-4 py-8 sm:px-6">
+      <div v-if="error" class="border-heat-500/40 bg-heat-500/5 text-heat-300 border p-4 font-mono text-xs tracking-[0.1em] uppercase">
+        <span class="text-heat-400">[ERR]</span> {{ error }}
       </div>
 
-      <div v-if="loading && !raw" class="grid place-items-center gap-3 py-24 text-slate-500">
-        <div class="size-8 animate-spin rounded-full border-2 border-slate-700 border-t-slate-300" />
-        <p>Fetching forecasts from open-meteo…</p>
+      <div v-if="loading && !raw" class="grid place-items-center gap-4 py-32">
+        <!-- Concentric ring loader that reads as a radar sweep -->
+        <div class="relative size-12">
+          <div class="border-ink-700 absolute inset-0 rounded-full border" />
+          <div class="border-ink-600 absolute inset-1 rounded-full border" />
+          <div class="border-ink-500 absolute inset-2 rounded-full border" />
+          <div class="border-t-sodium-300 absolute inset-0 animate-spin rounded-full border border-transparent" style="animation-duration: 1.6s" />
+        </div>
+        <p class="text-paper-400 font-mono text-[10px] tracking-[0.22em] uppercase">Fetching observations…</p>
       </div>
 
       <template v-if="raw && hourly && daily">
@@ -43,9 +49,15 @@ const locationLabel = computed(() => {
       </template>
     </main>
 
-    <footer class="py-6 text-center text-xs text-slate-500">
-      Forecasts via <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer" class="underline hover:text-slate-300">open-meteo.com</a>
-      · Multi-model aggregate is informational, not a forecast of record.
+    <footer class="border-ink-700/60 border-t px-6 py-6 text-center">
+      <p class="text-paper-400 font-mono text-[10px] tracking-[0.22em] uppercase">
+        Data <span class="text-sodium-300">·</span>
+        <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer" class="text-paper-200 hover:text-sodium-200 underline-offset-4 hover:underline"
+          >open-meteo.com</a
+        >
+        <span class="text-paper-500"> // </span>
+        Multi-model aggregate, informational only
+      </p>
     </footer>
   </div>
 </template>

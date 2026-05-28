@@ -10,11 +10,12 @@ const props = defineProps<{
   hourLabel?: (i: number) => string;
 }>();
 
+// Tones tuned to the "Observatory" palette: sage / sodium / coral / faint ink.
 const TONE: Record<HourClassification, string> = {
-  hit: "bg-emerald-500/80",
-  miss: "bg-amber-500/80",
-  false_alarm: "bg-rose-500/80",
-  correct_dry: "bg-slate-800",
+  hit: "bg-confidence-high/85",
+  miss: "bg-sodium-300/80",
+  false_alarm: "bg-heat-400/85",
+  correct_dry: "bg-ink-700",
 };
 
 const LEGEND: Record<HourClassification, string> = {
@@ -26,19 +27,18 @@ const LEGEND: Record<HourClassification, string> = {
 
 const cells = computed(() => props.classification.map((c, i) => ({ cls: c, tone: TONE[c], title: `${props.hourLabel?.(i) ?? `hour ${i}`} · ${LEGEND[c]}` })));
 
-// P7: surface a wrapper-level tooltip explaining the colour palette, and a
-// visible "no precipitation events" label when the whole row is dry — keeps
-// the strip from looking broken on dry days.
 const isDryDay = computed(() => props.classification.every((c) => c === "correct_dry"));
-const wrapperTitle = computed(() => (isDryDay.value ? "No precipitation events on this day" : "Per-hour outcomes — green: hit, amber: miss, red: false alarm, dark: correct dry"));
+const wrapperTitle = computed(() =>
+  isDryDay.value ? "No precipitation events on this day" : "Per-hour outcomes — sage: hit, sodium: miss, coral: false alarm, dark: correct dry",
+);
 </script>
 
 <template>
   <div class="relative" :title="wrapperTitle">
-    <div class="flex w-full gap-px overflow-hidden rounded-sm ring-1 ring-slate-800">
+    <div class="border-ink-700 flex w-full gap-px overflow-hidden border">
       <div v-for="(c, i) in cells" :key="i" class="h-3 flex-1" :class="c.tone" :title="c.title" />
     </div>
-    <div v-if="isDryDay" class="pointer-events-none absolute inset-0 flex items-center justify-center text-[9px] tracking-wider text-slate-500 uppercase">
+    <div v-if="isDryDay" class="text-paper-400 pointer-events-none absolute inset-0 flex items-center justify-center font-mono text-[9px] tracking-[0.22em] uppercase">
       No precipitation events
     </div>
   </div>

@@ -59,45 +59,65 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
   <div class="flex min-h-screen flex-col">
     <LocationBar />
 
-    <main class="mx-auto w-full max-w-4xl flex-1 space-y-6 px-4 py-6 sm:px-6">
+    <main class="mx-auto w-full max-w-5xl flex-1 space-y-8 px-4 py-8 sm:px-6">
       <!-- Header / controls -->
-      <section class="rounded-2xl bg-slate-900/60 p-4 ring-1 ring-slate-800 sm:p-6">
-        <div class="flex flex-wrap items-baseline justify-between gap-3">
+      <section class="registration border-ink-700 bg-ink-900/60 relative border p-5 sm:p-6">
+        <div class="border-ink-700 flex flex-wrap items-baseline justify-between gap-3 border-b pb-3">
           <div>
-            <h1 class="text-sm font-medium tracking-wider text-slate-300 uppercase">Verification</h1>
-            <p class="mt-0.5 text-xs text-slate-500">for {{ locationLabel }}</p>
+            <h1 class="eyebrow-sodium flex items-center gap-2">
+              <span class="bg-sodium-300 size-1.5 rounded-full" />
+              Verification
+            </h1>
+            <p
+              class="display-serif text-paper-50 mt-1 text-xl"
+              style="
+                font-variation-settings:
+                  &quot;opsz&quot; 144,
+                  &quot;wght&quot; 400;
+              "
+            >
+              {{ locationLabel }}
+            </p>
           </div>
-          <p class="text-xs text-slate-500">Forecast vs ERA5-Seamless truth · 7-day window from 00:00 UTC</p>
+          <p class="text-paper-400 max-w-xs text-right font-mono text-[10px] tracking-[0.14em] uppercase">
+            Forecast vs ERA5-Seamless truth
+            <br /><span class="text-paper-500">7-day window · 00:00 UTC</span>
+          </p>
         </div>
 
-        <div class="mt-4 flex flex-wrap items-center gap-4 text-xs">
-          <label class="flex items-center gap-2 text-slate-400">
+        <div class="mt-4 flex flex-wrap items-center gap-4">
+          <label class="text-paper-300 flex items-center gap-2.5 font-mono text-[10px] tracking-[0.18em] uppercase">
             <span>Run date</span>
             <input
               type="date"
               :value="runDate"
               :min="RETENTION_FLOOR"
               :max="maxRunDate"
-              class="rounded-md border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200 outline-none focus:border-slate-600"
+              class="border-ink-700 bg-ink-950 text-paper-50 focus:border-sodium-300/60 border px-2 py-1 font-mono text-xs tracking-normal outline-none"
               @input="setRunDate(($event.target as HTMLInputElement).value)"
             />
           </label>
-          <!-- "Show contributing models" now lives on the chart itself (shared
-               with the day cards below via v-model:showModels). -->
         </div>
 
-        <p v-if="missingModelCount > 0 && !loading" class="mt-3 text-xs text-slate-500">{{ availableModels.length }} / {{ MODELS.length }} models available for this run date.</p>
+        <p v-if="missingModelCount > 0 && !loading" class="text-paper-400 mt-3 font-mono text-[10px] tracking-[0.14em] uppercase">
+          <span class="text-sodium-300">·</span> {{ availableModels.length }}/{{ MODELS.length }} models available
+        </p>
       </section>
 
       <!-- Error state -->
-      <div v-if="error" class="rounded-xl border border-rose-900 bg-rose-950/50 p-4 text-sm text-rose-200">
-        {{ error }}
+      <div v-if="error" class="border-heat-500/40 bg-heat-500/5 text-heat-300 border p-4 font-mono text-xs tracking-[0.1em] uppercase">
+        <span class="text-heat-400">[ERR]</span> {{ error }}
       </div>
 
       <!-- Loading state -->
-      <div v-if="loading && !hourly" class="grid place-items-center gap-3 py-24 text-slate-500">
-        <div class="size-8 animate-spin rounded-full border-2 border-slate-700 border-t-slate-300" />
-        <p>Fetching historical runs + ERA5-Seamless…</p>
+      <div v-if="loading && !hourly" class="grid place-items-center gap-4 py-32">
+        <div class="relative size-12">
+          <div class="border-ink-700 absolute inset-0 rounded-full border" />
+          <div class="border-ink-600 absolute inset-1 rounded-full border" />
+          <div class="border-ink-500 absolute inset-2 rounded-full border" />
+          <div class="border-t-sodium-300 absolute inset-0 animate-spin rounded-full border border-transparent" style="animation-duration: 1.6s" />
+        </div>
+        <p class="text-paper-400 font-mono text-[10px] tracking-[0.22em] uppercase">Loading historical runs + ERA5…</p>
       </div>
 
       <!-- Chart -->
@@ -113,17 +133,25 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
 
       <!-- Daily strip -->
       <section v-if="daily && daily.length">
-        <h2 class="mb-3 text-sm font-medium tracking-wider text-slate-300 uppercase">Daily breakdown</h2>
-        <div class="-mx-2 flex snap-x gap-3 overflow-x-auto px-2 py-1">
+        <h2 class="eyebrow mb-3 flex items-center gap-2">
+          <span class="bg-sodium-300/50 inline-block h-px w-6" />
+          Daily breakdown
+        </h2>
+        <div class="-mx-2 flex snap-x gap-2 overflow-x-auto px-2 pt-1 pb-3">
           <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" :show-models="showModels" :weather-code="weatherCodes[d.dayIndex]" />
         </div>
       </section>
     </main>
 
-    <footer class="py-6 text-center text-xs text-slate-500">
-      Truth via ERA5-Seamless · forecasts via
-      <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer" class="underline hover:text-slate-300">open-meteo.com</a>
-      · informational, not a research-grade verification.
+    <footer class="border-ink-700/60 border-t px-6 py-6 text-center">
+      <p class="text-paper-400 font-mono text-[10px] tracking-[0.22em] uppercase">
+        Truth <span class="text-sodium-300">·</span> ERA5-Seamless
+        <span class="text-paper-500"> // </span>
+        Forecasts <span class="text-sodium-300">·</span>
+        <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer" class="text-paper-200 hover:text-sodium-200 underline-offset-4 hover:underline"
+          >open-meteo.com</a
+        >
+      </p>
     </footer>
   </div>
 </template>
