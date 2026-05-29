@@ -71,107 +71,91 @@ const tempWhole = computed(() => {
 </script>
 
 <template>
-  <section class="registration border-ink-700 bg-ink-900/60 relative border px-5 py-6 sm:px-8 sm:py-8">
-    <!-- Top eyebrow: classification strip ---------------------------- -->
-    <div
-      class="border-ink-700 text-paper-400 absolute top-0 right-5 left-5 flex items-center justify-between border-b pb-2 font-mono text-[10px] tracking-[0.22em] uppercase sm:right-8 sm:left-8"
-      style="transform: translateY(-50%)"
-    >
-      <span class="bg-ink-900 pr-3"><span class="text-sodium-300">●</span> Live observation</span>
-      <span class="bg-ink-900 pl-3 tabular-nums">
+  <section class="border-ink-700 bg-ink-900/60 border p-4 sm:p-5">
+    <!-- Header bar: same eyebrow + hairline-divider pattern as the chart
+         card below, so the two stack as a single typographic system. -->
+    <div class="border-ink-700 mb-3 flex items-center justify-between gap-3 border-b pb-3">
+      <h2 class="eyebrow flex items-center gap-2">
+        <span class="bg-sodium-300/50 inline-block h-px w-6" />
+        Current conditions
+      </h2>
+      <span class="text-paper-400 font-mono text-[10px] tracking-[0.18em] whitespace-nowrap uppercase tabular-nums">
+        <span class="text-sodium-300">●</span>
         {{ lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }}
-        <span class="text-paper-500">·</span>
-        {{ lastUpdated.toLocaleDateString([], { day: "2-digit", month: "short" }) }}
+        <span class="hidden sm:inline">
+          <span class="text-paper-500">·</span>
+          {{ lastUpdated.toLocaleDateString([], { day: "2-digit", month: "short" }) }}
+        </span>
       </span>
     </div>
 
-    <div class="mt-2 grid gap-6 sm:mt-3 sm:grid-cols-[1fr_auto] sm:gap-10">
-      <!-- LEFT: location + reading ---------------------------------- -->
-      <div class="min-w-0">
-        <div class="flex items-center gap-2">
-          <span class="eyebrow">{{ locationName }}</span>
-          <button
-            type="button"
-            class="-m-1 p-1 text-sm leading-none transition-colors"
-            :class="starred ? 'text-sodium-300 hover:text-sodium-200' : 'text-paper-400 hover:text-sodium-300'"
-            :title="starred ? 'Remove from favourites' : 'Save as favourite'"
-            :aria-pressed="starred"
-            @click="toggleFavourite(current)"
-          >
-            {{ starred ? "★" : "☆" }}
-          </button>
+    <!-- Location ----------------------------------------------------- -->
+    <div class="flex items-center gap-1.5">
+      <span class="eyebrow">{{ locationName }}</span>
+      <button
+        type="button"
+        class="-m-1 p-1 text-sm leading-none transition-colors"
+        :class="starred ? 'text-sodium-300 hover:text-sodium-200' : 'text-paper-400 hover:text-sodium-300'"
+        :title="starred ? 'Remove from favourites' : 'Save as favourite'"
+        :aria-pressed="starred"
+        @click="toggleFavourite(current)"
+      >
+        {{ starred ? "★" : "☆" }}
+      </button>
+    </div>
+
+    <!-- Reading + readouts ------------------------------------------ -->
+    <div class="mt-2 grid gap-4 sm:mt-3 sm:grid-cols-[1fr_auto] sm:items-center sm:gap-8">
+      <div class="flex items-center gap-4 sm:gap-5">
+        <div class="relative shrink-0">
+          <!-- A halo behind the weather icon so it reads as a "lit" panel
+               element. -->
+          <div class="bg-sodium-300/10 absolute inset-0 -m-2 rounded-full blur-2xl" aria-hidden="true" />
+          <WeatherIcon :code="currentCode" :is-day="currentIsDay" size="2.75rem" class="text-sodium-200 relative" />
         </div>
 
-        <div class="mt-3 flex items-start gap-5 sm:gap-7">
-          <div class="relative shrink-0">
-            <!-- A halo behind the weather icon so it reads as a "lit" panel
-                 element. -->
-            <div class="bg-sodium-300/10 absolute inset-0 -m-3 rounded-full blur-2xl" aria-hidden="true" />
-            <WeatherIcon :code="currentCode" :is-day="currentIsDay" size="3.75rem" class="text-sodium-200 relative" />
+        <div class="min-w-0">
+          <div class="flex items-baseline gap-1">
+            <span class="sodium-glow text-paper-50 font-mono text-5xl leading-none font-light tabular-nums sm:text-6xl">
+              {{ tempWhole }}
+            </span>
+            <span class="text-sodium-300 font-mono text-xl leading-none font-light tabular-nums sm:text-2xl"> °{{ tempUnitLetter }} </span>
           </div>
-
-          <div class="min-w-0">
-            <div class="flex items-start gap-1">
-              <span
-                class="display-serif sodium-glow text-paper-50 text-7xl leading-[0.85] font-light tabular-nums sm:text-8xl"
-                style="
-                  font-variation-settings:
-                    &quot;opsz&quot; 144,
-                    &quot;wght&quot; 350,
-                    &quot;SOFT&quot; 50;
-                "
-              >
-                {{ tempWhole }}
-              </span>
-              <div class="flex flex-col gap-1 pt-2">
-                <span
-                  class="display-serif text-sodium-300 text-3xl leading-none font-extralight sm:text-4xl"
-                  style="
-                    font-variation-settings:
-                      &quot;opsz&quot; 144,
-                      &quot;wght&quot; 250;
-                  "
-                  >°</span
-                >
-                <span class="text-paper-300 font-mono text-[10px] tracking-[0.2em] uppercase">{{ tempUnitLetter }}</span>
-              </div>
-            </div>
-            <div class="text-paper-200 mt-3 font-mono text-xs tracking-[0.18em] uppercase">
-              {{ weatherLabel(currentCode) }}
-            </div>
+          <div class="text-paper-200 mt-1.5 font-mono text-[11px] tracking-[0.18em] uppercase">
+            {{ weatherLabel(currentCode) }}
           </div>
         </div>
       </div>
 
-      <!-- RIGHT: instrument-style readouts -------------------------- -->
-      <div class="flex flex-col gap-4 sm:items-end">
+      <div class="flex flex-col gap-2.5 sm:items-end">
         <ConfidenceBadge :value="todayConfidence" />
 
-        <div class="border-ink-700 bg-ink-950/60 grid grid-cols-3 gap-x-5 gap-y-2 border p-4 font-mono tabular-nums sm:grid-cols-[auto_auto_auto]">
-          <div class="flex flex-col gap-1">
+        <div class="border-ink-700 bg-ink-950/60 grid grid-cols-3 gap-x-4 gap-y-1 border px-3 py-2 font-mono tabular-nums sm:grid-cols-[auto_auto_auto]">
+          <div class="flex flex-col gap-0.5">
             <span class="text-paper-400 text-[9px] tracking-[0.22em] uppercase">High</span>
-            <span class="text-heat-300 text-base">{{ formatTemp(todayHigh, 0) }}</span>
+            <span class="text-heat-300 text-sm">{{ formatTemp(todayHigh, 0) }}</span>
           </div>
-          <div class="flex flex-col gap-1">
+          <div class="flex flex-col gap-0.5">
             <span class="text-paper-400 text-[9px] tracking-[0.22em] uppercase">Low</span>
-            <span class="text-cold-300 text-base">{{ formatTemp(todayLow, 0) }}</span>
+            <span class="text-cold-300 text-sm">{{ formatTemp(todayLow, 0) }}</span>
           </div>
-          <div class="flex flex-col gap-1">
+          <div class="flex flex-col gap-0.5">
             <span class="text-paper-400 text-[9px] tracking-[0.22em] uppercase">Precip</span>
-            <span class="text-base" :class="todayPrecipProb != null && todayPrecipProb > 0 ? 'text-rain-300' : 'text-paper-400'">
+            <span class="text-sm" :class="todayPrecipProb != null && todayPrecipProb > 0 ? 'text-rain-300' : 'text-paper-400'">
               {{ todayPrecipProb != null && todayPrecipProb > 0 ? formatPercent(todayPrecipProb) : "—" }}
             </span>
           </div>
         </div>
-
-        <div v-if="sunrise || sunset" class="text-paper-300 flex items-center gap-4 font-mono text-[11px] tabular-nums">
-          <span class="flex items-center gap-1.5" title="Sunrise"> <span class="text-sodium-300">↑</span>{{ formatClock(sunrise) }} </span>
-          <span class="text-ink-600">│</span>
-          <span class="flex items-center gap-1.5" title="Sunset"> <span class="text-heat-400">↓</span>{{ formatClock(sunset) }} </span>
-          <span v-if="dayLength" class="text-ink-600">│</span>
-          <span v-if="dayLength" class="text-paper-400" title="Day length">{{ dayLength }}</span>
-        </div>
       </div>
+    </div>
+
+    <!-- Solar footer (compact, on its own row) ---------------------- -->
+    <div v-if="sunrise || sunset" class="border-ink-700/60 text-paper-300 mt-3 flex items-center gap-3 border-t pt-2.5 font-mono text-[10px] tabular-nums">
+      <span class="flex items-center gap-1.5" title="Sunrise"> <span class="text-sodium-300">↑</span>{{ formatClock(sunrise) }} </span>
+      <span class="text-ink-600">│</span>
+      <span class="flex items-center gap-1.5" title="Sunset"> <span class="text-heat-400">↓</span>{{ formatClock(sunset) }} </span>
+      <span v-if="dayLength" class="text-ink-600">│</span>
+      <span v-if="dayLength" class="text-paper-400" title="Day length">{{ dayLength }}</span>
     </div>
   </section>
 </template>

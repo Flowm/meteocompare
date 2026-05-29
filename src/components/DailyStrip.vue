@@ -49,13 +49,10 @@ const days = computed<DayRow[]>(() =>
 
 <template>
   <section>
-    <div class="mb-3 flex items-baseline justify-between">
-      <h2 class="eyebrow flex items-center gap-2">
-        <span class="bg-sodium-300/50 inline-block h-px w-6" />
-        10-day outlook
-      </h2>
-      <span class="text-paper-400 font-mono text-[10px] tracking-[0.18em] uppercase tabular-nums">{{ days.length }} day forecast</span>
-    </div>
+    <h2 class="eyebrow mb-3 flex items-center gap-2">
+      <span class="bg-sodium-300/50 inline-block h-px w-6" />
+      10-day outlook
+    </h2>
     <div class="-mx-2 flex snap-x gap-2 overflow-x-auto px-2 pt-1 pb-3">
       <DayCard
         v-for="(d, i) in days"

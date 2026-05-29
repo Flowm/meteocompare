@@ -192,14 +192,25 @@ function geolocate(): void {
 
       <!-- Search ------------------------------------------------------- -->
       <div class="relative w-full">
-        <div class="text-paper-400 pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 font-mono text-[10px] tracking-[0.2em] uppercase">
-          Loc<span class="text-sodium-300/70">/</span>
-        </div>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="text-paper-400 pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
         <input
           v-model="query"
           type="search"
           placeholder="Search station, city, coordinates…"
-          class="border-ink-700 bg-ink-900/70 text-paper-50 placeholder:text-paper-400/70 focus:border-sodium-300/70 focus:bg-ink-900 w-full border py-2 pr-10 pl-14 text-sm outline-none"
+          class="border-ink-700 bg-ink-900/70 text-paper-50 placeholder:text-paper-400/70 focus:border-sodium-300/70 focus:bg-ink-900 w-full border py-2 pr-10 pl-9 text-sm outline-none"
           @focus="isOpen = true"
         />
         <button

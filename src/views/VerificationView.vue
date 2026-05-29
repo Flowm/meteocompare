@@ -68,14 +68,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
               <span class="bg-sodium-300 size-1.5 rounded-full" />
               Verification
             </h1>
-            <p
-              class="display-serif text-paper-50 mt-1 text-xl"
-              style="
-                font-variation-settings:
-                  &quot;opsz&quot; 144,
-                  &quot;wght&quot; 400;
-              "
-            >
+            <p class="text-paper-50 mt-1 font-mono text-sm tracking-[0.05em]">
               {{ locationLabel }}
             </p>
           </div>

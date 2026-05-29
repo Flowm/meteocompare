@@ -122,7 +122,7 @@ const visibleModels = computed(() => props.models?.filter((m) => m.high != null 
       </div>
 
       <div class="mt-3 flex justify-center">
-        <ConfidenceBadge :value="confidence" size="sm" :label="`${Math.round(confidence * 100)}%`" />
+        <ConfidenceBadge :value="confidence" size="sm" />
       </div>
     </div>
 

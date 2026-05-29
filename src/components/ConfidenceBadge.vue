@@ -47,6 +47,12 @@ const sizing = computed(() => (props.size === "sm" ? "text-[10px] px-2 py-0.5 ga
 // indicator. Each segment is either "lit" or not.
 const SEGMENTS = 12;
 const litSegments = computed(() => Math.max(0, Math.min(SEGMENTS, Math.round(props.value * SEGMENTS))));
+
+// Default label: the md size (used in the hero) carries the word "Agreement"
+// so the segmented meter is introduced as a known UI element. The sm size
+// (used in the daily outlook cards) drops the word and shows just the percent
+// — by the time a user reaches the outlook they've seen the badge labelled.
+const defaultLabel = computed(() => (props.size === "sm" ? `${percent.value}%` : `Agreement ${percent.value}%`));
 </script>
 
 <template>
@@ -64,6 +70,6 @@ const litSegments = computed(() => Math.max(0, Math.min(SEGMENTS, Math.round(pro
         :class="[size === 'sm' ? 'h-2' : 'h-2.5', i <= litSegments ? `${tone.bar} ${i === litSegments ? tone.glow : ''}` : 'bg-ink-700']"
       />
     </span>
-    <span :class="tone.text">{{ label ?? `${percent}%` }}</span>
+    <span :class="tone.text">{{ label ?? defaultLabel }}</span>
   </span>
 </template>
