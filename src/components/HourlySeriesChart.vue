@@ -29,7 +29,8 @@ const props = withDefaults(
 );
 
 /** Two-way when the parent binds it (verify, to share with the day cards);
- *  a self-contained local toggle otherwise (forecast). */
+ *  derived locally from `enabledModels.size > 0` — kept as a writable ref so
+ *  selectView() can also clear spaghetti when switching to a composite view. */
 const showModels = defineModel<boolean>("showModels", { default: false });
 
 const { temp, precip, wind, formatTemp, formatPrecip, formatWind } = useUnits();
@@ -77,16 +78,16 @@ const hasTruth = computed(() => !!props.data.truth);
  *  to their `spaghettiVar`. */
 const activeVar = computed<DataVarId>(() => CHART_VIEWS[view.value].spaghettiVar);
 
-// Q11 (option A): spaghetti needs a single variable. Turning it on while the
-// composite Temp+Precip view is selected snaps to Temperature.
+// Q11 (option A): spaghetti needs a single variable. Enabling any model while
+// the composite Temp+Precip view is selected snaps to Temperature.
 watch(showModels, (on) => {
   if (on && view.value === "temp_precip") view.value = "temperature_2m";
 });
 
 function selectView(v: ChartViewId): void {
-  // The reverse of the snap: picking the composite while spaghetti is on turns
-  // spaghetti off (two fans on two axes is unreadable).
-  if (v === "temp_precip" && showModels.value) showModels.value = false;
+  // The reverse of the snap: picking the composite while spaghetti is on
+  // clears the enabled models (two fans on two axes is unreadable).
+  if (v === "temp_precip" && showModels.value) enabledModels.value = new Set();
   view.value = v;
 }
 
@@ -115,11 +116,25 @@ function paletteFor(id: string): string {
   return MODEL_PALETTE[(i < 0 ? 0 : i) % MODEL_PALETTE.length]!;
 }
 
-// Re-seed enabled models whenever the chip universe changes (new data / run).
+// Reset enabled models whenever the chip universe changes (new data / run).
+// Default: nothing is enabled, so the chart starts clean (aggregate + band +
+// truth only). The user opts in to model spaghetti via the chips below the
+// chart — this is the single source of truth for "show contributing models".
 watch(
   () => allModels.value.map((m) => m.id).join(","),
   () => {
-    enabledModels.value = new Set(allModels.value.map((m) => m.id));
+    enabledModels.value = new Set();
+  },
+  { immediate: true },
+);
+
+// Sync the v-model:showModels out to the parent whenever the chip set changes,
+// so VerificationView can reveal per-model rows in its day cards.
+watch(
+  enabledModels,
+  () => {
+    const next = enabledModels.value.size > 0;
+    if (showModels.value !== next) showModels.value = next;
   },
   { immediate: true },
 );
@@ -485,7 +500,9 @@ watch(option, () => {
 });
 
 // ---- Chip visibility --------------------------------------------------------
-const showAggregateChip = computed(() => hasTruth.value || showModels.value);
+// The series row is shown when there's *anything* to toggle — i.e. always for
+// the forecast view (just aggregate) and on verify (aggregate + truth).
+const hasModels = computed(() => allModels.value.length > 0);
 </script>
 
 <template>
@@ -497,9 +514,6 @@ const showAggregateChip = computed(() => hasTruth.value || showModels.value);
         {{ title }}
       </h2>
       <div class="flex items-center gap-4">
-        <span v-if="!showModels" class="text-paper-400 hidden font-mono text-[10px] tracking-[0.18em] uppercase sm:inline">
-          <span class="text-aggregate-400">▒</span> spread ±1σ
-        </span>
         <div class="border-ink-700 flex border font-mono text-[11px] tracking-[0.1em] uppercase">
           <button
             v-for="c in WINDOW_CHOICES"
@@ -514,30 +528,21 @@ const showAggregateChip = computed(() => hasTruth.value || showModels.value);
       </div>
     </div>
 
-    <!-- Variable selector + show-models toggle -->
-    <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-      <div class="border-ink-700 min-w-0 overflow-x-auto border font-mono text-[11px] tracking-[0.1em] uppercase">
-        <div class="flex">
-          <button
-            v-for="vid in variables"
-            :key="vid"
-            class="border-ink-700 border-r px-3 py-1.5 whitespace-nowrap transition-colors last:border-r-0"
-            :class="view === vid ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
-            @click="selectView(vid)"
-          >
-            {{ CHART_VIEWS[vid].label }}
-          </button>
-        </div>
+    <!-- Variable selector — takes the full chrome row now that the "Show
+         contributing models" toggle has moved into the model chip strip
+         below the chart. -->
+    <div class="border-ink-700 mb-3 min-w-0 overflow-x-auto border font-mono text-[11px] tracking-[0.1em] uppercase">
+      <div class="flex">
+        <button
+          v-for="vid in variables"
+          :key="vid"
+          class="border-ink-700 border-r px-3 py-1.5 whitespace-nowrap transition-colors last:border-r-0"
+          :class="view === vid ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
+          @click="selectView(vid)"
+        >
+          {{ CHART_VIEWS[vid].label }}
+        </button>
       </div>
-
-      <label class="text-paper-300 flex items-center gap-2 font-mono text-[11px] tracking-[0.14em] uppercase select-none">
-        <input
-          v-model="showModels"
-          type="checkbox"
-          class="border-ink-600 bg-ink-900 checked:border-sodium-300 checked:bg-sodium-300 size-3 appearance-none border transition-colors"
-        />
-        <span>Show contributing models</span>
-      </label>
     </div>
 
     <div class="relative">
@@ -547,32 +552,57 @@ const showAggregateChip = computed(() => hasTruth.value || showModels.value);
       <VChart ref="chartRef" style="height: 21rem" :option="option" autoresize class="relative" />
     </div>
 
-    <!-- Chip strip: aggregate / truth toggles + per-model chips -->
-    <div
-      v-if="showAggregateChip || hasTruth || showModels"
-      class="border-ink-700/60 mt-4 flex flex-wrap items-center gap-1.5 border-t pt-3 font-mono text-[10px] tracking-[0.12em] uppercase"
-    >
-      <button
-        v-if="showAggregateChip"
-        type="button"
-        class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
-        :class="showAggregate ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
-        @click="toggleAggregate"
-      >
-        <span class="inline-block size-2" :style="{ backgroundColor: AGG_COLOR }" />Aggregate
-      </button>
-      <button
-        v-if="hasTruth"
-        type="button"
-        class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
-        :class="showTruth ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
-        @click="toggleTruth"
-      >
-        <span class="inline-block size-2" :style="{ backgroundColor: TRUTH_COLOR }" />Truth
-      </button>
+    <!-- Legend / filter strip ---------------------------------------------
+         Two labelled sections — SERIES (always-on toggles: aggregate, truth)
+         and MODELS (per-model spaghetti chips). Replaces the old "Show
+         contributing models" checkbox: enabling any model chip turns the
+         spaghetti on; "none" turns it back off. -->
+    <div class="border-ink-700/60 mt-4 space-y-2.5 border-t pt-3 font-mono text-[10px] tracking-[0.12em] uppercase">
+      <!-- SERIES -->
+      <div class="flex flex-wrap items-center gap-1.5">
+        <span class="text-paper-400 mr-2 w-14 shrink-0 tracking-[0.22em]">Series</span>
+        <button
+          type="button"
+          class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
+          :class="showAggregate ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
+          @click="toggleAggregate"
+        >
+          <span class="inline-block size-2" :style="{ backgroundColor: AGG_COLOR }" />Aggregate
+        </button>
+        <button
+          v-if="hasTruth"
+          type="button"
+          class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
+          :class="showTruth ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
+          @click="toggleTruth"
+        >
+          <span class="inline-block size-2" :style="{ backgroundColor: TRUTH_COLOR }" />Truth
+        </button>
+        <span v-if="!showModels" class="text-paper-500 ml-1 hidden tracking-[0.18em] sm:inline"> <span class="text-aggregate-400">▒</span> spread ±1σ </span>
+      </div>
 
-      <template v-if="showModels">
-        <span class="text-paper-400 mx-2">Models</span>
+      <!-- MODELS -->
+      <div v-if="hasModels" class="flex flex-wrap items-center gap-1.5">
+        <span class="text-paper-400 mr-2 w-14 shrink-0 tracking-[0.22em]">Models</span>
+        <div class="flex items-center gap-px">
+          <button
+            type="button"
+            class="border-ink-700 hover:border-sodium-300/60 text-paper-300 hover:text-sodium-200 bg-ink-950 border px-2 py-1 transition-colors"
+            title="Enable all models"
+            @click="selectAllModels"
+          >
+            all
+          </button>
+          <button
+            type="button"
+            class="border-ink-700 hover:border-sodium-300/60 text-paper-300 hover:text-sodium-200 bg-ink-950 -ml-px border px-2 py-1 transition-colors"
+            title="Disable all models"
+            @click="selectNoModels"
+          >
+            none
+          </button>
+        </div>
+        <span class="bg-ink-700 mx-1 hidden h-4 w-px sm:inline-block" aria-hidden="true" />
         <button
           v-for="m in allModels"
           :key="m.id"
@@ -591,10 +621,7 @@ const showAggregateChip = computed(() => hasTruth.value || showModels.value);
         >
           <span class="inline-block size-2" :style="{ backgroundColor: paletteFor(m.id) }" />{{ m.label }}
         </button>
-        <button type="button" class="text-sodium-300/80 hover:text-sodium-200 ml-2 underline-offset-4 hover:underline" @click="selectAllModels">all</button>
-        <span class="text-paper-500">/</span>
-        <button type="button" class="text-sodium-300/80 hover:text-sodium-200 underline-offset-4 hover:underline" @click="selectNoModels">none</button>
-      </template>
+      </div>
     </div>
   </section>
 </template>
