@@ -15,28 +15,57 @@ const props = withDefaults(
 
 const tier = computed(() => confidenceTier(props.value));
 
+// Each tier gets its own typographic register: sodium for "mid" (the neutral
+// instrument-default), sage for "high", coral for "low".
 const TONE_BY_TIER = {
-  high: "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30",
-  mid: "bg-amber-500/15 text-amber-200 ring-amber-500/30",
-  low: "bg-rose-500/15 text-rose-200 ring-rose-500/30",
+  high: {
+    bar: "bg-confidence-high",
+    text: "text-confidence-high",
+    ring: "border-confidence-high/40",
+    glow: "shadow-[0_0_12px_rgba(155,184,122,0.25)]",
+  },
+  mid: {
+    bar: "bg-sodium-300",
+    text: "text-sodium-200",
+    ring: "border-sodium-300/40",
+    glow: "shadow-[0_0_12px_rgba(245,185,66,0.25)]",
+  },
+  low: {
+    bar: "bg-heat-400",
+    text: "text-heat-300",
+    ring: "border-heat-400/40",
+    glow: "shadow-[0_0_12px_rgba(232,130,107,0.25)]",
+  },
 } as const;
 
 const tone = computed(() => TONE_BY_TIER[tier.value]);
 
 const percent = computed(() => Math.round(props.value * 100));
-const sizing = computed(() => (props.size === "sm" ? "text-xs px-2 py-0.5" : "text-sm px-2.5 py-1"));
+const sizing = computed(() => (props.size === "sm" ? "text-[10px] px-2 py-0.5 gap-1.5" : "text-[11px] px-2.5 py-1 gap-2"));
+
+// 12-segment dial: the meter reads like a strip from a vintage signal-strength
+// indicator. Each segment is either "lit" or not.
+const SEGMENTS = 12;
+const litSegments = computed(() => Math.max(0, Math.min(SEGMENTS, Math.round(props.value * SEGMENTS))));
+
+// Default label: the md size (used in the hero) carries the word "Agreement"
+// so the segmented meter is introduced as a known UI element. The sm size
+// (used in the daily outlook cards) drops the word and shows just the percent
+// — by the time a user reaches the outlook they've seen the badge labelled.
+const defaultLabel = computed(() => (props.size === "sm" ? `${percent.value}%` : `Agreement ${percent.value}%`));
 </script>
 
 <template>
-  <span class="inline-flex items-center gap-1 rounded-full font-medium tabular-nums ring-1" :class="[tone, sizing]" :title="`Model agreement: ${percent}%`">
-    <span
-      class="size-1.5 rounded-full"
-      :class="{
-        'bg-emerald-400': tier === 'high',
-        'bg-amber-400': tier === 'mid',
-        'bg-rose-400': tier === 'low',
-      }"
-    />
-    {{ label ?? `${percent}% confidence` }}
+  <span class="bg-ink-950/60 inline-flex items-center border font-mono tracking-wide tabular-nums" :class="[tone.ring, sizing]" :title="`Model agreement: ${percent}%`">
+    <!-- Segmented meter -->
+    <span class="flex items-center gap-px" aria-hidden="true">
+      <span
+        v-for="i in SEGMENTS"
+        :key="i"
+        class="block w-[3px]"
+        :class="[size === 'sm' ? 'h-2' : 'h-2.5', i <= litSegments ? `${tone.bar} ${i === litSegments ? tone.glow : ''}` : 'bg-ink-700']"
+      />
+    </span>
+    <span :class="tone.text">{{ label ?? defaultLabel }}</span>
   </span>
 </template>

@@ -49,8 +49,8 @@ const days = computed<DayRow[]>(() =>
 
 <template>
   <section>
-    <h2 class="mb-3 text-sm font-medium tracking-wider text-slate-300 uppercase">10-day outlook</h2>
-    <div class="-mx-2 flex snap-x gap-3 overflow-x-auto px-2 py-1">
+    <h2 class="eyebrow mb-3">10-day outlook</h2>
+    <div class="-mx-2 flex snap-x gap-2 overflow-x-auto px-2 pt-1 pb-3">
       <DayCard
         v-for="(d, i) in days"
         :key="d.date"

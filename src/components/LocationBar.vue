@@ -121,56 +121,94 @@ function geolocate(): void {
 </script>
 
 <template>
-  <header ref="root" class="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/90 backdrop-blur">
-    <div class="mx-auto grid max-w-4xl grid-cols-[1fr_minmax(0,36rem)_1fr] items-center gap-3 px-4 py-3 sm:px-6">
-      <div class="flex items-center gap-2 justify-self-start sm:gap-3">
-        <span class="hidden text-lg font-semibold tracking-tight sm:inline sm:text-xl">MeteoCompare</span>
+  <header ref="root" class="border-ink-700 bg-ink-950/85 sticky top-0 z-30 border-b backdrop-blur">
+    <div class="mx-auto grid max-w-5xl grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-3.5 sm:gap-6 sm:px-6">
+      <!-- Wordmark + view switcher ------------------------------------ -->
+      <div class="flex items-center gap-2.5 sm:gap-5">
+        <a href="/" class="group flex items-center gap-2 leading-none">
+          <!-- The mark itself: a hairline circle with a sodium dot in the
+               centre — a stylised barometer dial. -->
+          <span class="relative inline-block size-5 shrink-0">
+            <span class="border-paper-300/60 absolute inset-0 rounded-full border" aria-hidden="true" />
+            <span class="bg-sodium-300 absolute top-1/2 left-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full" aria-hidden="true" />
+            <span class="bg-sodium-300/70 absolute top-[1px] left-1/2 h-1 w-px -translate-x-1/2" aria-hidden="true" />
+          </span>
+          <span class="hidden text-lg leading-none font-semibold tracking-tight sm:inline"
+            ><span class="text-paper-50">Meteo</span><span class="text-sodium-300">Compare</span></span
+          >
+          <span class="text-lg leading-none font-semibold tracking-tight sm:hidden"><span class="text-paper-50">M</span><span class="text-sodium-300">C</span></span>
+        </a>
+
+        <span class="bg-ink-700 hidden h-5 w-px sm:inline-block" aria-hidden="true" />
+
         <!-- View switcher: visible on every viewport so mobile users can navigate. -->
         <div ref="viewRoot" class="relative">
           <button
             type="button"
-            class="flex items-center gap-1 rounded-md bg-slate-900 px-2.5 py-1.5 text-xs text-slate-200 ring-1 ring-slate-800 hover:bg-slate-800"
+            class="group border-ink-700 bg-ink-900/60 text-paper-200 hover:border-sodium-300/60 hover:text-paper-50 flex items-center gap-2 border px-2.5 py-1.5 font-mono text-xs tracking-wide transition-colors"
             :aria-expanded="viewOpen"
             aria-haspopup="menu"
             @click="viewOpen = !viewOpen"
           >
+            <span class="bg-sodium-300 size-1 rounded-full" aria-hidden="true" />
             {{ currentView }}
-            <span class="text-slate-500 transition-transform" :class="{ 'rotate-180': viewOpen }">▾</span>
+            <svg class="text-paper-300 size-3 transition-transform" :class="{ 'rotate-180': viewOpen }" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
           </button>
-          <div v-if="viewOpen" role="menu" class="absolute top-full left-0 z-40 mt-1 min-w-[8rem] overflow-hidden rounded-md bg-slate-900 shadow-lg ring-1 ring-slate-800">
+          <div
+            v-if="viewOpen"
+            role="menu"
+            class="panel-in border-ink-700 bg-ink-900 absolute top-full left-0 z-40 mt-1 min-w-[10rem] overflow-hidden border shadow-2xl shadow-black/60"
+          >
             <RouterLink
               :to="{ path: '/', query: preservedQuery }"
               role="menuitem"
-              class="block px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-slate-100"
-              active-class="bg-slate-800 text-slate-100"
+              class="text-paper-200 hover:bg-ink-800 hover:text-sodium-200 block px-3 py-2 font-mono text-xs tracking-wide transition-colors"
+              active-class="bg-ink-800 text-sodium-200"
               @click="viewOpen = false"
             >
-              Forecast
+              · Forecast
             </RouterLink>
             <RouterLink
               :to="{ path: '/verify', query: preservedQuery }"
               role="menuitem"
-              class="block px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-slate-100"
-              active-class="bg-slate-800 text-slate-100"
+              class="text-paper-200 hover:bg-ink-800 hover:text-sodium-200 block px-3 py-2 font-mono text-xs tracking-wide transition-colors"
+              active-class="bg-ink-800 text-sodium-200"
               @click="viewOpen = false"
             >
-              Verify
+              · Verify
             </RouterLink>
           </div>
         </div>
       </div>
 
-      <div class="relative w-full">
+      <!-- Search ------------------------------------------------------- -->
+      <div class="relative w-full min-w-0">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="text-paper-400 pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
         <input
           v-model="query"
           type="search"
-          placeholder="Search for location…"
-          class="w-full rounded-lg border border-slate-800 bg-slate-900 py-2 pr-10 pl-3 text-sm outline-none placeholder:text-slate-500 focus:border-slate-600"
+          placeholder="Search station, city, coordinates…"
+          class="border-ink-700 bg-ink-900/70 text-paper-50 placeholder:text-paper-400/70 focus:border-sodium-300/70 focus:bg-ink-900 w-full min-w-0 border py-2 pr-10 pl-9 text-sm outline-none"
           @focus="isOpen = true"
         />
         <button
           type="button"
-          class="absolute top-1/2 right-1 flex -translate-y-1/2 items-center justify-center rounded-md p-1.5 text-slate-400 transition-colors hover:text-sky-300"
+          class="text-paper-300 hover:text-sodium-300 absolute top-1/2 right-1 flex -translate-y-1/2 items-center justify-center p-1.5 transition-colors"
           :disabled="isLocating"
           :title="locateError ?? 'Use my location'"
           @click="geolocate"
@@ -181,7 +219,7 @@ function geolocate(): void {
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            stroke-width="2"
+            stroke-width="1.5"
             stroke-linecap="round"
             stroke-linejoin="round"
             class="size-4"
@@ -194,56 +232,68 @@ function geolocate(): void {
             <line x1="2" y1="12" x2="5" y2="12" />
             <line x1="19" y1="12" x2="22" y2="12" />
           </svg>
-          <span v-else class="size-4 animate-spin rounded-full border-2 border-slate-700 border-t-slate-300" aria-hidden="true" />
+          <span v-else class="border-ink-600 border-t-sodium-300 size-4 animate-spin rounded-full border" aria-hidden="true" />
           <span class="sr-only">Use my location</span>
         </button>
 
         <div
           v-if="isOpen && (results.length || favourites.length || recent.length || isSearching || searchError)"
-          class="absolute z-40 mt-1 w-full overflow-hidden rounded-lg border border-slate-800 bg-slate-900 shadow-xl"
+          class="panel-in border-ink-700 bg-ink-900 absolute z-40 mt-1 w-full overflow-hidden border shadow-2xl shadow-black/60"
         >
-          <div v-if="isSearching" class="px-3 py-2 text-xs text-slate-500">Searching…</div>
-          <div v-else-if="searchError" class="px-3 py-2 text-xs text-rose-400">{{ searchError }}</div>
+          <div v-if="isSearching" class="text-paper-400 flex items-center gap-2 px-3 py-2 font-mono text-[11px] tracking-wide">
+            <span class="bg-sodium-300 size-1 animate-pulse rounded-full" /> Searching…
+          </div>
+          <div v-else-if="searchError" class="text-heat-400 px-3 py-2 font-mono text-[11px] tracking-wide">{{ searchError }}</div>
 
           <div v-if="results.length" class="max-h-64 overflow-y-auto">
-            <button v-for="r in results" :key="`${r.id}-${r.latitude}`" class="flex w-full justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-slate-800" @click="pick(r)">
-              <span class="truncate">{{ formatLocation(r) }}</span>
-              <span class="shrink-0 text-xs text-slate-500 tabular-nums"> {{ r.latitude.toFixed(2) }}, {{ r.longitude.toFixed(2) }} </span>
+            <button
+              v-for="r in results"
+              :key="`${r.id}-${r.latitude}`"
+              class="group border-ink-800/60 hover:bg-ink-800 flex w-full items-center justify-between gap-3 border-b px-3 py-2 text-left text-sm last:border-b-0"
+              @click="pick(r)"
+            >
+              <span class="text-paper-100 group-hover:text-paper-50 truncate">{{ formatLocation(r) }}</span>
+              <span class="text-paper-400 shrink-0 font-mono text-[10px] tabular-nums">
+                {{ r.latitude.toFixed(2) }}<span class="text-sodium-300/60">°</span>
+                <span class="text-paper-500 mx-1">,</span>
+                {{ r.longitude.toFixed(2) }}<span class="text-sodium-300/60">°</span>
+              </span>
             </button>
           </div>
 
           <template v-if="!query && favourites.length">
-            <div class="px-3 pt-2 pb-1 text-[10px] tracking-wider text-slate-500 uppercase">Favourites</div>
+            <div class="border-ink-800 text-paper-400 border-t px-3 pt-2 pb-1 font-mono text-[11px] tracking-wide"><span class="text-sodium-300">★</span> Favourites</div>
             <button
               v-for="f in favourites"
               :key="`f-${f.latitude},${f.longitude}`"
-              class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-slate-800"
+              class="hover:bg-ink-800 flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm"
               @click="pickSaved(f)"
             >
-              <span class="text-amber-400">★</span>
-              <span class="truncate"
-                >{{ f.name }}<span v-if="f.detail" class="text-slate-500">, {{ f.detail }}</span></span
+              <span class="text-sodium-300">★</span>
+              <span class="text-paper-100 truncate"
+                >{{ f.name }}<span v-if="f.detail" class="text-paper-400">, {{ f.detail }}</span></span
               >
             </button>
           </template>
 
           <template v-if="!query && recent.length">
-            <div class="px-3 pt-2 pb-1 text-[10px] tracking-wider text-slate-500 uppercase">Recent</div>
+            <div class="border-ink-800 text-paper-400 border-t px-3 pt-2 pb-1 font-mono text-[11px] tracking-wide"><span class="text-paper-300">↻</span> Recent</div>
             <button
               v-for="r in recent.slice(0, 5)"
               :key="`r-${r.latitude},${r.longitude}`"
-              class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-slate-800"
+              class="hover:bg-ink-800 flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm"
               @click="pickSaved(r)"
             >
-              <span class="text-slate-500">↻</span>
-              <span class="truncate"
-                >{{ r.name }}<span v-if="r.detail" class="text-slate-500">, {{ r.detail }}</span></span
+              <span class="text-paper-400">↻</span>
+              <span class="text-paper-100 truncate"
+                >{{ r.name }}<span v-if="r.detail" class="text-paper-400">, {{ r.detail }}</span></span
               >
             </button>
           </template>
         </div>
       </div>
 
+      <!-- Settings ---------------------------------------------------- -->
       <div class="flex justify-self-end">
         <SettingsMenu />
       </div>

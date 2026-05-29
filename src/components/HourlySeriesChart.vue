@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onClickOutside } from "@vueuse/core";
 import type { EChartsOption } from "echarts";
 import { computed, nextTick, ref, watch } from "vue";
 import VChart from "vue-echarts";
@@ -29,23 +30,31 @@ const props = withDefaults(
 );
 
 /** Two-way when the parent binds it (verify, to share with the day cards);
- *  a self-contained local toggle otherwise (forecast). */
+ *  derived locally from `enabledModels.size > 0` — kept as a writable ref so
+ *  selectView() can also clear spaghetti when switching to a composite view. */
 const showModels = defineModel<boolean>("showModels", { default: false });
 
 const { temp, precip, wind, formatTemp, formatPrecip, formatWind } = useUnits();
 const units = computed<UnitPrefs>(() => ({ temp: temp.value, precip: precip.value, wind: wind.value }));
 
 // ---- Colours ----------------------------------------------------------------
-const AGG_COLOR = "#f472b6"; // pink — aggregate forecast
-const TRUTH_COLOR = "#facc15"; // amber — ERA5-Seamless truth
-const PRECIP_BAR_COLOR = "rgba(56, 189, 248, 0.7)"; // sky — precipitation bars
-const BAND_FILL = "rgba(244, 114, 182, 0.18)"; // pink, low alpha — ±1σ band
-const TRUTH_AREA = "rgba(250, 204, 21, 0.12)"; // amber, low alpha — precip truth fill
-const NIGHT_FILL = "rgba(56, 78, 130, 0.18)";
-const MODEL_PALETTE = ["#60a5fa", "#34d399", "#a78bfa", "#fb7185", "#22d3ee", "#f87171", "#facc15", "#4ade80", "#c084fc", "#fcd34d", "#86efac"];
-const BAND_OPACITY = 0.18;
-const TRUTH_AREA_OPACITY = 0.12;
-const MODEL_OPACITY = 0.6;
+// Tuned to the "Observatory" palette: coral = aggregate forecast, sodium amber
+// = truth (ERA5 reference), oxidized teal for cool data, and a model palette
+// drawn from the same warm-cool spectrum rather than the default Tailwind hues.
+const AGG_COLOR = "#e8826b"; // coral — aggregate forecast
+const TRUTH_COLOR = "#f5b942"; // sodium amber — ERA5-Seamless truth
+const PRECIP_BAR_COLOR = "rgba(127, 184, 224, 0.65)"; // dusty rain blue
+const BAND_FILL = "rgba(232, 130, 107, 0.16)"; // coral, low alpha — ±1σ band
+const BAND_SWATCH = "rgba(232, 130, 107, 0.45)"; // more visible coral for the legend chip
+const TRUTH_AREA = "rgba(245, 185, 66, 0.12)"; // sodium, low alpha — precip truth fill
+const NIGHT_FILL = "rgba(120, 140, 200, 0.12)"; // cool marine wash — reads as night against the warm theme
+const MODEL_PALETTE = ["#6dc6c2", "#9bb87a", "#bfa9d6", "#f0a285", "#7fb8e0", "#d99a1e", "#e8826b", "#9ddad6", "#c7b69a", "#a8c182", "#b88c8c"];
+const MODEL_OPACITY = 0.55;
+
+// ECharts reads `null` as "auto-scale this axis", but its TS types only allow
+// number | string | undefined. We need the literal null (not undefined) so a
+// merged setOption actually clears a previously-pinned min/max — hence the cast.
+const AUTO = null as unknown as undefined;
 
 const WINDOW_CHOICES = [
   { hours: 24, label: "24h" },
@@ -54,13 +63,17 @@ const WINDOW_CHOICES = [
 ] as const;
 
 // ---- UI state ---------------------------------------------------------------
-const view = ref<ChartViewId>(props.variables[0] ?? "temperature_2m");
+// Forecast (no truth) opens on the combined temperature + precipitation view;
+// verify keeps per-variable views so each can show its own ERA5 truth line.
+const canCombineTempPrecip = !props.data.truth && props.variables.includes("temperature_2m") && props.variables.includes("precipitation");
+const view = ref<ChartViewId>(canCombineTempPrecip ? "temp_precip" : (props.variables[0] ?? "temperature_2m"));
 const hoursWindow = ref<number>(props.defaultWindow);
 
 // Visibility toggles. Kept OUT of `option` so toggling them patches the chart
 // directly (no full redraw) — only re-read inside the tooltip formatter at
 // hover time, where they don't register as reactive dependencies.
 const showAggregate = ref(true);
+const showBand = ref(true);
 const showTruth = ref(true);
 const enabledModels = ref<Set<string>>(new Set());
 
@@ -74,17 +87,61 @@ const hasTruth = computed(() => !!props.data.truth);
  *  to their `spaghettiVar`. */
 const activeVar = computed<DataVarId>(() => CHART_VIEWS[view.value].spaghettiVar);
 
-// Q11 (option A): spaghetti needs a single variable. Turning it on while the
-// composite Temp+Precip view is selected snaps to Temperature.
+// Q11 (option A): spaghetti needs a single variable. Enabling any model while
+// the composite Temp+Precip view is selected snaps to Temperature.
 watch(showModels, (on) => {
   if (on && view.value === "temp_precip") view.value = "temperature_2m";
 });
 
 function selectView(v: ChartViewId): void {
-  // The reverse of the snap: picking the composite while spaghetti is on turns
-  // spaghetti off (two fans on two axes is unreadable).
-  if (v === "temp_precip" && showModels.value) showModels.value = false;
+  // The reverse of the snap: picking the composite while spaghetti is on
+  // clears the enabled models (two fans on two axes is unreadable).
+  if (v === "temp_precip" && showModels.value) enabledModels.value = new Set();
   view.value = v;
+}
+
+// Variable picker: an expanded rail on desktop, a dropdown on mobile.
+const varOpen = ref(false);
+const varRoot = ref<HTMLElement | null>(null);
+onClickOutside(varRoot, () => (varOpen.value = false));
+
+/** Whether a picker entry reads as "active". Temperature and precipitation are
+ *  a combinable pair on the forecast page: either is active in the composite. */
+function isVarActive(vid: ChartViewId): boolean {
+  if (canCombineTempPrecip) {
+    if (vid === "temperature_2m") return view.value === "temp_precip" || view.value === "temperature_2m";
+    if (vid === "precipitation") return view.value === "temp_precip" || view.value === "precipitation";
+  }
+  return view.value === vid;
+}
+
+function selectVariable(vid: ChartViewId): void {
+  // Temperature & precipitation toggle independently (dual-axis), so the two
+  // can be shown together — that combination *is* the composite view. The
+  // remaining variables are exclusive single-axis views.
+  if (canCombineTempPrecip && (vid === "temperature_2m" || vid === "precipitation")) {
+    const inPair = view.value === "temp_precip" || view.value === "temperature_2m" || view.value === "precipitation";
+    let tempOn = view.value === "temp_precip" || view.value === "temperature_2m";
+    let precipOn = view.value === "temp_precip" || view.value === "precipitation";
+    if (!inPair) {
+      // Coming from an exclusive view (wind / cloud / prob) → focus the click.
+      tempOn = vid === "temperature_2m";
+      precipOn = vid === "precipitation";
+    } else if (vid === "temperature_2m") {
+      tempOn = !tempOn;
+    } else {
+      precipOn = !precipOn;
+    }
+    // Never leave the pair empty: toggling off the last one is a no-op.
+    if (!tempOn && !precipOn) {
+      tempOn = vid === "temperature_2m";
+      precipOn = vid === "precipitation";
+    }
+    selectView(tempOn && precipOn ? "temp_precip" : tempOn ? "temperature_2m" : "precipitation");
+  } else {
+    selectView(vid);
+  }
+  varOpen.value = false;
 }
 
 // ---- Model chip helpers -----------------------------------------------------
@@ -112,11 +169,25 @@ function paletteFor(id: string): string {
   return MODEL_PALETTE[(i < 0 ? 0 : i) % MODEL_PALETTE.length]!;
 }
 
-// Re-seed enabled models whenever the chip universe changes (new data / run).
+// Reset enabled models whenever the chip universe changes (new data / run).
+// Default: nothing is enabled, so the chart starts clean (aggregate + band +
+// truth only). The user opts in to model spaghetti via the chips below the
+// chart — this is the single source of truth for "show contributing models".
 watch(
   () => allModels.value.map((m) => m.id).join(","),
   () => {
-    enabledModels.value = new Set(allModels.value.map((m) => m.id));
+    enabledModels.value = new Set();
+  },
+  { immediate: true },
+);
+
+// Sync the v-model:showModels out to the parent whenever the chip set changes,
+// so VerificationView can reveal per-model rows in its day cards.
+watch(
+  enabledModels,
+  () => {
+    const next = enabledModels.value.size > 0;
+    if (showModels.value !== next) showModels.value = next;
   },
   { immediate: true },
 );
@@ -136,17 +207,23 @@ function patch(patches: Array<Record<string, unknown> & { id: string }>): void {
 
 function applyAggregateVisibility(): void {
   const op = showAggregate.value ? 1 : 0;
-  patch([
-    { id: "agg", lineStyle: { opacity: op }, itemStyle: { opacity: op } },
-    { id: "band-delta", areaStyle: { opacity: op ? BAND_OPACITY : 0 } },
-  ]);
+  patch([{ id: "agg", lineStyle: { opacity: op }, itemStyle: { opacity: op } }]);
+}
+
+function applyBandVisibility(): void {
+  // The band's translucency lives in its fill colour (BAND_FILL, alpha ~0.16),
+  // so the "shown" areaStyle opacity must be a full 1 — setting it to the alpha
+  // value again would multiply the two and wash the band out after a recompute.
+  // Toggled independently of the aggregate line.
+  patch([{ id: "band-delta", areaStyle: { opacity: showBand.value ? 1 : 0 } }]);
 }
 
 function applyTruthVisibility(): void {
   const op = showTruth.value ? 1 : 0;
   const truthPatch: Record<string, unknown> & { id: string } = { id: "tr", lineStyle: { opacity: op }, itemStyle: { opacity: op } };
   // Only precipitation truth carries an area fill — don't add one to temp truth.
-  if (view.value === "precipitation") truthPatch.areaStyle = { opacity: op ? TRUTH_AREA_OPACITY : 0 };
+  // As with the band, the fill alpha lives in TRUTH_AREA, so toggle 1/0 only.
+  if (view.value === "precipitation") truthPatch.areaStyle = { opacity: op };
   patch([truthPatch]);
 }
 
@@ -157,6 +234,10 @@ function applyModelVisibility(): void {
 function toggleAggregate(): void {
   showAggregate.value = !showAggregate.value;
   applyAggregateVisibility();
+}
+function toggleBand(): void {
+  showBand.value = !showBand.value;
+  applyBandVisibility();
 }
 function toggleTruth(): void {
   showTruth.value = !showTruth.value;
@@ -177,6 +258,17 @@ function selectAllModels(): void {
 function selectNoModels(): void {
   enabledModels.value = new Set();
   applyModelVisibility();
+}
+
+// Single "All" toggle: active only when every available model is enabled;
+// clicking flips between all-on and all-off.
+const allModelsActive = computed(() => {
+  const available = allModels.value.filter((m) => modelHasData.value[m.id]);
+  return available.length > 0 && available.every((m) => enabledModels.value.has(m.id));
+});
+function toggleAllModels(): void {
+  if (allModelsActive.value) selectNoModels();
+  else selectAllModels();
 }
 
 // ---- Tooltip formatting -----------------------------------------------------
@@ -219,11 +311,40 @@ const option = computed<EChartsOption>(() => {
           silent: true,
           animation: false,
           symbol: ["none", "none"] as [string, string],
-          lineStyle: { color: "rgba(248, 250, 252, 0.85)", width: 1.5, type: "solid" as const },
-          label: { formatter: "Now", color: "#f8fafc", fontSize: 11, position: "end" as const, backgroundColor: "rgba(15, 23, 42, 0.85)", borderRadius: 4, padding: [2, 6, 2, 6] },
+          lineStyle: { color: "rgba(245, 185, 66, 0.85)", width: 1, type: "solid" as const },
+          label: {
+            formatter: "NOW",
+            color: "#050810",
+            fontSize: 9,
+            fontWeight: 700 as const,
+            fontFamily: "JetBrains Mono, ui-monospace, monospace",
+            position: "end" as const,
+            backgroundColor: "#f5b942",
+            borderRadius: 0,
+            padding: [2, 6, 2, 6],
+            distance: 6,
+          },
           data: [{ xAxis: nowIdx }],
         }
       : undefined;
+
+  // Night shading lives on its own zero-z background series so it always sits
+  // *behind* the spread band and lines (it used to ride the band-base series,
+  // which drew it on top of the spread).
+  if (markArea) {
+    series.push({
+      id: "night",
+      type: "line",
+      yAxisIndex: 0,
+      data: Array.from({ length: n }, () => null),
+      symbol: "none",
+      lineStyle: { opacity: 0 },
+      silent: true,
+      z: 0,
+      tooltip: { show: false },
+      markArea,
+    });
+  }
 
   // --- helper: push an aggregate line + band for a line variable -------------
   const pushLineAggregate = (dv: DataVarId, axisIndex: number, attachMarks: boolean): void => {
@@ -231,35 +352,35 @@ const option = computed<EChartsOption>(() => {
     const values = pts.map((p) => convertVar(p.value, dv, units.value));
     const smooth = dv === "temperature_2m";
 
-    // Band (±1σ) — only when not in spaghetti mode (the spaghetti *is* the spread).
-    if (!spaghetti) {
-      const lower = pts.map((p) => convertVar(p.value - p.stdDev, dv, units.value));
-      const delta = pts.map((p) => (Number.isFinite(p.stdDev) ? convertDelta(p.stdDev * 2, dv, units.value) : 0));
-      series.push({
-        id: "band-base",
-        type: "line",
-        stack: `band-${axisIndex}`,
-        yAxisIndex: axisIndex,
-        symbol: "none",
-        lineStyle: { opacity: 0 },
-        areaStyle: { opacity: 0 },
-        itemStyle: { opacity: 0 },
-        tooltip: { show: false },
-        data: lower,
-        ...(attachMarks && markArea ? { markArea } : {}),
-      });
-      series.push({
-        id: "band-delta",
-        type: "line",
-        stack: `band-${axisIndex}`,
-        yAxisIndex: axisIndex,
-        symbol: "none",
-        lineStyle: { opacity: 0 },
-        areaStyle: { color: BAND_FILL },
-        tooltip: { show: false },
-        data: delta,
-      });
-    }
+    // Band (±1σ). Always built — even in spaghetti mode — so the spread can be
+    // toggled independently and stays visible behind the per-model lines.
+    const lower = pts.map((p) => convertVar(p.value - p.stdDev, dv, units.value));
+    const delta = pts.map((p) => (Number.isFinite(p.stdDev) ? convertDelta(p.stdDev * 2, dv, units.value) : 0));
+    series.push({
+      id: "band-base",
+      type: "line",
+      stack: `band-${axisIndex}`,
+      yAxisIndex: axisIndex,
+      symbol: "none",
+      lineStyle: { opacity: 0 },
+      areaStyle: { opacity: 0 },
+      itemStyle: { opacity: 0 },
+      tooltip: { show: false },
+      data: lower,
+      z: 1,
+    });
+    series.push({
+      id: "band-delta",
+      type: "line",
+      stack: `band-${axisIndex}`,
+      yAxisIndex: axisIndex,
+      symbol: "none",
+      lineStyle: { opacity: 0 },
+      areaStyle: { color: BAND_FILL },
+      tooltip: { show: false },
+      data: delta,
+      z: 1,
+    });
 
     series.push({
       id: "agg",
@@ -271,9 +392,6 @@ const option = computed<EChartsOption>(() => {
       symbol: "none",
       lineStyle: { width: spaghetti ? 4 : 2.5, color: AGG_COLOR },
       z: 5,
-      // When the band isn't drawn (spaghetti / precip), the agg line carries the
-      // night shading + Now marker so they're always present.
-      ...(attachMarks && spaghetti && markArea ? { markArea } : {}),
       ...(attachMarks && markLine ? { markLine } : {}),
     });
   };
@@ -292,8 +410,7 @@ const option = computed<EChartsOption>(() => {
       data: values,
       itemStyle: { color: PRECIP_BAR_COLOR },
       barWidth: "60%",
-      z: 1,
-      ...(attachMarks && markArea ? { markArea } : {}),
+      z: 2,
       ...(attachMarks && markLine ? { markLine } : {}),
     });
     const truth = props.data.truth?.precipitation;
@@ -376,14 +493,16 @@ const option = computed<EChartsOption>(() => {
 
   return {
     backgroundColor: "transparent",
-    textStyle: { color: "#cbd5e1" },
-    grid: { left: 48, right: 48, top: 32, bottom: 36 },
+    textStyle: { color: "#c9bea4", fontFamily: "JetBrains Mono, ui-monospace, monospace" },
+    grid: { left: 52, right: 52, top: 32, bottom: 36 },
     animationDurationUpdate: 0,
     tooltip: {
       trigger: "axis",
-      backgroundColor: "rgba(15, 23, 42, 0.95)",
-      borderColor: "#334155",
-      textStyle: { color: "#e2e8f0" },
+      backgroundColor: "rgba(10, 16, 24, 0.96)",
+      borderColor: "#1a2638",
+      borderWidth: 1,
+      textStyle: { color: "#f4ecd8", fontFamily: "JetBrains Mono, ui-monospace, monospace", fontSize: 11 },
+      extraCssText: "border-radius: 0; backdrop-filter: blur(6px); box-shadow: 0 8px 32px rgba(0,0,0,0.6);",
       formatter: (params: unknown) => {
         const arr = params as Array<{ dataIndex: number }>;
         const idx = arr[0]?.dataIndex ?? -1;
@@ -399,7 +518,7 @@ const option = computed<EChartsOption>(() => {
           const isLine = DATA_VAR_META[dv].render === "line";
           if (showAggregate.value && aggPt && !Number.isNaN(aggPt.value)) {
             const std =
-              isLine && !spaghetti && Number.isFinite(aggPt.stdDev) ? ` <span style="color:#94a3b8">± ${fmtVar(dv, aggPt.stdDev).replace(/[°a-zA-Z%/ ]+$/, "")}</span>` : "";
+              isLine && showBand.value && Number.isFinite(aggPt.stdDev) ? ` <span style="color:#94a3b8">± ${fmtVar(dv, aggPt.stdDev).replace(/[°a-zA-Z%/ ]+$/, "")}</span>` : "";
             const label = vars.length > 1 ? `${dv === "temperature_2m" ? "Temp" : "Precip"} ` : "Forecast ";
             const color = dv === "precipitation" ? "#7dd3fc" : AGG_COLOR;
             lines.push(`<span style="color:${color}">${label}</span>${fmtVar(dv, aggPt.value)}${std}`);
@@ -423,8 +542,8 @@ const option = computed<EChartsOption>(() => {
     xAxis: {
       type: "category",
       data: labels,
-      axisLine: { lineStyle: { color: "#475569" } },
-      axisLabel: { color: "#94a3b8", interval, hideOverlap: true },
+      axisLine: { lineStyle: { color: "#243349" } },
+      axisLabel: { color: "#93896f", interval, hideOverlap: true, fontSize: 10 },
       axisTick: { show: false },
     },
     yAxis: [
@@ -433,23 +552,28 @@ const option = computed<EChartsOption>(() => {
         // the horizontal grid even when only precipitation is shown.
         type: "value",
         name: leftVar ? leftUnit : "",
-        nameTextStyle: { color: "#94a3b8" },
+        nameTextStyle: { color: "#93896f", fontSize: 10 },
         axisLine: { show: false },
-        axisLabel: { color: "#94a3b8", show: !!leftVar },
+        axisLabel: { color: "#93896f", show: !!leftVar, fontSize: 10 },
         axisTick: { show: false },
-        splitLine: { lineStyle: { color: "#1e293b" } },
-        ...(leftIsPct ? { min: 0, max: 100 } : {}),
+        splitLine: { lineStyle: { color: "#131d2d", type: "dashed" } },
+        // Percentage views (precip prob / cloud cover) lock to 0..100; every
+        // other view auto-scales. These MUST be set explicitly (AUTO = null =
+        // auto) rather than omitted — vue-echarts merges options, so an omitted
+        // min/max would leave the 0..100 from a prior pct view stuck in place.
+        min: leftIsPct ? 0 : AUTO,
+        max: leftIsPct ? 100 : AUTO,
       },
       {
         // Right axis (precipitation).
         type: "value",
         name: precipUnit,
-        nameTextStyle: { color: "#94a3b8" },
+        nameTextStyle: { color: "#93896f", fontSize: 10 },
         position: "right",
         min: 0,
         axisLine: { show: false },
-        axisLabel: { color: "#94a3b8" },
-        splitLine: { lineStyle: { color: "#1e293b" }, show: rightActive && !leftVar },
+        axisLabel: { color: "#93896f", fontSize: 10 },
+        splitLine: { lineStyle: { color: "#131d2d", type: "dashed" }, show: rightActive && !leftVar },
         show: rightActive,
       },
     ],
@@ -463,104 +587,168 @@ const option = computed<EChartsOption>(() => {
 watch(option, () => {
   void nextTick(() => {
     applyAggregateVisibility();
+    applyBandVisibility();
     applyTruthVisibility();
     applyModelVisibility();
   });
 });
 
 // ---- Chip visibility --------------------------------------------------------
-const showAggregateChip = computed(() => hasTruth.value || showModels.value);
+// The series row is shown when there's *anything* to toggle — i.e. always for
+// the forecast view (just aggregate) and on verify (aggregate + truth).
+const hasModels = computed(() => allModels.value.length > 0);
+// The ±1σ band is drawn for every line view; the precipitation-only view shows
+// bars instead, so its spread chip would be a no-op.
+const hasBand = computed(() => view.value !== "precipitation");
 </script>
 
 <template>
-  <section class="rounded-2xl bg-slate-900/60 p-4 ring-1 ring-slate-800 sm:p-6">
-    <!-- Header + window selector -->
-    <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-      <h2 class="text-sm font-medium tracking-wider text-slate-300 uppercase">{{ title }}</h2>
-      <div class="flex items-center gap-3">
-        <span v-if="!showModels" class="hidden text-xs text-slate-500 sm:inline">Shaded: model spread (±1σ)</span>
-        <div class="flex overflow-hidden rounded-md bg-slate-950 text-xs ring-1 ring-slate-800">
-          <button
-            v-for="c in WINDOW_CHOICES"
-            :key="c.hours"
-            class="px-3 py-1.5 transition-colors"
-            :class="hoursWindow === c.hours ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'"
-            @click="hoursWindow = c.hours"
-          >
-            {{ c.label }}
-          </button>
-        </div>
-      </div>
-    </div>
+  <section class="border-ink-700 bg-ink-900/60 relative border p-4 sm:p-6">
+    <!-- Header: title + variable picker (left), window selector (right) -->
+    <div class="border-ink-700 mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-b pb-3">
+      <div class="flex flex-wrap items-center gap-3">
+        <h2 class="eyebrow">{{ title }}</h2>
 
-    <!-- Variable selector + show-models toggle -->
-    <div class="mb-3 flex flex-col gap-3 text-xs sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-      <div class="min-w-0 overflow-x-auto rounded-md bg-slate-950 ring-1 ring-slate-800">
-        <div class="flex">
+        <!-- Desktop (lg+): expanded variable rail, all options inline -->
+        <div class="border-ink-700 hidden border font-mono text-xs tracking-wide lg:flex">
           <button
             v-for="vid in variables"
             :key="vid"
-            class="px-3 py-1.5 whitespace-nowrap transition-colors"
-            :class="view === vid ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'"
-            @click="selectView(vid)"
+            class="border-ink-700 border-r px-2.5 py-1 whitespace-nowrap transition-colors last:border-r-0"
+            :class="isVarActive(vid) ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
+            @click="selectVariable(vid)"
           >
             {{ CHART_VIEWS[vid].label }}
           </button>
         </div>
+
+        <!-- Mobile / tablet (< lg): collapse the rail into a dropdown -->
+        <div ref="varRoot" class="relative lg:hidden">
+          <button
+            type="button"
+            class="group border-ink-700 bg-ink-900/60 text-paper-200 hover:border-sodium-300/60 hover:text-paper-50 flex items-center gap-2 border px-3 py-1 font-mono text-xs tracking-wide transition-colors"
+            :aria-expanded="varOpen"
+            aria-haspopup="menu"
+            @click="varOpen = !varOpen"
+          >
+            {{ CHART_VIEWS[view].label }}
+            <svg class="text-paper-300 size-3 transition-transform" :class="{ 'rotate-180': varOpen }" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <div
+            v-if="varOpen"
+            role="menu"
+            class="panel-in border-ink-700 bg-ink-900 absolute top-full left-0 z-40 mt-1 min-w-[12rem] overflow-hidden border shadow-2xl shadow-black/60"
+          >
+            <button
+              v-for="vid in variables"
+              :key="vid"
+              type="button"
+              role="menuitemradio"
+              :aria-checked="isVarActive(vid)"
+              class="block w-full px-3 py-2 text-left font-mono text-xs tracking-wide transition-colors"
+              :class="isVarActive(vid) ? 'bg-ink-800 text-sodium-200' : 'text-paper-200 hover:bg-ink-800 hover:text-sodium-200'"
+              @click="selectVariable(vid)"
+            >
+              {{ CHART_VIEWS[vid].label }}
+            </button>
+          </div>
+        </div>
       </div>
 
-      <label class="flex items-center gap-1.5 text-slate-400">
-        <input v-model="showModels" type="checkbox" class="accent-slate-400" />
-        <span>Show contributing models</span>
-      </label>
+      <!-- Window selector (right-aligned; wraps to its own line on the
+           forecast page where the 6-option rail fills the first row). -->
+      <div class="border-ink-700 ml-auto flex border font-mono text-xs tracking-wide">
+        <button
+          v-for="c in WINDOW_CHOICES"
+          :key="c.hours"
+          class="px-3 py-1 transition-colors"
+          :class="hoursWindow === c.hours ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
+          @click="hoursWindow = c.hours"
+        >
+          {{ c.label }}
+        </button>
+      </div>
     </div>
 
-    <VChart ref="chartRef" style="height: 20rem" :option="option" autoresize />
+    <div class="relative">
+      <!-- Faint graph-paper backplate so the chart reads as an instrument
+           plot, not a flat panel. -->
+      <div class="graph-paper pointer-events-none absolute inset-0 opacity-40" aria-hidden="true" />
+      <VChart ref="chartRef" style="height: 21rem" :option="option" autoresize class="relative" />
+    </div>
 
-    <!-- Chip strip: aggregate / truth toggles + per-model chips -->
-    <div v-if="showAggregateChip || hasTruth || showModels" class="mt-4 flex flex-wrap items-center gap-2 text-xs">
-      <button
-        v-if="showAggregateChip"
-        type="button"
-        class="rounded-md px-2 py-1 ring-1 transition-colors"
-        :class="showAggregate ? 'bg-slate-800 text-slate-100 ring-slate-700' : 'bg-slate-950 text-slate-500 ring-slate-800 hover:text-slate-300'"
-        @click="toggleAggregate"
-      >
-        <span class="mr-1.5 inline-block size-2 rounded-full" :style="{ backgroundColor: AGG_COLOR }" />Aggregate forecast
-      </button>
-      <button
-        v-if="hasTruth"
-        type="button"
-        class="rounded-md px-2 py-1 ring-1 transition-colors"
-        :class="showTruth ? 'bg-slate-800 text-slate-100 ring-slate-700' : 'bg-slate-950 text-slate-500 ring-slate-800 hover:text-slate-300'"
-        @click="toggleTruth"
-      >
-        <span class="mr-1.5 inline-block size-2 rounded-full" :style="{ backgroundColor: TRUTH_COLOR }" />Truth
-      </button>
+    <!-- Legend / filter strip ---------------------------------------------
+         Two labelled sections — SERIES (aggregate / spread / truth toggles)
+         and MODELS (an "All" toggle plus per-model spaghetti chips). Enabling
+         any model chip turns the spaghetti on; "All" flips every model at once. -->
+    <div class="border-ink-700/60 mt-4 space-y-2.5 border-t pt-3 font-mono text-[11px] tracking-wide">
+      <!-- SERIES -->
+      <div class="flex flex-wrap items-center gap-1.5">
+        <span class="text-paper-400 mr-2 w-14 shrink-0">Series</span>
+        <button
+          type="button"
+          class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
+          :class="showAggregate ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
+          @click="toggleAggregate"
+        >
+          <span class="inline-block size-2" :style="{ backgroundColor: AGG_COLOR }" />Aggregate
+        </button>
+        <button
+          v-if="hasBand"
+          type="button"
+          class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
+          :class="showBand ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
+          title="Model spread (±1σ)"
+          @click="toggleBand"
+        >
+          <span class="inline-block size-2" :style="{ backgroundColor: BAND_SWATCH }" />Spread ±1σ
+        </button>
+        <button
+          v-if="hasTruth"
+          type="button"
+          class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
+          :class="showTruth ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
+          @click="toggleTruth"
+        >
+          <span class="inline-block size-2" :style="{ backgroundColor: TRUTH_COLOR }" />Truth
+        </button>
+      </div>
 
-      <template v-if="showModels">
-        <span class="mr-1 ml-2 text-slate-500">Models:</span>
+      <!-- MODELS -->
+      <div v-if="hasModels" class="flex flex-wrap items-center gap-1.5">
+        <span class="text-paper-400 mr-2 w-14 shrink-0">Models</span>
+        <button
+          type="button"
+          class="border px-2 py-1 transition-colors"
+          :class="allModelsActive ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
+          :aria-pressed="allModelsActive"
+          :title="allModelsActive ? 'Disable all models' : 'Enable all models'"
+          @click="toggleAllModels"
+        >
+          All
+        </button>
+        <span class="bg-ink-700 mx-1 hidden h-4 w-px sm:inline-block" aria-hidden="true" />
         <button
           v-for="m in allModels"
           :key="m.id"
           type="button"
-          class="rounded-md px-2 py-1 ring-1 transition-colors"
+          class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
           :class="
             !modelHasData[m.id]
-              ? 'cursor-not-allowed bg-slate-950 text-slate-600 line-through opacity-50 ring-slate-900'
+              ? 'border-ink-700/50 bg-ink-950 text-paper-500 cursor-not-allowed line-through opacity-50'
               : enabledModels.has(m.id)
-                ? 'bg-slate-800 text-slate-100 ring-slate-700'
-                : 'bg-slate-950 text-slate-500 ring-slate-800 hover:text-slate-300'
+                ? 'border-ink-600 bg-ink-800 text-paper-50'
+                : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'
           "
           :disabled="!modelHasData[m.id]"
           :title="modelHasData[m.id] ? `${m.provider} · ${m.description}` : `${m.provider} · no data for this variable`"
           @click="toggleModel(m.id)"
         >
-          <span class="mr-1.5 inline-block size-2 rounded-full" :style="{ backgroundColor: paletteFor(m.id) }" />{{ m.label }}
+          <span class="inline-block size-2" :style="{ backgroundColor: paletteFor(m.id) }" />{{ m.label }}
         </button>
-        <button type="button" class="ml-2 text-slate-500 underline hover:text-slate-300" @click="selectAllModels">all</button>
-        <button type="button" class="text-slate-500 underline hover:text-slate-300" @click="selectNoModels">none</button>
-      </template>
+      </div>
     </div>
   </section>
 </template>
