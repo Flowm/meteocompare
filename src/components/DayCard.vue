@@ -59,26 +59,26 @@ const visibleModels = computed(() => props.models?.filter((m) => m.high != null 
   >
     <!-- Header row: tabular weekday + ordinal date, divided by a hairline -->
     <div class="border-ink-700/60 flex items-baseline justify-between border-b px-3 py-2">
-      <span class="font-mono text-[11px] font-semibold tracking-[0.16em] uppercase" :class="highlight ? 'text-sodium-300' : 'text-paper-100'">{{ dayLabel }}</span>
-      <span class="text-paper-400 font-mono text-[9px] tracking-[0.12em] uppercase tabular-nums">{{ dateLabel }}</span>
+      <span class="font-mono text-xs font-semibold tracking-wide" :class="highlight ? 'text-sodium-300' : 'text-paper-100'">{{ dayLabel }}</span>
+      <span class="text-paper-400 font-mono text-[10px] tracking-wide tabular-nums">{{ dateLabel }}</span>
     </div>
 
     <div class="px-3 pt-3 pb-3">
       <div class="flex justify-center">
         <WeatherIcon :code="code" size="2rem" class="text-sodium-200" />
       </div>
-      <div class="text-paper-300 mt-1 truncate text-center font-mono text-[10px] tracking-[0.1em] uppercase" :title="weatherLabel(code)">
+      <div class="text-paper-300 mt-1 truncate text-center font-mono text-[10px] tracking-wide" :title="weatherLabel(code)">
         {{ weatherLabel(code) }}
       </div>
 
       <!-- High / low presented as a paired register -->
       <div class="divide-ink-700/60 border-ink-700/60 mt-3 grid grid-cols-2 divide-x border-y py-1.5 font-mono tabular-nums">
         <div class="flex flex-col items-center gap-0.5">
-          <span class="text-paper-400 text-[8px] tracking-[0.2em] uppercase">Hi</span>
+          <span class="text-paper-400 text-[9px] tracking-wide">Hi</span>
           <span class="text-heat-300 text-sm font-medium">{{ formatTemp(high, 0) }}</span>
         </div>
         <div class="flex flex-col items-center gap-0.5">
-          <span class="text-paper-400 text-[8px] tracking-[0.2em] uppercase">Lo</span>
+          <span class="text-paper-400 text-[9px] tracking-wide">Lo</span>
           <span class="text-cold-300 text-sm font-medium">{{ formatTemp(low, 0) }}</span>
         </div>
       </div>
@@ -93,7 +93,7 @@ const visibleModels = computed(() => props.models?.filter((m) => m.high != null 
           </template>
         </template>
         <template v-else>
-          <span class="text-paper-500 text-[9px] tracking-[0.18em] uppercase">dry</span>
+          <span class="text-paper-500 text-[10px] tracking-wide">dry</span>
         </template>
       </div>
 
@@ -136,7 +136,7 @@ const visibleModels = computed(() => props.models?.filter((m) => m.high != null 
       leave-to-class="max-h-0 opacity-0"
     >
       <div v-if="expanded && visibleModels.length" class="border-ink-700 bg-ink-950/40 border-t px-3 py-2">
-        <div class="text-paper-400 mb-1.5 font-mono text-[8px] tracking-[0.2em] uppercase">Per-model</div>
+        <div class="text-paper-400 mb-1.5 font-mono text-[9px] tracking-wide">Per-model</div>
         <div v-for="m in visibleModels" :key="m.id" class="flex items-baseline justify-between gap-1 py-0.5 font-mono text-[10px]">
           <span class="text-paper-400 max-w-[5rem] truncate">{{ m.label }}</span>
           <span class="whitespace-nowrap tabular-nums">

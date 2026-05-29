@@ -122,28 +122,21 @@ function geolocate(): void {
 
 <template>
   <header ref="root" class="border-ink-700 bg-ink-950/85 sticky top-0 z-30 border-b backdrop-blur">
-    <div class="mx-auto grid max-w-5xl grid-cols-[auto_1fr_auto] items-center gap-4 px-4 py-3.5 sm:gap-6 sm:px-6">
+    <div class="mx-auto grid max-w-5xl grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-3.5 sm:gap-6 sm:px-6">
       <!-- Wordmark + view switcher ------------------------------------ -->
-      <div class="flex items-center gap-3 sm:gap-5">
-        <a href="/" class="group flex items-baseline gap-2 leading-none">
+      <div class="flex items-center gap-2.5 sm:gap-5">
+        <a href="/" class="group flex items-center gap-2 leading-none">
           <!-- The mark itself: a hairline circle with a sodium dot in the
                centre — a stylised barometer dial. -->
-          <span class="relative inline-block size-5 shrink-0 self-center">
+          <span class="relative inline-block size-5 shrink-0">
             <span class="border-paper-300/60 absolute inset-0 rounded-full border" aria-hidden="true" />
             <span class="bg-sodium-300 absolute top-1/2 left-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full" aria-hidden="true" />
             <span class="bg-sodium-300/70 absolute top-[1px] left-1/2 h-1 w-px -translate-x-1/2" aria-hidden="true" />
           </span>
-          <span
-            class="display-serif text-paper-50 hidden text-xl leading-none font-medium tracking-tight sm:inline"
-            style="
-              font-variation-settings:
-                &quot;opsz&quot; 144,
-                &quot;SOFT&quot; 30;
-            "
+          <span class="hidden text-lg leading-none font-semibold tracking-tight sm:inline"
+            ><span class="text-paper-50">Meteo</span><span class="text-sodium-300">Compare</span></span
           >
-            meteo<span class="text-sodium-300">·</span>compare
-          </span>
-          <span class="display-serif text-paper-50 text-xl leading-none font-medium tracking-tight sm:hidden"> m<span class="text-sodium-300">·</span>c </span>
+          <span class="text-lg leading-none font-semibold tracking-tight sm:hidden"><span class="text-paper-50">M</span><span class="text-sodium-300">C</span></span>
         </a>
 
         <span class="bg-ink-700 hidden h-5 w-px sm:inline-block" aria-hidden="true" />
@@ -152,7 +145,7 @@ function geolocate(): void {
         <div ref="viewRoot" class="relative">
           <button
             type="button"
-            class="group border-ink-700 bg-ink-900/60 text-paper-200 hover:border-sodium-300/60 hover:text-paper-50 flex items-center gap-2 border px-2.5 py-1.5 font-mono text-[10px] tracking-[0.22em] uppercase transition-colors"
+            class="group border-ink-700 bg-ink-900/60 text-paper-200 hover:border-sodium-300/60 hover:text-paper-50 flex items-center gap-2 border px-2.5 py-1.5 font-mono text-xs tracking-wide transition-colors"
             :aria-expanded="viewOpen"
             aria-haspopup="menu"
             @click="viewOpen = !viewOpen"
@@ -171,7 +164,7 @@ function geolocate(): void {
             <RouterLink
               :to="{ path: '/', query: preservedQuery }"
               role="menuitem"
-              class="text-paper-200 hover:bg-ink-800 hover:text-sodium-200 block px-3 py-2 font-mono text-[11px] tracking-[0.12em] uppercase transition-colors"
+              class="text-paper-200 hover:bg-ink-800 hover:text-sodium-200 block px-3 py-2 font-mono text-xs tracking-wide transition-colors"
               active-class="bg-ink-800 text-sodium-200"
               @click="viewOpen = false"
             >
@@ -180,7 +173,7 @@ function geolocate(): void {
             <RouterLink
               :to="{ path: '/verify', query: preservedQuery }"
               role="menuitem"
-              class="text-paper-200 hover:bg-ink-800 hover:text-sodium-200 block px-3 py-2 font-mono text-[11px] tracking-[0.12em] uppercase transition-colors"
+              class="text-paper-200 hover:bg-ink-800 hover:text-sodium-200 block px-3 py-2 font-mono text-xs tracking-wide transition-colors"
               active-class="bg-ink-800 text-sodium-200"
               @click="viewOpen = false"
             >
@@ -191,7 +184,7 @@ function geolocate(): void {
       </div>
 
       <!-- Search ------------------------------------------------------- -->
-      <div class="relative w-full">
+      <div class="relative w-full min-w-0">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
@@ -210,7 +203,7 @@ function geolocate(): void {
           v-model="query"
           type="search"
           placeholder="Search station, city, coordinates…"
-          class="border-ink-700 bg-ink-900/70 text-paper-50 placeholder:text-paper-400/70 focus:border-sodium-300/70 focus:bg-ink-900 w-full border py-2 pr-10 pl-9 text-sm outline-none"
+          class="border-ink-700 bg-ink-900/70 text-paper-50 placeholder:text-paper-400/70 focus:border-sodium-300/70 focus:bg-ink-900 w-full min-w-0 border py-2 pr-10 pl-9 text-sm outline-none"
           @focus="isOpen = true"
         />
         <button
@@ -247,10 +240,10 @@ function geolocate(): void {
           v-if="isOpen && (results.length || favourites.length || recent.length || isSearching || searchError)"
           class="panel-in border-ink-700 bg-ink-900 absolute z-40 mt-1 w-full overflow-hidden border shadow-2xl shadow-black/60"
         >
-          <div v-if="isSearching" class="text-paper-400 flex items-center gap-2 px-3 py-2 font-mono text-[10px] tracking-[0.18em] uppercase">
-            <span class="bg-sodium-300 size-1 animate-pulse rounded-full" /> Searching
+          <div v-if="isSearching" class="text-paper-400 flex items-center gap-2 px-3 py-2 font-mono text-[11px] tracking-wide">
+            <span class="bg-sodium-300 size-1 animate-pulse rounded-full" /> Searching…
           </div>
-          <div v-else-if="searchError" class="text-heat-400 px-3 py-2 font-mono text-[10px] tracking-[0.18em] uppercase">{{ searchError }}</div>
+          <div v-else-if="searchError" class="text-heat-400 px-3 py-2 font-mono text-[11px] tracking-wide">{{ searchError }}</div>
 
           <div v-if="results.length" class="max-h-64 overflow-y-auto">
             <button
@@ -269,9 +262,7 @@ function geolocate(): void {
           </div>
 
           <template v-if="!query && favourites.length">
-            <div class="border-ink-800 text-paper-400 border-t px-3 pt-2 pb-1 font-mono text-[10px] tracking-[0.22em] uppercase">
-              <span class="text-sodium-300">★</span> Favourites
-            </div>
+            <div class="border-ink-800 text-paper-400 border-t px-3 pt-2 pb-1 font-mono text-[11px] tracking-wide"><span class="text-sodium-300">★</span> Favourites</div>
             <button
               v-for="f in favourites"
               :key="`f-${f.latitude},${f.longitude}`"
@@ -286,7 +277,7 @@ function geolocate(): void {
           </template>
 
           <template v-if="!query && recent.length">
-            <div class="border-ink-800 text-paper-400 border-t px-3 pt-2 pb-1 font-mono text-[10px] tracking-[0.22em] uppercase"><span class="text-paper-300">↻</span> Recent</div>
+            <div class="border-ink-800 text-paper-400 border-t px-3 pt-2 pb-1 font-mono text-[11px] tracking-wide"><span class="text-paper-300">↻</span> Recent</div>
             <button
               v-for="r in recent.slice(0, 5)"
               :key="`r-${r.latitude},${r.longitude}`"

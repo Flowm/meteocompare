@@ -51,10 +51,10 @@ const precipOptions: { value: PrecipitationUnit; label: string }[] = [
     </button>
 
     <div v-if="isOpen" class="panel-in border-ink-700 bg-ink-900 absolute right-0 z-40 mt-1 w-60 overflow-hidden border shadow-2xl shadow-black/60" role="menu">
-      <div class="border-ink-700 text-paper-400 border-b px-3 py-2 font-mono text-[10px] tracking-[0.22em] uppercase"><span class="text-sodium-300">·</span> Units</div>
+      <div class="border-ink-700 text-paper-400 border-b px-3 py-2 font-mono text-[11px] tracking-wide"><span class="text-sodium-300">·</span> Units</div>
 
       <div class="flex items-center justify-between px-3 py-2.5 text-sm">
-        <span class="text-paper-200 font-mono text-[11px] tracking-[0.14em] uppercase">Temp</span>
+        <span class="text-paper-200 font-mono text-xs tracking-wide">Temperature</span>
         <div class="border-ink-700 flex border" role="radiogroup" aria-label="Temperature unit">
           <button
             v-for="opt in tempOptions"
@@ -72,7 +72,7 @@ const precipOptions: { value: PrecipitationUnit; label: string }[] = [
       </div>
 
       <div class="border-ink-700/60 flex items-center justify-between border-t px-3 py-2.5 text-sm">
-        <span class="text-paper-200 font-mono text-[11px] tracking-[0.14em] uppercase">Precip</span>
+        <span class="text-paper-200 font-mono text-xs tracking-wide">Precipitation</span>
         <div class="border-ink-700 flex border" role="radiogroup" aria-label="Precipitation unit">
           <button
             v-for="opt in precipOptions"

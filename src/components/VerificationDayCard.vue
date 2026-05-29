@@ -55,15 +55,15 @@ function signed(n: number, digits = 1): string {
   <article class="border-ink-700 bg-ink-900/40 min-w-[20rem] flex-shrink-0 snap-start border">
     <!-- Header -->
     <div class="border-ink-700/60 flex items-baseline justify-between gap-2 border-b px-4 py-2.5">
-      <h3 class="text-paper-100 font-mono text-[11px] font-semibold tracking-[0.16em] uppercase">{{ dayLabel }}</h3>
-      <span class="text-paper-400 font-mono text-[9px] tracking-[0.14em] uppercase tabular-nums">{{ leadLabel }}</span>
+      <h3 class="text-paper-100 font-mono text-xs font-semibold tracking-wide">{{ dayLabel }}</h3>
+      <span class="text-paper-400 font-mono text-[10px] tracking-wide tabular-nums">{{ leadLabel }}</span>
     </div>
 
     <div class="px-4 py-3">
       <!-- Forecast vs truth header rows -->
       <div class="space-y-1.5 font-mono text-sm tabular-nums">
         <div v-if="day.aggregate.temperature" class="flex items-center gap-2">
-          <span class="text-aggregate-400 w-16 text-[9px] tracking-[0.18em] uppercase">Forecast</span>
+          <span class="text-aggregate-400 w-16 text-[10px] tracking-wide">Forecast</span>
           <WeatherIcon v-if="weatherCode != null" :code="weatherCode" size="1.25rem" class="text-sodium-200" />
           <span v-else class="text-paper-500 inline-flex size-5 items-center justify-center text-xs">·</span>
           <span class="text-heat-300">{{ formatTemp(day.aggregate.temperature.forecastMax, 0) }}</span>
@@ -71,7 +71,7 @@ function signed(n: number, digits = 1): string {
           <span class="text-rain-300 ml-auto">{{ day.aggregate.precipitation ? formatPrecip(day.aggregate.precipitation.forecastSum, 1) : "—" }}</span>
         </div>
         <div v-if="day.aggregate.temperature" class="flex items-center gap-2">
-          <span class="text-truth-400 w-16 text-[9px] tracking-[0.18em] uppercase">Truth</span>
+          <span class="text-truth-400 w-16 text-[10px] tracking-wide">Truth</span>
           <span class="text-paper-500 inline-flex size-5 items-center justify-center text-xs">—</span>
           <span class="text-heat-300/70">{{ formatTemp(day.aggregate.temperature.truthMax, 0) }}</span>
           <span class="text-cold-300/70">{{ formatTemp(day.aggregate.temperature.truthMin, 0) }}</span>
@@ -82,7 +82,7 @@ function signed(n: number, digits = 1): string {
       <!-- Score lines -->
       <div class="border-ink-700/60 mt-3 space-y-1.5 border-t pt-3 font-mono text-[11px] tabular-nums">
         <div v-if="day.aggregate.temperature" class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-          <span class="text-paper-300 text-[9px] tracking-[0.18em] uppercase">Temp</span>
+          <span class="text-paper-300 text-[10px] tracking-wide">Temp</span>
           <span class="text-paper-400"
             >bias <span class="text-paper-100">{{ signed(day.aggregate.temperature.bias) }}<span class="text-paper-500">°C</span></span></span
           >
@@ -92,7 +92,7 @@ function signed(n: number, digits = 1): string {
           <ConfidenceBadge v-if="Number.isFinite(day.aggregate.temperature.confidence)" :value="day.aggregate.temperature.confidence" size="sm" class="ml-auto" />
         </div>
         <div v-if="day.aggregate.precipitation" class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-          <span class="text-paper-300 text-[9px] tracking-[0.18em] uppercase">Precip</span>
+          <span class="text-paper-300 text-[10px] tracking-wide">Precip</span>
           <span class="text-paper-400"
             >amt <span class="text-paper-100">{{ signed(day.aggregate.precipitation.amountError) }}<span class="text-paper-500">mm</span></span></span
           >
@@ -102,7 +102,7 @@ function signed(n: number, digits = 1): string {
             </span>
           </template>
           <template v-else>
-            <span class="text-paper-500 text-[9px] tracking-[0.18em] uppercase">dry day</span>
+            <span class="text-paper-500 text-[10px] tracking-wide">dry day</span>
           </template>
           <ConfidenceBadge v-if="Number.isFinite(day.aggregate.precipitation.confidence)" :value="day.aggregate.precipitation.confidence" size="sm" class="ml-auto" />
         </div>
@@ -124,7 +124,7 @@ function signed(n: number, digits = 1): string {
       leave-to-class="max-h-0 opacity-0"
     >
       <div v-if="showModels && perModelEntries.length" class="border-ink-700 bg-ink-950/40 space-y-0.5 border-t px-4 py-3 font-mono text-[10px] tabular-nums">
-        <div class="text-paper-400 mb-1.5 text-[9px] tracking-[0.2em] uppercase">Per-model</div>
+        <div class="text-paper-400 mb-1.5 text-[10px] tracking-wide">Per-model</div>
         <div v-for="[modelId, scores] in perModelEntries" :key="modelId" class="grid grid-cols-[7rem_1fr_1fr] items-baseline gap-2">
           <span class="text-paper-400 truncate">{{ modelLabel(modelId) }}</span>
           <span class="text-paper-300">

@@ -38,7 +38,7 @@ const wrapperTitle = computed(() =>
     <div class="border-ink-700 flex w-full gap-px overflow-hidden border">
       <div v-for="(c, i) in cells" :key="i" class="h-3 flex-1" :class="c.tone" :title="c.title" />
     </div>
-    <div v-if="isDryDay" class="text-paper-400 pointer-events-none absolute inset-0 flex items-center justify-center font-mono text-[9px] tracking-[0.22em] uppercase">
+    <div v-if="isDryDay" class="text-paper-400 pointer-events-none absolute inset-0 flex items-center justify-center font-mono text-[10px] tracking-wide">
       No precipitation events
     </div>
   </div>

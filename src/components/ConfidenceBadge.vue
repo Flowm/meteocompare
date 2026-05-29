@@ -56,11 +56,7 @@ const defaultLabel = computed(() => (props.size === "sm" ? `${percent.value}%` :
 </script>
 
 <template>
-  <span
-    class="bg-ink-950/60 inline-flex items-center border font-mono tracking-[0.14em] uppercase tabular-nums"
-    :class="[tone.ring, sizing]"
-    :title="`Model agreement: ${percent}%`"
-  >
+  <span class="bg-ink-950/60 inline-flex items-center border font-mono tracking-wide tabular-nums" :class="[tone.ring, sizing]" :title="`Model agreement: ${percent}%`">
     <!-- Segmented meter -->
     <span class="flex items-center gap-px" aria-hidden="true">
       <span

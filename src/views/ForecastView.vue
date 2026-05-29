@@ -27,9 +27,7 @@ const locationLabel = computed(() => {
     <LocationBar />
 
     <main class="mx-auto w-full max-w-5xl flex-1 space-y-8 px-4 py-8 sm:px-6">
-      <div v-if="error" class="border-heat-500/40 bg-heat-500/5 text-heat-300 border p-4 font-mono text-xs tracking-[0.1em] uppercase">
-        <span class="text-heat-400">[ERR]</span> {{ error }}
-      </div>
+      <div v-if="error" class="border-heat-500/40 bg-heat-500/5 text-heat-300 border p-4 font-mono text-xs tracking-wide"><span class="text-heat-400">[err]</span> {{ error }}</div>
 
       <div v-if="loading && !raw" class="grid place-items-center gap-4 py-32">
         <!-- Concentric ring loader that reads as a radar sweep -->
@@ -39,7 +37,7 @@ const locationLabel = computed(() => {
           <div class="border-ink-500 absolute inset-2 rounded-full border" />
           <div class="border-t-sodium-300 absolute inset-0 animate-spin rounded-full border border-transparent" style="animation-duration: 1.6s" />
         </div>
-        <p class="text-paper-400 font-mono text-[10px] tracking-[0.22em] uppercase">Fetching observations…</p>
+        <p class="text-paper-400 font-mono text-[11px] tracking-wide">Fetching observations…</p>
       </div>
 
       <template v-if="raw && hourly && daily">
@@ -50,7 +48,7 @@ const locationLabel = computed(() => {
     </main>
 
     <footer class="border-ink-700/60 border-t px-6 py-6 text-center">
-      <p class="text-paper-400 font-mono text-[10px] tracking-[0.22em] uppercase">
+      <p class="text-paper-400 font-mono text-[11px] tracking-wide">
         Data <span class="text-sodium-300">·</span>
         <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer" class="text-paper-200 hover:text-sodium-200 underline-offset-4 hover:underline"
           >open-meteo.com</a

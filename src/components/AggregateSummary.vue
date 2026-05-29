@@ -75,11 +75,8 @@ const tempWhole = computed(() => {
     <!-- Header bar: same eyebrow + hairline-divider pattern as the chart
          card below, so the two stack as a single typographic system. -->
     <div class="border-ink-700 mb-3 flex items-center justify-between gap-3 border-b pb-3">
-      <h2 class="eyebrow flex items-center gap-2">
-        <span class="bg-sodium-300/50 inline-block h-px w-6" />
-        Current conditions
-      </h2>
-      <span class="text-paper-400 font-mono text-[10px] tracking-[0.18em] whitespace-nowrap uppercase tabular-nums">
+      <h2 class="eyebrow">Current conditions</h2>
+      <span class="text-paper-400 font-mono text-[10px] tracking-[0.12em] whitespace-nowrap tabular-nums">
         <span class="text-sodium-300">●</span>
         {{ lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }}
         <span class="hidden sm:inline">
@@ -91,7 +88,7 @@ const tempWhole = computed(() => {
 
     <!-- Location ----------------------------------------------------- -->
     <div class="flex items-center gap-1.5">
-      <span class="eyebrow">{{ locationName }}</span>
+      <span class="text-paper-100 text-sm font-medium tracking-wide">{{ locationName }}</span>
       <button
         type="button"
         class="-m-1 p-1 text-sm leading-none transition-colors"
@@ -121,7 +118,7 @@ const tempWhole = computed(() => {
             </span>
             <span class="text-sodium-300 font-mono text-xl leading-none font-light tabular-nums sm:text-2xl"> °{{ tempUnitLetter }} </span>
           </div>
-          <div class="text-paper-200 mt-1.5 font-mono text-[11px] tracking-[0.18em] uppercase">
+          <div class="text-paper-200 mt-1.5 font-mono text-xs tracking-wide">
             {{ weatherLabel(currentCode) }}
           </div>
         </div>
@@ -132,15 +129,15 @@ const tempWhole = computed(() => {
 
         <div class="border-ink-700 bg-ink-950/60 grid grid-cols-3 gap-x-4 gap-y-1 border px-3 py-2 font-mono tabular-nums sm:grid-cols-[auto_auto_auto]">
           <div class="flex flex-col gap-0.5">
-            <span class="text-paper-400 text-[9px] tracking-[0.22em] uppercase">High</span>
+            <span class="text-paper-400 text-[10px] tracking-wide">High</span>
             <span class="text-heat-300 text-sm">{{ formatTemp(todayHigh, 0) }}</span>
           </div>
           <div class="flex flex-col gap-0.5">
-            <span class="text-paper-400 text-[9px] tracking-[0.22em] uppercase">Low</span>
+            <span class="text-paper-400 text-[10px] tracking-wide">Low</span>
             <span class="text-cold-300 text-sm">{{ formatTemp(todayLow, 0) }}</span>
           </div>
           <div class="flex flex-col gap-0.5">
-            <span class="text-paper-400 text-[9px] tracking-[0.22em] uppercase">Precip</span>
+            <span class="text-paper-400 text-[10px] tracking-wide">Precip</span>
             <span class="text-sm" :class="todayPrecipProb != null && todayPrecipProb > 0 ? 'text-rain-300' : 'text-paper-400'">
               {{ todayPrecipProb != null && todayPrecipProb > 0 ? formatPercent(todayPrecipProb) : "—" }}
             </span>

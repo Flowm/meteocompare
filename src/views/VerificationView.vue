@@ -64,22 +64,19 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
       <section class="registration border-ink-700 bg-ink-900/60 relative border p-5 sm:p-6">
         <div class="border-ink-700 flex flex-wrap items-baseline justify-between gap-3 border-b pb-3">
           <div>
-            <h1 class="eyebrow-sodium flex items-center gap-2">
-              <span class="bg-sodium-300 size-1.5 rounded-full" />
-              Verification
-            </h1>
+            <h1 class="eyebrow-sodium">Verification</h1>
             <p class="text-paper-50 mt-1 font-mono text-sm tracking-[0.05em]">
               {{ locationLabel }}
             </p>
           </div>
-          <p class="text-paper-400 max-w-xs text-right font-mono text-[10px] tracking-[0.14em] uppercase">
+          <p class="text-paper-400 max-w-xs text-right font-mono text-[11px] tracking-wide">
             Forecast vs ERA5-Seamless truth
             <br /><span class="text-paper-500">7-day window · 00:00 UTC</span>
           </p>
         </div>
 
         <div class="mt-4 flex flex-wrap items-center gap-4">
-          <label class="text-paper-300 flex items-center gap-2.5 font-mono text-[10px] tracking-[0.18em] uppercase">
+          <label class="text-paper-300 flex items-center gap-2.5 font-mono text-[11px] tracking-wide">
             <span>Run date</span>
             <input
               type="date"
@@ -92,15 +89,13 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
           </label>
         </div>
 
-        <p v-if="missingModelCount > 0 && !loading" class="text-paper-400 mt-3 font-mono text-[10px] tracking-[0.14em] uppercase">
+        <p v-if="missingModelCount > 0 && !loading" class="text-paper-400 mt-3 font-mono text-[11px] tracking-wide">
           <span class="text-sodium-300">·</span> {{ availableModels.length }}/{{ MODELS.length }} models available
         </p>
       </section>
 
       <!-- Error state -->
-      <div v-if="error" class="border-heat-500/40 bg-heat-500/5 text-heat-300 border p-4 font-mono text-xs tracking-[0.1em] uppercase">
-        <span class="text-heat-400">[ERR]</span> {{ error }}
-      </div>
+      <div v-if="error" class="border-heat-500/40 bg-heat-500/5 text-heat-300 border p-4 font-mono text-xs tracking-wide"><span class="text-heat-400">[err]</span> {{ error }}</div>
 
       <!-- Loading state -->
       <div v-if="loading && !hourly" class="grid place-items-center gap-4 py-32">
@@ -110,7 +105,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
           <div class="border-ink-500 absolute inset-2 rounded-full border" />
           <div class="border-t-sodium-300 absolute inset-0 animate-spin rounded-full border border-transparent" style="animation-duration: 1.6s" />
         </div>
-        <p class="text-paper-400 font-mono text-[10px] tracking-[0.22em] uppercase">Loading historical runs + ERA5…</p>
+        <p class="text-paper-400 font-mono text-[11px] tracking-wide">Loading historical runs + ERA5…</p>
       </div>
 
       <!-- Chart -->
@@ -126,10 +121,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
 
       <!-- Daily strip -->
       <section v-if="daily && daily.length">
-        <h2 class="eyebrow mb-3 flex items-center gap-2">
-          <span class="bg-sodium-300/50 inline-block h-px w-6" />
-          Daily breakdown
-        </h2>
+        <h2 class="eyebrow mb-3">Daily breakdown</h2>
         <div class="-mx-2 flex snap-x gap-2 overflow-x-auto px-2 pt-1 pb-3">
           <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" :show-models="showModels" :weather-code="weatherCodes[d.dayIndex]" />
         </div>
@@ -137,7 +129,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
     </main>
 
     <footer class="border-ink-700/60 border-t px-6 py-6 text-center">
-      <p class="text-paper-400 font-mono text-[10px] tracking-[0.22em] uppercase">
+      <p class="text-paper-400 font-mono text-[11px] tracking-wide">
         Truth <span class="text-sodium-300">·</span> ERA5-Seamless
         <span class="text-paper-500"> // </span>
         Forecasts <span class="text-sodium-300">·</span>

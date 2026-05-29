@@ -509,12 +509,9 @@ const hasModels = computed(() => allModels.value.length > 0);
   <section class="border-ink-700 bg-ink-900/60 relative border p-4 sm:p-6">
     <!-- Header + window selector -->
     <div class="border-ink-700 mb-4 flex flex-wrap items-center justify-between gap-3 border-b pb-3">
-      <h2 class="eyebrow flex items-center gap-2">
-        <span class="bg-sodium-300/50 inline-block h-px w-6" />
-        {{ title }}
-      </h2>
+      <h2 class="eyebrow">{{ title }}</h2>
       <div class="flex items-center gap-4">
-        <div class="border-ink-700 flex border font-mono text-[11px] tracking-[0.1em] uppercase">
+        <div class="border-ink-700 flex border font-mono text-xs tracking-wide">
           <button
             v-for="c in WINDOW_CHOICES"
             :key="c.hours"
@@ -531,7 +528,7 @@ const hasModels = computed(() => allModels.value.length > 0);
     <!-- Variable selector — takes the full chrome row now that the "Show
          contributing models" toggle has moved into the model chip strip
          below the chart. -->
-    <div class="border-ink-700 mb-3 min-w-0 overflow-x-auto border font-mono text-[11px] tracking-[0.1em] uppercase">
+    <div class="border-ink-700 mb-3 min-w-0 overflow-x-auto border font-mono text-xs tracking-wide">
       <div class="flex">
         <button
           v-for="vid in variables"
@@ -557,10 +554,10 @@ const hasModels = computed(() => allModels.value.length > 0);
          and MODELS (per-model spaghetti chips). Replaces the old "Show
          contributing models" checkbox: enabling any model chip turns the
          spaghetti on; "none" turns it back off. -->
-    <div class="border-ink-700/60 mt-4 space-y-2.5 border-t pt-3 font-mono text-[10px] tracking-[0.12em] uppercase">
+    <div class="border-ink-700/60 mt-4 space-y-2.5 border-t pt-3 font-mono text-[11px] tracking-wide">
       <!-- SERIES -->
       <div class="flex flex-wrap items-center gap-1.5">
-        <span class="text-paper-400 mr-2 w-14 shrink-0 tracking-[0.22em]">Series</span>
+        <span class="text-paper-400 mr-2 w-14 shrink-0">Series</span>
         <button
           type="button"
           class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
@@ -578,12 +575,12 @@ const hasModels = computed(() => allModels.value.length > 0);
         >
           <span class="inline-block size-2" :style="{ backgroundColor: TRUTH_COLOR }" />Truth
         </button>
-        <span v-if="!showModels" class="text-paper-500 ml-1 hidden tracking-[0.18em] sm:inline"> <span class="text-aggregate-400">▒</span> spread ±1σ </span>
+        <span v-if="!showModels" class="text-paper-500 ml-1 hidden sm:inline"> <span class="text-aggregate-400">▒</span> spread ±1σ </span>
       </div>
 
       <!-- MODELS -->
       <div v-if="hasModels" class="flex flex-wrap items-center gap-1.5">
-        <span class="text-paper-400 mr-2 w-14 shrink-0 tracking-[0.22em]">Models</span>
+        <span class="text-paper-400 mr-2 w-14 shrink-0">Models</span>
         <div class="flex items-center gap-px">
           <button
             type="button"
