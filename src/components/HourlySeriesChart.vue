@@ -47,7 +47,7 @@ const PRECIP_BAR_COLOR = "rgba(127, 184, 224, 0.65)"; // dusty rain blue
 const BAND_FILL = "rgba(232, 130, 107, 0.16)"; // coral, low alpha — ±1σ band
 const BAND_SWATCH = "rgba(232, 130, 107, 0.45)"; // more visible coral for the legend chip
 const TRUTH_AREA = "rgba(245, 185, 66, 0.12)"; // sodium, low alpha — precip truth fill
-const NIGHT_FILL = "rgba(10, 16, 24, 0.55)";
+const NIGHT_FILL = "rgba(120, 140, 200, 0.12)"; // cool marine wash — reads as night against the warm theme
 const MODEL_PALETTE = ["#6dc6c2", "#9bb87a", "#bfa9d6", "#f0a285", "#7fb8e0", "#d99a1e", "#e8826b", "#9ddad6", "#c7b69a", "#a8c182", "#b88c8c"];
 const MODEL_OPACITY = 0.55;
 
@@ -63,7 +63,10 @@ const WINDOW_CHOICES = [
 ] as const;
 
 // ---- UI state ---------------------------------------------------------------
-const view = ref<ChartViewId>(props.variables[0] ?? "temperature_2m");
+// Forecast (no truth) opens on the combined temperature + precipitation view;
+// verify keeps per-variable views so each can show its own ERA5 truth line.
+const canCombineTempPrecip = !props.data.truth && props.variables.includes("temperature_2m") && props.variables.includes("precipitation");
+const view = ref<ChartViewId>(canCombineTempPrecip ? "temp_precip" : (props.variables[0] ?? "temperature_2m"));
 const hoursWindow = ref<number>(props.defaultWindow);
 
 // Visibility toggles. Kept OUT of `option` so toggling them patches the chart
@@ -97,14 +100,47 @@ function selectView(v: ChartViewId): void {
   view.value = v;
 }
 
-// Variable dropdown (replaces the old full-width button rail; sits next to the
-// window selector in the chart header).
+// Variable picker: an expanded rail on desktop, a dropdown on mobile.
 const varOpen = ref(false);
 const varRoot = ref<HTMLElement | null>(null);
 onClickOutside(varRoot, () => (varOpen.value = false));
 
-function selectVariable(v: ChartViewId): void {
-  selectView(v);
+/** Whether a picker entry reads as "active". Temperature and precipitation are
+ *  a combinable pair on the forecast page: either is active in the composite. */
+function isVarActive(vid: ChartViewId): boolean {
+  if (canCombineTempPrecip) {
+    if (vid === "temperature_2m") return view.value === "temp_precip" || view.value === "temperature_2m";
+    if (vid === "precipitation") return view.value === "temp_precip" || view.value === "precipitation";
+  }
+  return view.value === vid;
+}
+
+function selectVariable(vid: ChartViewId): void {
+  // Temperature & precipitation toggle independently (dual-axis), so the two
+  // can be shown together — that combination *is* the composite view. The
+  // remaining variables are exclusive single-axis views.
+  if (canCombineTempPrecip && (vid === "temperature_2m" || vid === "precipitation")) {
+    const inPair = view.value === "temp_precip" || view.value === "temperature_2m" || view.value === "precipitation";
+    let tempOn = view.value === "temp_precip" || view.value === "temperature_2m";
+    let precipOn = view.value === "temp_precip" || view.value === "precipitation";
+    if (!inPair) {
+      // Coming from an exclusive view (wind / cloud / prob) → focus the click.
+      tempOn = vid === "temperature_2m";
+      precipOn = vid === "precipitation";
+    } else if (vid === "temperature_2m") {
+      tempOn = !tempOn;
+    } else {
+      precipOn = !precipOn;
+    }
+    // Never leave the pair empty: toggling off the last one is a no-op.
+    if (!tempOn && !precipOn) {
+      tempOn = vid === "temperature_2m";
+      precipOn = vid === "precipitation";
+    }
+    selectView(tempOn && precipOn ? "temp_precip" : tempOn ? "temperature_2m" : "precipitation");
+  } else {
+    selectView(vid);
+  }
   varOpen.value = false;
 }
 
@@ -224,6 +260,17 @@ function selectNoModels(): void {
   applyModelVisibility();
 }
 
+// Single "All" toggle: active only when every available model is enabled;
+// clicking flips between all-on and all-off.
+const allModelsActive = computed(() => {
+  const available = allModels.value.filter((m) => modelHasData.value[m.id]);
+  return available.length > 0 && available.every((m) => enabledModels.value.has(m.id));
+});
+function toggleAllModels(): void {
+  if (allModelsActive.value) selectNoModels();
+  else selectAllModels();
+}
+
 // ---- Tooltip formatting -----------------------------------------------------
 function fmtVar(dv: DataVarId, base: number | null | undefined): string {
   if (dv === "temperature_2m") return formatTemp.value(base, 1);
@@ -281,6 +328,24 @@ const option = computed<EChartsOption>(() => {
         }
       : undefined;
 
+  // Night shading lives on its own zero-z background series so it always sits
+  // *behind* the spread band and lines (it used to ride the band-base series,
+  // which drew it on top of the spread).
+  if (markArea) {
+    series.push({
+      id: "night",
+      type: "line",
+      yAxisIndex: 0,
+      data: Array.from({ length: n }, () => null),
+      symbol: "none",
+      lineStyle: { opacity: 0 },
+      silent: true,
+      z: 0,
+      tooltip: { show: false },
+      markArea,
+    });
+  }
+
   // --- helper: push an aggregate line + band for a line variable -------------
   const pushLineAggregate = (dv: DataVarId, axisIndex: number, attachMarks: boolean): void => {
     const pts = (props.data.aggregate[dv] ?? []).slice(0, n);
@@ -288,8 +353,7 @@ const option = computed<EChartsOption>(() => {
     const smooth = dv === "temperature_2m";
 
     // Band (±1σ). Always built — even in spaghetti mode — so the spread can be
-    // toggled independently and stays visible behind the per-model lines. The
-    // invisible band-base carries the night-shading markArea.
+    // toggled independently and stays visible behind the per-model lines.
     const lower = pts.map((p) => convertVar(p.value - p.stdDev, dv, units.value));
     const delta = pts.map((p) => (Number.isFinite(p.stdDev) ? convertDelta(p.stdDev * 2, dv, units.value) : 0));
     series.push({
@@ -303,7 +367,7 @@ const option = computed<EChartsOption>(() => {
       itemStyle: { opacity: 0 },
       tooltip: { show: false },
       data: lower,
-      ...(attachMarks && markArea ? { markArea } : {}),
+      z: 1,
     });
     series.push({
       id: "band-delta",
@@ -315,7 +379,7 @@ const option = computed<EChartsOption>(() => {
       areaStyle: { color: BAND_FILL },
       tooltip: { show: false },
       data: delta,
-      z: 0,
+      z: 1,
     });
 
     series.push({
@@ -346,8 +410,7 @@ const option = computed<EChartsOption>(() => {
       data: values,
       itemStyle: { color: PRECIP_BAR_COLOR },
       barWidth: "60%",
-      z: 1,
-      ...(attachMarks && markArea ? { markArea } : {}),
+      z: 2,
       ...(attachMarks && markLine ? { markLine } : {}),
     });
     const truth = props.data.truth?.precipitation;
@@ -552,8 +615,8 @@ const hasBand = computed(() => view.value !== "precipitation");
             v-for="vid in variables"
             :key="vid"
             class="border-ink-700 border-r px-2.5 py-1 whitespace-nowrap transition-colors last:border-r-0"
-            :class="view === vid ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
-            @click="selectView(vid)"
+            :class="isVarActive(vid) ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
+            @click="selectVariable(vid)"
           >
             {{ CHART_VIEWS[vid].label }}
           </button>
@@ -583,9 +646,9 @@ const hasBand = computed(() => view.value !== "precipitation");
               :key="vid"
               type="button"
               role="menuitemradio"
-              :aria-checked="view === vid"
+              :aria-checked="isVarActive(vid)"
               class="block w-full px-3 py-2 text-left font-mono text-xs tracking-wide transition-colors"
-              :class="view === vid ? 'bg-ink-800 text-sodium-200' : 'text-paper-200 hover:bg-ink-800 hover:text-sodium-200'"
+              :class="isVarActive(vid) ? 'bg-ink-800 text-sodium-200' : 'text-paper-200 hover:bg-ink-800 hover:text-sodium-200'"
               @click="selectVariable(vid)"
             >
               {{ CHART_VIEWS[vid].label }}
@@ -617,10 +680,9 @@ const hasBand = computed(() => view.value !== "precipitation");
     </div>
 
     <!-- Legend / filter strip ---------------------------------------------
-         Two labelled sections — SERIES (always-on toggles: aggregate, truth)
-         and MODELS (per-model spaghetti chips). Replaces the old "Show
-         contributing models" checkbox: enabling any model chip turns the
-         spaghetti on; "none" turns it back off. -->
+         Two labelled sections — SERIES (aggregate / spread / truth toggles)
+         and MODELS (an "All" toggle plus per-model spaghetti chips). Enabling
+         any model chip turns the spaghetti on; "All" flips every model at once. -->
     <div class="border-ink-700/60 mt-4 space-y-2.5 border-t pt-3 font-mono text-[11px] tracking-wide">
       <!-- SERIES -->
       <div class="flex flex-wrap items-center gap-1.5">
@@ -657,24 +719,16 @@ const hasBand = computed(() => view.value !== "precipitation");
       <!-- MODELS -->
       <div v-if="hasModels" class="flex flex-wrap items-center gap-1.5">
         <span class="text-paper-400 mr-2 w-14 shrink-0">Models</span>
-        <div class="flex items-center gap-px">
-          <button
-            type="button"
-            class="border-ink-700 hover:border-sodium-300/60 text-paper-300 hover:text-sodium-200 bg-ink-950 border px-2 py-1 transition-colors"
-            title="Enable all models"
-            @click="selectAllModels"
-          >
-            all
-          </button>
-          <button
-            type="button"
-            class="border-ink-700 hover:border-sodium-300/60 text-paper-300 hover:text-sodium-200 bg-ink-950 -ml-px border px-2 py-1 transition-colors"
-            title="Disable all models"
-            @click="selectNoModels"
-          >
-            none
-          </button>
-        </div>
+        <button
+          type="button"
+          class="border px-2 py-1 transition-colors"
+          :class="allModelsActive ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
+          :aria-pressed="allModelsActive"
+          :title="allModelsActive ? 'Disable all models' : 'Enable all models'"
+          @click="toggleAllModels"
+        >
+          All
+        </button>
         <span class="bg-ink-700 mx-1 hidden h-4 w-px sm:inline-block" aria-hidden="true" />
         <button
           v-for="m in allModels"

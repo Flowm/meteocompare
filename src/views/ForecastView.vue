@@ -14,7 +14,10 @@ const { loading, error, raw, hourly, daily, solar } = useForecast(current);
 
 // Full variable set: the composite Temp+Precip overview plus the five
 // single-variable views. Temp+Precip is the calm default (variables[0]).
-const FORECAST_VARIABLES: ChartViewId[] = ["temp_precip", "temperature_2m", "precipitation", "precipitation_probability", "wind_speed_10m", "cloud_cover"];
+// Temperature + precipitation are combinable (shown together by default); the
+// composite "Temp + Precip" view is the default but no longer a standalone
+// button — see HourlySeriesChart's variable toggle logic.
+const FORECAST_VARIABLES: ChartViewId[] = ["temperature_2m", "precipitation", "precipitation_probability", "wind_speed_10m", "cloud_cover"];
 
 const locationLabel = computed(() => {
   const loc = current.value;
