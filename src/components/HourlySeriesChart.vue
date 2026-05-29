@@ -47,8 +47,6 @@ const BAND_FILL = "rgba(232, 130, 107, 0.16)"; // coral, low alpha — ±1σ ban
 const TRUTH_AREA = "rgba(245, 185, 66, 0.12)"; // sodium, low alpha — precip truth fill
 const NIGHT_FILL = "rgba(10, 16, 24, 0.55)";
 const MODEL_PALETTE = ["#6dc6c2", "#9bb87a", "#bfa9d6", "#f0a285", "#7fb8e0", "#d99a1e", "#e8826b", "#9ddad6", "#c7b69a", "#a8c182", "#b88c8c"];
-const BAND_OPACITY = 0.16;
-const TRUTH_AREA_OPACITY = 0.12;
 const MODEL_OPACITY = 0.55;
 
 // ECharts reads `null` as "auto-scale this axis", but its TS types only allow
@@ -161,7 +159,11 @@ function applyAggregateVisibility(): void {
   const op = showAggregate.value ? 1 : 0;
   patch([
     { id: "agg", lineStyle: { opacity: op }, itemStyle: { opacity: op } },
-    { id: "band-delta", areaStyle: { opacity: op ? BAND_OPACITY : 0 } },
+    // The band's translucency lives in its fill colour (BAND_FILL, alpha ~0.16),
+    // so the "shown" areaStyle opacity must be a full 1 — setting it to the
+    // alpha value again would multiply the two and wash the band out after a
+    // recompute. Only toggle between 1 (shown) and 0 (hidden).
+    { id: "band-delta", areaStyle: { opacity: op } },
   ]);
 }
 
@@ -169,7 +171,8 @@ function applyTruthVisibility(): void {
   const op = showTruth.value ? 1 : 0;
   const truthPatch: Record<string, unknown> & { id: string } = { id: "tr", lineStyle: { opacity: op }, itemStyle: { opacity: op } };
   // Only precipitation truth carries an area fill — don't add one to temp truth.
-  if (view.value === "precipitation") truthPatch.areaStyle = { opacity: op ? TRUTH_AREA_OPACITY : 0 };
+  // As with the band, the fill alpha lives in TRUTH_AREA, so toggle 1/0 only.
+  if (view.value === "precipitation") truthPatch.areaStyle = { opacity: op };
   patch([truthPatch]);
 }
 
