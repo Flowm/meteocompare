@@ -65,7 +65,7 @@ const visibleModels = computed(() => props.models?.filter((m) => m.high != null 
 
     <div class="px-3 pt-3 pb-3">
       <div class="flex justify-center">
-        <WeatherIcon :code="code" size="2rem" class="text-sodium-200" />
+        <WeatherIcon :code="code" size="2rem" />
       </div>
       <div class="text-paper-300 mt-1 truncate text-center font-mono text-[10px] tracking-wide" :title="weatherLabel(code)">
         {{ weatherLabel(code) }}

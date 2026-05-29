@@ -108,7 +108,7 @@ const tempWhole = computed(() => {
           <!-- A halo behind the weather icon so it reads as a "lit" panel
                element. -->
           <div class="bg-sodium-300/10 absolute inset-0 -m-2 rounded-full blur-2xl" aria-hidden="true" />
-          <WeatherIcon :code="currentCode" :is-day="currentIsDay" size="2.75rem" class="text-sodium-200 relative" />
+          <WeatherIcon :code="currentCode" :is-day="currentIsDay" size="2.75rem" class="relative" />
         </div>
 
         <div class="min-w-0">

@@ -51,6 +51,11 @@ const BAND_OPACITY = 0.16;
 const TRUTH_AREA_OPACITY = 0.12;
 const MODEL_OPACITY = 0.55;
 
+// ECharts reads `null` as "auto-scale this axis", but its TS types only allow
+// number | string | undefined. We need the literal null (not undefined) so a
+// merged setOption actually clears a previously-pinned min/max — hence the cast.
+const AUTO = null as unknown as undefined;
+
 const WINDOW_CHOICES = [
   { hours: 24, label: "24h" },
   { hours: 72, label: "3d" },
@@ -469,7 +474,12 @@ const option = computed<EChartsOption>(() => {
         axisLabel: { color: "#93896f", show: !!leftVar, fontSize: 10 },
         axisTick: { show: false },
         splitLine: { lineStyle: { color: "#131d2d", type: "dashed" } },
-        ...(leftIsPct ? { min: 0, max: 100 } : {}),
+        // Percentage views (precip prob / cloud cover) lock to 0..100; every
+        // other view auto-scales. These MUST be set explicitly (AUTO = null =
+        // auto) rather than omitted — vue-echarts merges options, so an omitted
+        // min/max would leave the 0..100 from a prior pct view stuck in place.
+        min: leftIsPct ? 0 : AUTO,
+        max: leftIsPct ? 100 : AUTO,
       },
       {
         // Right axis (precipitation).

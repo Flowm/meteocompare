@@ -22,14 +22,15 @@ interface CodeEntry {
   icon: WeatherIconClasses;
 }
 
-// Tone palette: amber for sun, slate for clouds/fog, sky for rain,
-// blue for snow, violet for thunder. Set on the <i> element via Tailwind.
+// Tone palette, tuned to the "Observatory" theme: sodium amber for sun,
+// cool grey for clouds/fog, rain-blue for precipitation, pale ice for snow,
+// violet for thunder. Set on the <i> element via Tailwind.
 const TONES = {
-  sun: "text-amber-300",
+  sun: "text-sodium-300",
   cloud: "text-slate-300",
   fog: "text-slate-400",
-  rain: "text-sky-300",
-  snow: "text-blue-200",
+  rain: "text-rain-300",
+  snow: "text-sky-200",
   storm: "text-violet-300",
 } as const;
 
