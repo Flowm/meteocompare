@@ -45,6 +45,7 @@ const AGG_COLOR = "#e8826b"; // coral — aggregate forecast
 const TRUTH_COLOR = "#f5b942"; // sodium amber — ERA5-Seamless truth
 const PRECIP_BAR_COLOR = "rgba(127, 184, 224, 0.65)"; // dusty rain blue
 const BAND_FILL = "rgba(232, 130, 107, 0.16)"; // coral, low alpha — ±1σ band
+const BAND_SWATCH = "rgba(232, 130, 107, 0.45)"; // more visible coral for the legend chip
 const TRUTH_AREA = "rgba(245, 185, 66, 0.12)"; // sodium, low alpha — precip truth fill
 const NIGHT_FILL = "rgba(10, 16, 24, 0.55)";
 const MODEL_PALETTE = ["#6dc6c2", "#9bb87a", "#bfa9d6", "#f0a285", "#7fb8e0", "#d99a1e", "#e8826b", "#9ddad6", "#c7b69a", "#a8c182", "#b88c8c"];
@@ -69,6 +70,7 @@ const hoursWindow = ref<number>(props.defaultWindow);
 // directly (no full redraw) — only re-read inside the tooltip formatter at
 // hover time, where they don't register as reactive dependencies.
 const showAggregate = ref(true);
+const showBand = ref(true);
 const showTruth = ref(true);
 const enabledModels = ref<Set<string>>(new Set());
 
@@ -169,14 +171,15 @@ function patch(patches: Array<Record<string, unknown> & { id: string }>): void {
 
 function applyAggregateVisibility(): void {
   const op = showAggregate.value ? 1 : 0;
-  patch([
-    { id: "agg", lineStyle: { opacity: op }, itemStyle: { opacity: op } },
-    // The band's translucency lives in its fill colour (BAND_FILL, alpha ~0.16),
-    // so the "shown" areaStyle opacity must be a full 1 — setting it to the
-    // alpha value again would multiply the two and wash the band out after a
-    // recompute. Only toggle between 1 (shown) and 0 (hidden).
-    { id: "band-delta", areaStyle: { opacity: op } },
-  ]);
+  patch([{ id: "agg", lineStyle: { opacity: op }, itemStyle: { opacity: op } }]);
+}
+
+function applyBandVisibility(): void {
+  // The band's translucency lives in its fill colour (BAND_FILL, alpha ~0.16),
+  // so the "shown" areaStyle opacity must be a full 1 — setting it to the alpha
+  // value again would multiply the two and wash the band out after a recompute.
+  // Toggled independently of the aggregate line.
+  patch([{ id: "band-delta", areaStyle: { opacity: showBand.value ? 1 : 0 } }]);
 }
 
 function applyTruthVisibility(): void {
@@ -195,6 +198,10 @@ function applyModelVisibility(): void {
 function toggleAggregate(): void {
   showAggregate.value = !showAggregate.value;
   applyAggregateVisibility();
+}
+function toggleBand(): void {
+  showBand.value = !showBand.value;
+  applyBandVisibility();
 }
 function toggleTruth(): void {
   showTruth.value = !showTruth.value;
@@ -280,35 +287,36 @@ const option = computed<EChartsOption>(() => {
     const values = pts.map((p) => convertVar(p.value, dv, units.value));
     const smooth = dv === "temperature_2m";
 
-    // Band (±1σ) — only when not in spaghetti mode (the spaghetti *is* the spread).
-    if (!spaghetti) {
-      const lower = pts.map((p) => convertVar(p.value - p.stdDev, dv, units.value));
-      const delta = pts.map((p) => (Number.isFinite(p.stdDev) ? convertDelta(p.stdDev * 2, dv, units.value) : 0));
-      series.push({
-        id: "band-base",
-        type: "line",
-        stack: `band-${axisIndex}`,
-        yAxisIndex: axisIndex,
-        symbol: "none",
-        lineStyle: { opacity: 0 },
-        areaStyle: { opacity: 0 },
-        itemStyle: { opacity: 0 },
-        tooltip: { show: false },
-        data: lower,
-        ...(attachMarks && markArea ? { markArea } : {}),
-      });
-      series.push({
-        id: "band-delta",
-        type: "line",
-        stack: `band-${axisIndex}`,
-        yAxisIndex: axisIndex,
-        symbol: "none",
-        lineStyle: { opacity: 0 },
-        areaStyle: { color: BAND_FILL },
-        tooltip: { show: false },
-        data: delta,
-      });
-    }
+    // Band (±1σ). Always built — even in spaghetti mode — so the spread can be
+    // toggled independently and stays visible behind the per-model lines. The
+    // invisible band-base carries the night-shading markArea.
+    const lower = pts.map((p) => convertVar(p.value - p.stdDev, dv, units.value));
+    const delta = pts.map((p) => (Number.isFinite(p.stdDev) ? convertDelta(p.stdDev * 2, dv, units.value) : 0));
+    series.push({
+      id: "band-base",
+      type: "line",
+      stack: `band-${axisIndex}`,
+      yAxisIndex: axisIndex,
+      symbol: "none",
+      lineStyle: { opacity: 0 },
+      areaStyle: { opacity: 0 },
+      itemStyle: { opacity: 0 },
+      tooltip: { show: false },
+      data: lower,
+      ...(attachMarks && markArea ? { markArea } : {}),
+    });
+    series.push({
+      id: "band-delta",
+      type: "line",
+      stack: `band-${axisIndex}`,
+      yAxisIndex: axisIndex,
+      symbol: "none",
+      lineStyle: { opacity: 0 },
+      areaStyle: { color: BAND_FILL },
+      tooltip: { show: false },
+      data: delta,
+      z: 0,
+    });
 
     series.push({
       id: "agg",
@@ -320,9 +328,6 @@ const option = computed<EChartsOption>(() => {
       symbol: "none",
       lineStyle: { width: spaghetti ? 4 : 2.5, color: AGG_COLOR },
       z: 5,
-      // When the band isn't drawn (spaghetti / precip), the agg line carries the
-      // night shading + Now marker so they're always present.
-      ...(attachMarks && spaghetti && markArea ? { markArea } : {}),
       ...(attachMarks && markLine ? { markLine } : {}),
     });
   };
@@ -450,7 +455,7 @@ const option = computed<EChartsOption>(() => {
           const isLine = DATA_VAR_META[dv].render === "line";
           if (showAggregate.value && aggPt && !Number.isNaN(aggPt.value)) {
             const std =
-              isLine && !spaghetti && Number.isFinite(aggPt.stdDev) ? ` <span style="color:#94a3b8">± ${fmtVar(dv, aggPt.stdDev).replace(/[°a-zA-Z%/ ]+$/, "")}</span>` : "";
+              isLine && showBand.value && Number.isFinite(aggPt.stdDev) ? ` <span style="color:#94a3b8">± ${fmtVar(dv, aggPt.stdDev).replace(/[°a-zA-Z%/ ]+$/, "")}</span>` : "";
             const label = vars.length > 1 ? `${dv === "temperature_2m" ? "Temp" : "Precip"} ` : "Forecast ";
             const color = dv === "precipitation" ? "#7dd3fc" : AGG_COLOR;
             lines.push(`<span style="color:${color}">${label}</span>${fmtVar(dv, aggPt.value)}${std}`);
@@ -519,6 +524,7 @@ const option = computed<EChartsOption>(() => {
 watch(option, () => {
   void nextTick(() => {
     applyAggregateVisibility();
+    applyBandVisibility();
     applyTruthVisibility();
     applyModelVisibility();
   });
@@ -528,16 +534,33 @@ watch(option, () => {
 // The series row is shown when there's *anything* to toggle — i.e. always for
 // the forecast view (just aggregate) and on verify (aggregate + truth).
 const hasModels = computed(() => allModels.value.length > 0);
+// The ±1σ band is drawn for every line view; the precipitation-only view shows
+// bars instead, so its spread chip would be a no-op.
+const hasBand = computed(() => view.value !== "precipitation");
 </script>
 
 <template>
   <section class="border-ink-700 bg-ink-900/60 relative border p-4 sm:p-6">
-    <!-- Header: title, variable dropdown, window selector -->
-    <div class="border-ink-700 mb-4 flex flex-wrap items-center justify-between gap-3 border-b pb-3">
-      <h2 class="eyebrow">{{ title }}</h2>
-      <div class="flex items-center gap-2">
-        <!-- Variable dropdown (left of the window selector) -->
-        <div ref="varRoot" class="relative">
+    <!-- Header: title + variable picker (left), window selector (right) -->
+    <div class="border-ink-700 mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-b pb-3">
+      <div class="flex flex-wrap items-center gap-3">
+        <h2 class="eyebrow">{{ title }}</h2>
+
+        <!-- Desktop (lg+): expanded variable rail, all options inline -->
+        <div class="border-ink-700 hidden border font-mono text-xs tracking-wide lg:flex">
+          <button
+            v-for="vid in variables"
+            :key="vid"
+            class="border-ink-700 border-r px-2.5 py-1 whitespace-nowrap transition-colors last:border-r-0"
+            :class="view === vid ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
+            @click="selectView(vid)"
+          >
+            {{ CHART_VIEWS[vid].label }}
+          </button>
+        </div>
+
+        <!-- Mobile / tablet (< lg): collapse the rail into a dropdown -->
+        <div ref="varRoot" class="relative lg:hidden">
           <button
             type="button"
             class="group border-ink-700 bg-ink-900/60 text-paper-200 hover:border-sodium-300/60 hover:text-paper-50 flex items-center gap-2 border px-3 py-1 font-mono text-xs tracking-wide transition-colors"
@@ -569,19 +592,20 @@ const hasModels = computed(() => allModels.value.length > 0);
             </button>
           </div>
         </div>
+      </div>
 
-        <!-- Window selector -->
-        <div class="border-ink-700 flex border font-mono text-xs tracking-wide">
-          <button
-            v-for="c in WINDOW_CHOICES"
-            :key="c.hours"
-            class="px-3 py-1 transition-colors"
-            :class="hoursWindow === c.hours ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
-            @click="hoursWindow = c.hours"
-          >
-            {{ c.label }}
-          </button>
-        </div>
+      <!-- Window selector (right-aligned; wraps to its own line on the
+           forecast page where the 6-option rail fills the first row). -->
+      <div class="border-ink-700 ml-auto flex border font-mono text-xs tracking-wide">
+        <button
+          v-for="c in WINDOW_CHOICES"
+          :key="c.hours"
+          class="px-3 py-1 transition-colors"
+          :class="hoursWindow === c.hours ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
+          @click="hoursWindow = c.hours"
+        >
+          {{ c.label }}
+        </button>
       </div>
     </div>
 
@@ -610,6 +634,16 @@ const hasModels = computed(() => allModels.value.length > 0);
           <span class="inline-block size-2" :style="{ backgroundColor: AGG_COLOR }" />Aggregate
         </button>
         <button
+          v-if="hasBand"
+          type="button"
+          class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
+          :class="showBand ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
+          title="Model spread (±1σ)"
+          @click="toggleBand"
+        >
+          <span class="inline-block size-2" :style="{ backgroundColor: BAND_SWATCH }" />Spread ±1σ
+        </button>
+        <button
           v-if="hasTruth"
           type="button"
           class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
@@ -618,7 +652,6 @@ const hasModels = computed(() => allModels.value.length > 0);
         >
           <span class="inline-block size-2" :style="{ backgroundColor: TRUTH_COLOR }" />Truth
         </button>
-        <span v-if="!showModels" class="text-paper-500 ml-1 hidden sm:inline"> <span class="text-aggregate-400">▒</span> spread ±1σ </span>
       </div>
 
       <!-- MODELS -->
