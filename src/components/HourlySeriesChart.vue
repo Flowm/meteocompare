@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onClickOutside } from "@vueuse/core";
 import type { EChartsOption } from "echarts";
 import { computed, nextTick, ref, watch } from "vue";
 import VChart from "vue-echarts";
@@ -92,6 +93,17 @@ function selectView(v: ChartViewId): void {
   // clears the enabled models (two fans on two axes is unreadable).
   if (v === "temp_precip" && showModels.value) enabledModels.value = new Set();
   view.value = v;
+}
+
+// Variable dropdown (replaces the old full-width button rail; sits next to the
+// window selector in the chart header).
+const varOpen = ref(false);
+const varRoot = ref<HTMLElement | null>(null);
+onClickOutside(varRoot, () => (varOpen.value = false));
+
+function selectVariable(v: ChartViewId): void {
+  selectView(v);
+  varOpen.value = false;
 }
 
 // ---- Model chip helpers -----------------------------------------------------
@@ -520,10 +532,45 @@ const hasModels = computed(() => allModels.value.length > 0);
 
 <template>
   <section class="border-ink-700 bg-ink-900/60 relative border p-4 sm:p-6">
-    <!-- Header + window selector -->
+    <!-- Header: title, variable dropdown, window selector -->
     <div class="border-ink-700 mb-4 flex flex-wrap items-center justify-between gap-3 border-b pb-3">
       <h2 class="eyebrow">{{ title }}</h2>
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-2">
+        <!-- Variable dropdown (left of the window selector) -->
+        <div ref="varRoot" class="relative">
+          <button
+            type="button"
+            class="group border-ink-700 bg-ink-900/60 text-paper-200 hover:border-sodium-300/60 hover:text-paper-50 flex items-center gap-2 border px-3 py-1 font-mono text-xs tracking-wide transition-colors"
+            :aria-expanded="varOpen"
+            aria-haspopup="menu"
+            @click="varOpen = !varOpen"
+          >
+            {{ CHART_VIEWS[view].label }}
+            <svg class="text-paper-300 size-3 transition-transform" :class="{ 'rotate-180': varOpen }" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <div
+            v-if="varOpen"
+            role="menu"
+            class="panel-in border-ink-700 bg-ink-900 absolute top-full left-0 z-40 mt-1 min-w-[12rem] overflow-hidden border shadow-2xl shadow-black/60"
+          >
+            <button
+              v-for="vid in variables"
+              :key="vid"
+              type="button"
+              role="menuitemradio"
+              :aria-checked="view === vid"
+              class="block w-full px-3 py-2 text-left font-mono text-xs tracking-wide transition-colors"
+              :class="view === vid ? 'bg-ink-800 text-sodium-200' : 'text-paper-200 hover:bg-ink-800 hover:text-sodium-200'"
+              @click="selectVariable(vid)"
+            >
+              {{ CHART_VIEWS[vid].label }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Window selector -->
         <div class="border-ink-700 flex border font-mono text-xs tracking-wide">
           <button
             v-for="c in WINDOW_CHOICES"
@@ -535,23 +582,6 @@ const hasModels = computed(() => allModels.value.length > 0);
             {{ c.label }}
           </button>
         </div>
-      </div>
-    </div>
-
-    <!-- Variable selector — takes the full chrome row now that the "Show
-         contributing models" toggle has moved into the model chip strip
-         below the chart. -->
-    <div class="border-ink-700 mb-3 min-w-0 overflow-x-auto border font-mono text-xs tracking-wide">
-      <div class="flex">
-        <button
-          v-for="vid in variables"
-          :key="vid"
-          class="border-ink-700 border-r px-3 py-1.5 whitespace-nowrap transition-colors last:border-r-0"
-          :class="view === vid ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
-          @click="selectView(vid)"
-        >
-          {{ CHART_VIEWS[vid].label }}
-        </button>
       </div>
     </div>
 
