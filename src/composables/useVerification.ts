@@ -3,8 +3,7 @@ import { computed, ref, shallowRef, watch, type Ref } from "vue";
 import { extractDailySolar } from "@/api/omForecast";
 import { extractHourly as extractTruthHourly, fetchHistoricalWeather, type HistoricalWeatherResponse } from "@/api/omHistoricalWeather";
 import { extractDailyByModel, extractHourlyByModel, fetchSingleRuns, type SingleRunsResponse } from "@/api/omSingleRuns";
-import { aggregateSeries } from "@/domain/aggregate";
-import { confidenceFor } from "@/domain/confidence";
+import { aggregateVariables } from "@/domain/aggregateVariables";
 import { MODEL_IDS, MODELS, type ModelDef } from "@/domain/models";
 import { buildDailyVerification, type DailyVerification } from "@/domain/verification";
 import { addDaysIso } from "@/utils/date";
@@ -86,31 +85,26 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
     if (!firstTime) return null;
     const baseTime = new Date(firstTime);
 
-    // Per-model series straight off the single-runs response.
-    const perModelTemp = extractHourlyByModel(runs, "temperature_2m", MODEL_IDS);
-    const perModelPrecip = extractHourlyByModel(runs, "precipitation", MODEL_IDS);
-
-    // Aggregate via the existing weighted-mean pipeline. Lead-time decay kicks
-    // in correctly because baseTime is the run start.
-    const aggregateTemp = aggregateSeries(times, perModelTemp, {
-      variable: "temperature_2m",
+    // Per-model series straight off the single-runs response. Aggregate +
+    // confidence via the shared pipeline; lead-time decay kicks in correctly
+    // because baseTime is the run start.
+    const perModel = {
+      temperature_2m: extractHourlyByModel(runs, "temperature_2m", MODEL_IDS),
+      precipitation: extractHourlyByModel(runs, "precipitation", MODEL_IDS),
+    };
+    const { aggregate, confidence } = aggregateVariables({
+      times,
+      perModel,
+      vars: [
+        { key: "temperature_2m", family: "temperature_2m" },
+        { key: "precipitation", family: "precipitation" },
+      ],
       models: MODELS,
       lat: location.value.latitude,
       lon: location.value.longitude,
       baseTime,
+      cadence: "hourly",
     });
-    const aggregatePrecip = aggregateSeries(times, perModelPrecip, {
-      variable: "precipitation",
-      models: MODELS,
-      lat: location.value.latitude,
-      lon: location.value.longitude,
-      baseTime,
-    });
-
-    // Hourly per-variable aggregate confidence — drives the daily card's
-    // confidence-vs-error calibration display.
-    const confidenceTemp = aggregateTemp.map((p, i) => confidenceFor(p, "temperature_2m", i));
-    const confidencePrecip = aggregatePrecip.map((p, i) => confidenceFor(p, "precipitation", i));
 
     // Align truth to the run's time axis by ISO-string lookup. The two APIs
     // can return their hours offset by UTC-shift; the map handles it cleanly.
@@ -129,16 +123,16 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
       return i == null ? null : (truthPrecipArr[i] ?? null);
     });
 
-    // Re-keyed into the unified HourlySeries shape: variable id → series.
-    // Adding wind/cloud truth later (see CONTEXT.md "Truth") becomes a
-    // data-only change here — no new fields.
+    // The unified HourlySeries shape: variable id → series. Adding wind/cloud
+    // truth later (see CONTEXT.md "Truth") becomes a data-only change here — no
+    // new fields.
     return {
       times,
-      aggregate: { temperature_2m: aggregateTemp, precipitation: aggregatePrecip },
-      perModel: { temperature_2m: perModelTemp, precipitation: perModelPrecip },
+      aggregate,
+      perModel,
       truth: { temperature_2m: truthTemp, precipitation: truthPrecip },
-      confidence: { temperature_2m: confidenceTemp, precipitation: confidencePrecip },
-    };
+      confidence,
+    } as VerificationHourly;
   });
 
   const daily = computed<DailyVerification[] | null>(() => {
@@ -173,17 +167,20 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
     const firstDailyTime = dailyTimes[0];
     if (!firstDailyTime) return [];
     const baseTime = new Date(firstDailyTime);
-    // Same severity-weighted-mode aggregation as the forecast view's daily strip,
-    // reusing aggregateSeries with the weather_code variable handler.
-    const byModel = extractDailyByModel(runs, "weather_code", MODEL_IDS);
-    const agg = aggregateSeries(dailyTimes, byModel, {
-      variable: "weather_code",
+    // Same severity-weighted-mode aggregation as the forecast view's daily strip.
+    // weather_code confidence is agreement-based (lead-independent), so we route
+    // through the shared pipeline and simply drop the confidence here.
+    const { aggregate } = aggregateVariables({
+      times: dailyTimes,
+      perModel: { weather_code: extractDailyByModel(runs, "weather_code", MODEL_IDS) },
+      vars: [{ key: "weather_code", family: "weather_code" }],
       models: MODELS,
       lat: location.value.latitude,
       lon: location.value.longitude,
       baseTime,
+      cadence: "daily",
     });
-    return agg.map((p) => Math.round(p.value));
+    return (aggregate.weather_code ?? []).map((p) => Math.round(p.value));
   });
 
   const availableModels = computed<ModelDef[]>(() => {

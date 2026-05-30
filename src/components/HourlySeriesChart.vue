@@ -8,7 +8,8 @@ import type { DataVarId, HourlySeries } from "@/composables/hourlySeries";
 import { useUnits } from "@/composables/useUnits";
 import { MODELS, type ModelDef } from "@/domain/models";
 
-import { buildNightRanges, CHART_VIEWS, convertDelta, convertVar, DATA_VAR_META, findNowIndex, unitLabel, type ChartViewId, type UnitPrefs } from "./chartHelpers";
+import { CHART_VIEWS, DATA_VAR_META, type ChartViewId, type UnitPrefs } from "./chartHelpers";
+import { AGG_COLOR, BAND_SWATCH, buildHourlyChartOption, paletteFor, TRUTH_COLOR, visibilityPatches } from "./chartOption";
 
 const props = withDefaults(
   defineProps<{
@@ -37,24 +38,9 @@ const showModels = defineModel<boolean>("showModels", { default: false });
 const { temp, precip, wind, formatTemp, formatPrecip, formatWind } = useUnits();
 const units = computed<UnitPrefs>(() => ({ temp: temp.value, precip: precip.value, wind: wind.value }));
 
-// ---- Colours ----------------------------------------------------------------
-// Tuned to the "Observatory" palette: coral = aggregate forecast, sodium amber
-// = truth (ERA5 reference), oxidized teal for cool data, and a model palette
-// drawn from the same warm-cool spectrum rather than the default Tailwind hues.
-const AGG_COLOR = "#e8826b"; // coral — aggregate forecast
-const TRUTH_COLOR = "#f5b942"; // sodium amber — ERA5-Seamless truth
-const PRECIP_BAR_COLOR = "rgba(127, 184, 224, 0.65)"; // dusty rain blue
-const BAND_FILL = "rgba(232, 130, 107, 0.16)"; // coral, low alpha — ±1σ band
-const BAND_SWATCH = "rgba(232, 130, 107, 0.45)"; // more visible coral for the legend chip
-const TRUTH_AREA = "rgba(245, 185, 66, 0.12)"; // sodium, low alpha — precip truth fill
-const NIGHT_FILL = "rgba(120, 140, 200, 0.12)"; // cool marine wash — reads as night against the warm theme
-const MODEL_PALETTE = ["#6dc6c2", "#9bb87a", "#bfa9d6", "#f0a285", "#7fb8e0", "#d99a1e", "#e8826b", "#9ddad6", "#c7b69a", "#a8c182", "#b88c8c"];
-const MODEL_OPACITY = 0.55;
-
-// ECharts reads `null` as "auto-scale this axis", but its TS types only allow
-// number | string | undefined. We need the literal null (not undefined) so a
-// merged setOption actually clears a previously-pinned min/max — hence the cast.
-const AUTO = null as unknown as undefined;
+// Colours, the model palette, and paletteFor() now live in ./chartOption
+// alongside the option builder; the component imports only the few it needs
+// for the legend swatches and the no-redraw opacity patches.
 
 const WINDOW_CHOICES = [
   { hours: 24, label: "24h" },
@@ -164,11 +150,6 @@ const modelHasData = computed<Record<string, boolean>>(() => {
   return out;
 });
 
-function paletteFor(id: string): string {
-  const i = MODELS.findIndex((m) => m.id === id);
-  return MODEL_PALETTE[(i < 0 ? 0 : i) % MODEL_PALETTE.length]!;
-}
-
 // Reset enabled models whenever the chip universe changes (new data / run).
 // Default: nothing is enabled, so the chart starts clean (aggregate + band +
 // truth only). The user opts in to model spaghetti via the chips below the
@@ -193,55 +174,36 @@ watch(
 );
 
 // ---- Chip toggles (no-redraw) ----------------------------------------------
-/** Merge-patch only series whose ids are present in the current option. */
-function patch(patches: Array<Record<string, unknown> & { id: string }>): void {
+// One imperative shell: merge-patch the toggleable series' opacity straight onto
+// the ECharts instance, so flipping a chip never triggers a full redraw. The
+// per-series rules (which style prop, the "shown" opacity, the precip-truth
+// area-fill) live in the builder's `toggles`; visibilityPatches() maps those +
+// the current toggle state to the patches.
+function applyVisibility(): void {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const chart = chartRef.value?.chart;
   if (!chart) return;
-  const s = option.value.series;
-  const ids = new Set((Array.isArray(s) ? s : []).map((x) => (x as { id?: string }).id));
-  const valid = patches.filter((p) => ids.has(p.id));
+  const patches = visibilityPatches(toggles.value, {
+    showAggregate: showAggregate.value,
+    showBand: showBand.value,
+    showTruth: showTruth.value,
+    enabledModels: enabledModels.value,
+  });
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-  if (valid.length) chart.setOption({ series: valid }, false);
-}
-
-function applyAggregateVisibility(): void {
-  const op = showAggregate.value ? 1 : 0;
-  patch([{ id: "agg", lineStyle: { opacity: op }, itemStyle: { opacity: op } }]);
-}
-
-function applyBandVisibility(): void {
-  // The band's translucency lives in its fill colour (BAND_FILL, alpha ~0.16),
-  // so the "shown" areaStyle opacity must be a full 1 — setting it to the alpha
-  // value again would multiply the two and wash the band out after a recompute.
-  // Toggled independently of the aggregate line.
-  patch([{ id: "band-delta", areaStyle: { opacity: showBand.value ? 1 : 0 } }]);
-}
-
-function applyTruthVisibility(): void {
-  const op = showTruth.value ? 1 : 0;
-  const truthPatch: Record<string, unknown> & { id: string } = { id: "tr", lineStyle: { opacity: op }, itemStyle: { opacity: op } };
-  // Only precipitation truth carries an area fill — don't add one to temp truth.
-  // As with the band, the fill alpha lives in TRUTH_AREA, so toggle 1/0 only.
-  if (view.value === "precipitation") truthPatch.areaStyle = { opacity: op };
-  patch([truthPatch]);
-}
-
-function applyModelVisibility(): void {
-  patch(allModels.value.map((m) => ({ id: `s-${m.id}`, lineStyle: { opacity: enabledModels.value.has(m.id) ? MODEL_OPACITY : 0 } })));
+  if (patches.length) chart.setOption({ series: patches }, false);
 }
 
 function toggleAggregate(): void {
   showAggregate.value = !showAggregate.value;
-  applyAggregateVisibility();
+  applyVisibility();
 }
 function toggleBand(): void {
   showBand.value = !showBand.value;
-  applyBandVisibility();
+  applyVisibility();
 }
 function toggleTruth(): void {
   showTruth.value = !showTruth.value;
-  applyTruthVisibility();
+  applyVisibility();
 }
 function toggleModel(id: string): void {
   if (!modelHasData.value[id]) return;
@@ -249,15 +211,15 @@ function toggleModel(id: string): void {
   if (next.has(id)) next.delete(id);
   else next.add(id);
   enabledModels.value = next;
-  patch([{ id: `s-${id}`, lineStyle: { opacity: next.has(id) ? MODEL_OPACITY : 0 } }]);
+  applyVisibility();
 }
 function selectAllModels(): void {
   enabledModels.value = new Set(allModels.value.filter((m) => modelHasData.value[m.id]).map((m) => m.id));
-  applyModelVisibility();
+  applyVisibility();
 }
 function selectNoModels(): void {
   enabledModels.value = new Set();
-  applyModelVisibility();
+  applyVisibility();
 }
 
 // Single "All" toggle: active only when every available model is enabled;
@@ -281,304 +243,69 @@ function fmtVar(dv: DataVarId, base: number | null | undefined): string {
 }
 
 // ---- Chart option -----------------------------------------------------------
+// The pure builder produces the option plus the visibility descriptors for its
+// toggleable series; both stay in sync because they come from one build.
+const built = computed(() =>
+  buildHourlyChartOption({
+    data: props.data,
+    view: view.value,
+    hoursWindow: hoursWindow.value,
+    units: units.value,
+    solar: props.solar,
+    currentTime: props.currentTime,
+    models: allModels.value,
+    showModels: showModels.value,
+  }),
+);
+const toggles = computed(() => built.value.toggles);
+
 const option = computed<EChartsOption>(() => {
   const v = view.value;
   const n = Math.min(hoursWindow.value, props.data.times.length);
   const times = props.data.times.slice(0, n);
-  const nowIdx = props.currentTime ? findNowIndex(times, props.currentTime) : -1;
-  const nightRanges = buildNightRanges(times, props.solar?.sunrise, props.solar?.sunset);
-
-  const labels = times.map((t) => {
-    const d = new Date(t);
-    return d.getHours() === 0 ? d.toLocaleDateString([], { weekday: "short" }) : `${d.getHours().toString().padStart(2, "0")}:00`;
-  });
-
   const spaghetti = showModels.value;
-  const series: NonNullable<EChartsOption["series"]> = [];
 
-  // Resolve which data variables go on which axis.
-  const isComposite = v === "temp_precip";
-  const leftVar: DataVarId | null = isComposite ? "temperature_2m" : v === "precipitation" ? null : (v as DataVarId);
-  const rightActive = isComposite || v === "precipitation";
+  const o = built.value.option;
 
-  const markArea =
-    nightRanges.length > 0
-      ? { silent: true, itemStyle: { color: NIGHT_FILL, borderWidth: 0 }, data: nightRanges.map(([a, b]): [{ xAxis: number }, { xAxis: number }] => [{ xAxis: a }, { xAxis: b }]) }
-      : undefined;
-  const markLine =
-    nowIdx >= 0
-      ? {
-          silent: true,
-          animation: false,
-          symbol: ["none", "none"] as [string, string],
-          lineStyle: { color: "rgba(245, 185, 66, 0.85)", width: 1, type: "solid" as const },
-          label: {
-            formatter: "NOW",
-            color: "#050810",
-            fontSize: 9,
-            fontWeight: 700 as const,
-            fontFamily: "JetBrains Mono, ui-monospace, monospace",
-            position: "end" as const,
-            backgroundColor: "#f5b942",
-            borderRadius: 0,
-            padding: [2, 6, 2, 6],
-            distance: 6,
-          },
-          data: [{ xAxis: nowIdx }],
-        }
-      : undefined;
-
-  // Night shading lives on its own zero-z background series so it always sits
-  // *behind* the spread band and lines (it used to ride the band-base series,
-  // which drew it on top of the spread).
-  if (markArea) {
-    series.push({
-      id: "night",
-      type: "line",
-      yAxisIndex: 0,
-      data: Array.from({ length: n }, () => null),
-      symbol: "none",
-      lineStyle: { opacity: 0 },
-      silent: true,
-      z: 0,
-      tooltip: { show: false },
-      markArea,
-    });
-  }
-
-  // --- helper: push an aggregate line + band for a line variable -------------
-  const pushLineAggregate = (dv: DataVarId, axisIndex: number, attachMarks: boolean): void => {
-    const pts = (props.data.aggregate[dv] ?? []).slice(0, n);
-    const values = pts.map((p) => convertVar(p.value, dv, units.value));
-    const smooth = dv === "temperature_2m";
-
-    // Band (±1σ). Always built — even in spaghetti mode — so the spread can be
-    // toggled independently and stays visible behind the per-model lines.
-    const lower = pts.map((p) => convertVar(p.value - p.stdDev, dv, units.value));
-    const delta = pts.map((p) => (Number.isFinite(p.stdDev) ? convertDelta(p.stdDev * 2, dv, units.value) : 0));
-    series.push({
-      id: "band-base",
-      type: "line",
-      stack: `band-${axisIndex}`,
-      yAxisIndex: axisIndex,
-      symbol: "none",
-      lineStyle: { opacity: 0 },
-      areaStyle: { opacity: 0 },
-      itemStyle: { opacity: 0 },
-      tooltip: { show: false },
-      data: lower,
-      z: 1,
-    });
-    series.push({
-      id: "band-delta",
-      type: "line",
-      stack: `band-${axisIndex}`,
-      yAxisIndex: axisIndex,
-      symbol: "none",
-      lineStyle: { opacity: 0 },
-      areaStyle: { color: BAND_FILL },
-      tooltip: { show: false },
-      data: delta,
-      z: 1,
-    });
-
-    series.push({
-      id: "agg",
-      name: "Aggregate forecast",
-      type: "line",
-      yAxisIndex: axisIndex,
-      data: values,
-      smooth,
-      symbol: "none",
-      lineStyle: { width: spaghetti ? 4 : 2.5, color: AGG_COLOR },
-      z: 5,
-      ...(attachMarks && markLine ? { markLine } : {}),
-    });
-  };
-
-  // --- helper: push precipitation (bars + optional truth) --------------------
-  // `id` lets the composite Temp+Precip view give its precip bars a distinct id
-  // ("agg-precip") so they don't collide with the temperature line's "agg".
-  const pushPrecip = (axisIndex: number, attachMarks: boolean, id = "agg"): void => {
-    const pts = (props.data.aggregate.precipitation ?? []).slice(0, n);
-    const values = pts.map((p) => convertVar(p.value, "precipitation", units.value));
-    series.push({
-      id,
-      name: "Aggregate forecast",
-      type: "bar",
-      yAxisIndex: axisIndex,
-      data: values,
-      itemStyle: { color: PRECIP_BAR_COLOR },
-      barWidth: "60%",
-      z: 2,
-      ...(attachMarks && markLine ? { markLine } : {}),
-    });
-    const truth = props.data.truth?.precipitation;
-    if (truth) {
-      series.push({
-        id: "tr",
-        name: "Truth",
-        type: "line",
-        yAxisIndex: axisIndex,
-        data: truth.slice(0, n).map((x) => convertVar(x, "precipitation", units.value)),
-        step: "middle",
-        symbol: "none",
-        lineStyle: { width: 2, color: TRUTH_COLOR },
-        areaStyle: { color: TRUTH_AREA },
-        z: 2,
-      });
+  // The tooltip formatter reads live toggle state (showAggregate / showBand /
+  // showTruth / enabledModels) at hover time, not during option compute, so
+  // those toggles never become reactive deps of `option` — the no-redraw trick.
+  // It therefore stays here in the component rather than in the pure builder.
+  (o.tooltip as { formatter?: (params: unknown) => string }).formatter = (params: unknown) => {
+    const arr = params as Array<{ dataIndex: number }>;
+    const idx = arr[0]?.dataIndex ?? -1;
+    const timeStr = times[idx];
+    if (idx < 0 || timeStr === undefined) return "";
+    const header = new Date(timeStr).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" });
+    const lines: string[] = [];
+    const vars: DataVarId[] = CHART_VIEWS[v].vars;
+    for (const dv of vars) {
+      const aggPt = props.data.aggregate[dv]?.[idx];
+      const isLine = DATA_VAR_META[dv].render === "line";
+      if (showAggregate.value && aggPt && !Number.isNaN(aggPt.value)) {
+        const std =
+          isLine && showBand.value && Number.isFinite(aggPt.stdDev) ? ` <span style="color:#94a3b8">± ${fmtVar(dv, aggPt.stdDev).replace(/[°a-zA-Z%/ ]+$/, "")}</span>` : "";
+        const label = vars.length > 1 ? `${dv === "temperature_2m" ? "Temp" : "Precip"} ` : "Forecast ";
+        const color = dv === "precipitation" ? "#7dd3fc" : AGG_COLOR;
+        lines.push(`<span style="color:${color}">${label}</span>${fmtVar(dv, aggPt.value)}${std}`);
+      }
+      const truthVal = props.data.truth?.[dv]?.[idx];
+      if (showTruth.value && truthVal != null) lines.push(`<span style="color:${TRUTH_COLOR}">Truth</span> ${fmtVar(dv, truthVal)}`);
     }
-  };
-
-  // --- helper: push truth line for a line variable ---------------------------
-  const pushLineTruth = (dv: DataVarId, axisIndex: number): void => {
-    const truth = props.data.truth?.[dv];
-    if (!truth) return;
-    series.push({
-      id: "tr",
-      name: "Truth",
-      type: "line",
-      yAxisIndex: axisIndex,
-      data: truth.slice(0, n).map((x) => convertVar(x, dv, units.value)),
-      smooth: false,
-      symbol: "none",
-      lineStyle: { width: 3, color: TRUTH_COLOR },
-      z: 6,
-    });
-  };
-
-  // --- helper: push per-model spaghetti for a line variable ------------------
-  const pushSpaghetti = (dv: DataVarId, axisIndex: number): void => {
-    const byModel = props.data.perModel[dv] ?? {};
-    for (const m of allModels.value) {
-      const arr = byModel[m.id];
-      if (!arr) continue;
-      // Built at a constant opacity; visibility is applied via merge-patch so
-      // toggling a chip never triggers a full redraw.
-      series.push({
-        id: `s-${m.id}`,
-        name: m.label,
-        type: "line",
-        yAxisIndex: axisIndex,
-        data: arr.slice(0, n).map((x) => convertVar(x, dv, units.value)),
-        smooth: dv === "temperature_2m",
-        symbol: "none",
-        lineStyle: { width: 1, color: paletteFor(m.id), opacity: MODEL_OPACITY },
-        z: 3,
-      });
+    // Per-model values when spaghetti is on (enabled models only).
+    if (spaghetti) {
+      const dv = activeVar.value;
+      for (const m of allModels.value) {
+        if (!enabledModels.value.has(m.id)) continue;
+        const val = props.data.perModel[dv]?.[m.id]?.[idx];
+        if (val == null) continue;
+        lines.push(`<span style="color:${paletteFor(m.id)}">${m.label}</span> ${fmtVar(dv, val)}`);
+      }
     }
+    return `<div style="font-weight:600;margin-bottom:4px">${header}</div>${lines.join("<br/>")}`;
   };
 
-  // --- compose the series for the active view --------------------------------
-  if (isComposite) {
-    // Temp (line + band) on the left axis, precip (bars) on the right.
-    // Distinct id so the precip bars don't collide with the temp line's "agg".
-    pushLineAggregate("temperature_2m", 0, true);
-    pushPrecip(1, false, "agg-precip");
-  } else if (v === "precipitation") {
-    pushPrecip(1, true);
-    if (spaghetti) pushSpaghetti("precipitation", 1);
-  } else {
-    const dv = v as DataVarId;
-    pushLineAggregate(dv, 0, true);
-    pushLineTruth(dv, 0);
-    if (spaghetti) pushSpaghetti(dv, 0);
-  }
-
-  // --- axes ------------------------------------------------------------------
-  const leftIsPct = leftVar === "precipitation_probability" || leftVar === "cloud_cover";
-  const leftUnit = leftVar ? unitLabel(leftVar, units.value) : "";
-  const precipUnit = unitLabel("precipitation", units.value);
-  const interval = hoursWindow.value <= 24 ? 2 : hoursWindow.value <= 72 ? 11 : 23;
-
-  return {
-    backgroundColor: "transparent",
-    textStyle: { color: "#c9bea4", fontFamily: "JetBrains Mono, ui-monospace, monospace" },
-    grid: { left: 52, right: 52, top: 32, bottom: 36 },
-    animationDurationUpdate: 0,
-    tooltip: {
-      trigger: "axis",
-      backgroundColor: "rgba(10, 16, 24, 0.96)",
-      borderColor: "#1a2638",
-      borderWidth: 1,
-      textStyle: { color: "#f4ecd8", fontFamily: "JetBrains Mono, ui-monospace, monospace", fontSize: 11 },
-      extraCssText: "border-radius: 0; backdrop-filter: blur(6px); box-shadow: 0 8px 32px rgba(0,0,0,0.6);",
-      formatter: (params: unknown) => {
-        const arr = params as Array<{ dataIndex: number }>;
-        const idx = arr[0]?.dataIndex ?? -1;
-        const timeStr = times[idx];
-        if (idx < 0 || timeStr === undefined) return "";
-        const header = new Date(timeStr).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" });
-        const lines: string[] = [];
-        // showAggregate/showTruth are read at hover time (not during option
-        // compute) so they don't become reactive deps of `option`.
-        const vars: DataVarId[] = CHART_VIEWS[v].vars;
-        for (const dv of vars) {
-          const aggPt = props.data.aggregate[dv]?.[idx];
-          const isLine = DATA_VAR_META[dv].render === "line";
-          if (showAggregate.value && aggPt && !Number.isNaN(aggPt.value)) {
-            const std =
-              isLine && showBand.value && Number.isFinite(aggPt.stdDev) ? ` <span style="color:#94a3b8">± ${fmtVar(dv, aggPt.stdDev).replace(/[°a-zA-Z%/ ]+$/, "")}</span>` : "";
-            const label = vars.length > 1 ? `${dv === "temperature_2m" ? "Temp" : "Precip"} ` : "Forecast ";
-            const color = dv === "precipitation" ? "#7dd3fc" : AGG_COLOR;
-            lines.push(`<span style="color:${color}">${label}</span>${fmtVar(dv, aggPt.value)}${std}`);
-          }
-          const truthVal = props.data.truth?.[dv]?.[idx];
-          if (showTruth.value && truthVal != null) lines.push(`<span style="color:${TRUTH_COLOR}">Truth</span> ${fmtVar(dv, truthVal)}`);
-        }
-        // Per-model values when spaghetti is on (enabled models only).
-        if (spaghetti) {
-          const dv = activeVar.value;
-          for (const m of allModels.value) {
-            if (!enabledModels.value.has(m.id)) continue;
-            const val = props.data.perModel[dv]?.[m.id]?.[idx];
-            if (val == null) continue;
-            lines.push(`<span style="color:${paletteFor(m.id)}">${m.label}</span> ${fmtVar(dv, val)}`);
-          }
-        }
-        return `<div style="font-weight:600;margin-bottom:4px">${header}</div>${lines.join("<br/>")}`;
-      },
-    },
-    xAxis: {
-      type: "category",
-      data: labels,
-      axisLine: { lineStyle: { color: "#243349" } },
-      axisLabel: { color: "#93896f", interval, hideOverlap: true, fontSize: 10 },
-      axisTick: { show: false },
-    },
-    yAxis: [
-      {
-        // Left axis (temp / pct / wind). Always present so its splitLine draws
-        // the horizontal grid even when only precipitation is shown.
-        type: "value",
-        name: leftVar ? leftUnit : "",
-        nameTextStyle: { color: "#93896f", fontSize: 10 },
-        axisLine: { show: false },
-        axisLabel: { color: "#93896f", show: !!leftVar, fontSize: 10 },
-        axisTick: { show: false },
-        splitLine: { lineStyle: { color: "#131d2d", type: "dashed" } },
-        // Percentage views (precip prob / cloud cover) lock to 0..100; every
-        // other view auto-scales. These MUST be set explicitly (AUTO = null =
-        // auto) rather than omitted — vue-echarts merges options, so an omitted
-        // min/max would leave the 0..100 from a prior pct view stuck in place.
-        min: leftIsPct ? 0 : AUTO,
-        max: leftIsPct ? 100 : AUTO,
-      },
-      {
-        // Right axis (precipitation).
-        type: "value",
-        name: precipUnit,
-        nameTextStyle: { color: "#93896f", fontSize: 10 },
-        position: "right",
-        min: 0,
-        axisLine: { show: false },
-        axisLabel: { color: "#93896f", fontSize: 10 },
-        splitLine: { lineStyle: { color: "#131d2d", type: "dashed" }, show: rightActive && !leftVar },
-        show: rightActive,
-      },
-    ],
-    series,
-  };
+  return o;
 });
 
 // After a genuine recompute (view / window / data / showModels changed) ECharts
@@ -586,10 +313,7 @@ const option = computed<EChartsOption>(() => {
 // hidden series stay hidden.
 watch(option, () => {
   void nextTick(() => {
-    applyAggregateVisibility();
-    applyBandVisibility();
-    applyTruthVisibility();
-    applyModelVisibility();
+    applyVisibility();
   });
 });
 
