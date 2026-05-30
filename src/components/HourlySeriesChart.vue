@@ -409,69 +409,73 @@ const hasBand = computed(() => view.value !== "precipitation");
          any model chip turns the spaghetti on; "All" flips every model at once. -->
     <div class="border-ink-700/60 mt-4 space-y-2.5 border-t pt-3 font-mono text-[11px] tracking-wide">
       <!-- SERIES -->
-      <div class="flex flex-wrap items-center gap-1.5">
-        <span class="text-paper-400 mr-2 w-14 shrink-0">Series</span>
-        <button
-          type="button"
-          class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
-          :class="showAggregate ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
-          @click="toggleAggregate"
-        >
-          <span class="inline-block size-2" :style="{ backgroundColor: AGG_COLOR }" />Aggregate
-        </button>
-        <button
-          v-if="hasBand"
-          type="button"
-          class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
-          :class="showBand ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
-          title="Model spread (±1σ)"
-          @click="toggleBand"
-        >
-          <span class="inline-block size-2" :style="{ backgroundColor: BAND_SWATCH }" />Spread ±1σ
-        </button>
-        <button
-          v-if="hasTruth"
-          type="button"
-          class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
-          :class="showTruth ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
-          @click="toggleTruth"
-        >
-          <span class="inline-block size-2" :style="{ backgroundColor: TRUTH_COLOR }" />Truth
-        </button>
+      <div class="flex items-start gap-2">
+        <span class="text-paper-400 w-14 shrink-0 pt-[5px]">Series</span>
+        <div class="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
+            :class="showAggregate ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
+            @click="toggleAggregate"
+          >
+            <span class="inline-block size-2" :style="{ backgroundColor: AGG_COLOR }" />Aggregate
+          </button>
+          <button
+            v-if="hasBand"
+            type="button"
+            class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
+            :class="showBand ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
+            title="Model spread (±1σ)"
+            @click="toggleBand"
+          >
+            <span class="inline-block size-2" :style="{ backgroundColor: BAND_SWATCH }" />Spread ±1σ
+          </button>
+          <button
+            v-if="hasTruth"
+            type="button"
+            class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
+            :class="showTruth ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
+            @click="toggleTruth"
+          >
+            <span class="inline-block size-2" :style="{ backgroundColor: TRUTH_COLOR }" />Truth
+          </button>
+        </div>
       </div>
 
       <!-- MODELS -->
-      <div v-if="hasModels" class="flex flex-wrap items-center gap-1.5">
-        <span class="text-paper-400 mr-2 w-14 shrink-0">Models</span>
-        <button
-          type="button"
-          class="border px-2 py-1 transition-colors"
-          :class="allModelsActive ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
-          :aria-pressed="allModelsActive"
-          :title="allModelsActive ? 'Disable all models' : 'Enable all models'"
-          @click="toggleAllModels"
-        >
-          All
-        </button>
-        <span class="bg-ink-700 mx-1 hidden h-4 w-px sm:inline-block" aria-hidden="true" />
-        <button
-          v-for="m in allModels"
-          :key="m.id"
-          type="button"
-          class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
-          :class="
-            !modelHasData[m.id]
-              ? 'border-ink-700/50 bg-ink-950 text-paper-500 cursor-not-allowed line-through opacity-50'
-              : enabledModels.has(m.id)
-                ? 'border-ink-600 bg-ink-800 text-paper-50'
-                : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'
-          "
-          :disabled="!modelHasData[m.id]"
-          :title="modelHasData[m.id] ? `${m.provider} · ${m.description}` : `${m.provider} · no data for this variable`"
-          @click="toggleModel(m.id)"
-        >
-          <span class="inline-block size-2" :style="{ backgroundColor: paletteFor(m.id) }" />{{ m.label }}
-        </button>
+      <div v-if="hasModels" class="flex items-start gap-2">
+        <span class="text-paper-400 w-14 shrink-0 pt-[5px]">Models</span>
+        <div class="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            class="border px-2 py-1 transition-colors"
+            :class="allModelsActive ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
+            :aria-pressed="allModelsActive"
+            :title="allModelsActive ? 'Disable all models' : 'Enable all models'"
+            @click="toggleAllModels"
+          >
+            All
+          </button>
+          <span class="bg-ink-700 mx-1 hidden h-4 w-px self-center sm:inline-block" aria-hidden="true" />
+          <button
+            v-for="m in allModels"
+            :key="m.id"
+            type="button"
+            class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
+            :class="
+              !modelHasData[m.id]
+                ? 'border-ink-700/50 bg-ink-950 text-paper-500 cursor-not-allowed line-through opacity-50'
+                : enabledModels.has(m.id)
+                  ? 'border-ink-600 bg-ink-800 text-paper-50'
+                  : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'
+            "
+            :disabled="!modelHasData[m.id]"
+            :title="modelHasData[m.id] ? `${m.provider} · ${m.description}` : `${m.provider} · no data for this variable`"
+            @click="toggleModel(m.id)"
+          >
+            <span class="inline-block size-2" :style="{ backgroundColor: paletteFor(m.id) }" />{{ m.label }}
+          </button>
+        </div>
       </div>
     </div>
   </section>
