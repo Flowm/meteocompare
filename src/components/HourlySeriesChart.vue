@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { onClickOutside } from "@vueuse/core";
 import type { EChartsOption } from "echarts";
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import VChart from "vue-echarts";
 
 import type { DataVarId, HourlySeries } from "@/composables/hourlySeries";
 import { useUnits } from "@/composables/useUnits";
 import { MODELS, type ModelDef } from "@/domain/models";
 
-import { CHART_VIEWS, DATA_VAR_META, type ChartViewId, type UnitPrefs } from "./chartHelpers";
+import { CHART_VIEWS, convertVar, DATA_VAR_META, type ChartViewId, type UnitPrefs } from "./chartHelpers";
 import { AGG_COLOR, BAND_SWATCH, buildHourlyChartOption, paletteFor, TRUTH_COLOR, visibilityPatches } from "./chartOption";
 
 const props = withDefaults(
@@ -233,6 +233,53 @@ function toggleAllModels(): void {
   else selectAllModels();
 }
 
+// ---- Cursor tracking (tooltip highlight) ------------------------------------
+// With many model lines enabled the tooltip lists them all, and it's hard to
+// tell which row is which line. We track the cursor's value on the spaghetti
+// axis (the formatter gets no pointer position) so the nearest model entry can
+// be highlighted. Stored in the active unit, to match the converted line data.
+const cursorValue = ref<number | null>(null);
+/** Axis the per-model lines live on — right (1) for precip, left (0) otherwise. */
+const spaghettiAxis = computed(() => (activeVar.value === "precipitation" ? 1 : 0));
+
+let detachCursor: (() => void) | null = null;
+watch(
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+  () => chartRef.value?.chart,
+  (chart) => {
+    detachCursor?.();
+    detachCursor = null;
+    if (!chart) return;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    const zr = chart.getZr();
+    const onMove = (e: { offsetX: number; offsetY: number }): void => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      if (!chart.containPixel("grid", [e.offsetX, e.offsetY])) {
+        cursorValue.value = null;
+        return;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      const v = chart.convertFromPixel({ yAxisIndex: spaghettiAxis.value }, e.offsetY) as unknown;
+      cursorValue.value = typeof v === "number" ? v : null;
+    };
+    const onOut = (): void => {
+      cursorValue.value = null;
+    };
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    zr.on("mousemove", onMove);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    zr.on("globalout", onOut);
+    detachCursor = (): void => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      zr.off("mousemove", onMove);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      zr.off("globalout", onOut);
+    };
+  },
+  { immediate: true },
+);
+onBeforeUnmount(() => detachCursor?.());
+
 // ---- Tooltip formatting -----------------------------------------------------
 function fmtVar(dv: DataVarId, base: number | null | undefined): string {
   if (dv === "temperature_2m") return formatTemp.value(base, 1);
@@ -292,14 +339,33 @@ const option = computed<EChartsOption>(() => {
       const truthVal = props.data.truth?.[dv]?.[idx];
       if (showTruth.value && truthVal != null) lines.push(`<span style="color:${TRUTH_COLOR}">Truth</span> ${fmtVar(dv, truthVal)}`);
     }
-    // Per-model values when spaghetti is on (enabled models only).
+    // Per-model values when spaghetti is on (enabled models only). The model
+    // whose value sits closest to the cursor is highlighted, so a busy fan of
+    // lines can be read off against the tooltip.
     if (spaghetti) {
       const dv = activeVar.value;
-      for (const m of allModels.value) {
-        if (!enabledModels.value.has(m.id)) continue;
-        const val = props.data.perModel[dv]?.[m.id]?.[idx];
-        if (val == null) continue;
-        lines.push(`<span style="color:${paletteFor(m.id)}">${m.label}</span> ${fmtVar(dv, val)}`);
+      const cv = cursorValue.value;
+      const shown = allModels.value.filter((m) => enabledModels.value.has(m.id) && props.data.perModel[dv]?.[m.id]?.[idx] != null);
+      let nearestId: string | null = null;
+      if (cv != null) {
+        let best = Infinity;
+        for (const m of shown) {
+          const display = convertVar(props.data.perModel[dv]![m.id]![idx], dv, units.value);
+          if (display == null) continue;
+          const d = Math.abs(display - cv);
+          if (d < best) {
+            best = d;
+            nearestId = m.id;
+          }
+        }
+      }
+      for (const m of shown) {
+        const val = props.data.perModel[dv]![m.id]![idx];
+        const near = m.id === nearestId;
+        const marker = near ? "▸ " : "&nbsp;&nbsp;";
+        const label = `<span style="color:${paletteFor(m.id)}${near ? ";font-weight:700" : ""}">${marker}${m.label}</span>`;
+        const value = near ? `<span style="color:#f4ecd8;font-weight:700">${fmtVar(dv, val)}</span>` : fmtVar(dv, val);
+        lines.push(`${label} ${value}`);
       }
     }
     return `<div style="font-weight:600;margin-bottom:4px">${header}</div>${lines.join("<br/>")}`;
