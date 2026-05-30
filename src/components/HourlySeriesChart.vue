@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { onClickOutside } from "@vueuse/core";
 import type { EChartsOption } from "echarts";
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import VChart from "vue-echarts";
 
 import type { DataVarId, HourlySeries } from "@/composables/hourlySeries";
 import { useUnits } from "@/composables/useUnits";
 import { MODELS, type ModelDef } from "@/domain/models";
 
-import { CHART_VIEWS, DATA_VAR_META, type ChartViewId, type UnitPrefs } from "./chartHelpers";
+import { CHART_VIEWS, convertVar, type ChartViewId, type UnitPrefs } from "./chartHelpers";
 import { AGG_COLOR, BAND_SWATCH, buildHourlyChartOption, paletteFor, TRUTH_COLOR, visibilityPatches } from "./chartOption";
 
 const props = withDefaults(
@@ -233,6 +233,53 @@ function toggleAllModels(): void {
   else selectAllModels();
 }
 
+// ---- Cursor tracking (tooltip highlight) ------------------------------------
+// With many model lines enabled the tooltip lists them all, and it's hard to
+// tell which row is which line. We track the cursor's value on the spaghetti
+// axis (the formatter gets no pointer position) so the nearest model entry can
+// be highlighted. Stored in the active unit, to match the converted line data.
+const cursorValue = ref<number | null>(null);
+/** Axis the per-model lines live on — right (1) for precip, left (0) otherwise. */
+const spaghettiAxis = computed(() => (activeVar.value === "precipitation" ? 1 : 0));
+
+let detachCursor: (() => void) | null = null;
+watch(
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+  () => chartRef.value?.chart,
+  (chart) => {
+    detachCursor?.();
+    detachCursor = null;
+    if (!chart) return;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    const zr = chart.getZr();
+    const onMove = (e: { offsetX: number; offsetY: number }): void => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      if (!chart.containPixel("grid", [e.offsetX, e.offsetY])) {
+        cursorValue.value = null;
+        return;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      const v = chart.convertFromPixel({ yAxisIndex: spaghettiAxis.value }, e.offsetY) as unknown;
+      cursorValue.value = typeof v === "number" ? v : null;
+    };
+    const onOut = (): void => {
+      cursorValue.value = null;
+    };
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    zr.on("mousemove", onMove);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    zr.on("globalout", onOut);
+    detachCursor = (): void => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      zr.off("mousemove", onMove);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      zr.off("globalout", onOut);
+    };
+  },
+  { immediate: true },
+);
+onBeforeUnmount(() => detachCursor?.());
+
 // ---- Tooltip formatting -----------------------------------------------------
 function fmtVar(dv: DataVarId, base: number | null | undefined): string {
   if (dv === "temperature_2m") return formatTemp.value(base, 1);
@@ -281,10 +328,10 @@ const option = computed<EChartsOption>(() => {
     const vars: DataVarId[] = CHART_VIEWS[v].vars;
     for (const dv of vars) {
       const aggPt = props.data.aggregate[dv]?.[idx];
-      const isLine = DATA_VAR_META[dv].render === "line";
       if (showAggregate.value && aggPt && !Number.isNaN(aggPt.value)) {
-        const std =
-          isLine && showBand.value && Number.isFinite(aggPt.stdDev) ? ` <span style="color:#94a3b8">± ${fmtVar(dv, aggPt.stdDev).replace(/[°a-zA-Z%/ ]+$/, "")}</span>` : "";
+        // ±1σ shown whenever the spread is on — bars carry it as error-bar
+        // whiskers, line views as the shaded band, but the tooltip reads alike.
+        const std = showBand.value && Number.isFinite(aggPt.stdDev) ? ` <span style="color:#94a3b8">± ${fmtVar(dv, aggPt.stdDev).replace(/[°a-zA-Z%/ ]+$/, "")}</span>` : "";
         const label = vars.length > 1 ? `${dv === "temperature_2m" ? "Temp" : "Precip"} ` : "Forecast ";
         const color = dv === "precipitation" ? "#7dd3fc" : AGG_COLOR;
         lines.push(`<span style="color:${color}">${label}</span>${fmtVar(dv, aggPt.value)}${std}`);
@@ -292,14 +339,33 @@ const option = computed<EChartsOption>(() => {
       const truthVal = props.data.truth?.[dv]?.[idx];
       if (showTruth.value && truthVal != null) lines.push(`<span style="color:${TRUTH_COLOR}">Truth</span> ${fmtVar(dv, truthVal)}`);
     }
-    // Per-model values when spaghetti is on (enabled models only).
+    // Per-model values when spaghetti is on (enabled models only). The model
+    // whose value sits closest to the cursor is highlighted, so a busy fan of
+    // lines can be read off against the tooltip.
     if (spaghetti) {
       const dv = activeVar.value;
-      for (const m of allModels.value) {
-        if (!enabledModels.value.has(m.id)) continue;
-        const val = props.data.perModel[dv]?.[m.id]?.[idx];
-        if (val == null) continue;
-        lines.push(`<span style="color:${paletteFor(m.id)}">${m.label}</span> ${fmtVar(dv, val)}`);
+      const cv = cursorValue.value;
+      const shown = allModels.value.filter((m) => enabledModels.value.has(m.id) && props.data.perModel[dv]?.[m.id]?.[idx] != null);
+      let nearestId: string | null = null;
+      if (cv != null) {
+        let best = Infinity;
+        for (const m of shown) {
+          const display = convertVar(props.data.perModel[dv]![m.id]![idx], dv, units.value);
+          if (display == null) continue;
+          const d = Math.abs(display - cv);
+          if (d < best) {
+            best = d;
+            nearestId = m.id;
+          }
+        }
+      }
+      for (const m of shown) {
+        const val = props.data.perModel[dv]![m.id]![idx];
+        const near = m.id === nearestId;
+        const marker = near ? "▸ " : "&nbsp;&nbsp;";
+        const label = `<span style="color:${paletteFor(m.id)}${near ? ";font-weight:700" : ""}">${marker}${m.label}</span>`;
+        const value = near ? `<span style="color:#f4ecd8;font-weight:700">${fmtVar(dv, val)}</span>` : fmtVar(dv, val);
+        lines.push(`${label} ${value}`);
       }
     }
     return `<div style="font-weight:600;margin-bottom:4px">${header}</div>${lines.join("<br/>")}`;
@@ -321,68 +387,68 @@ watch(option, () => {
 // The series row is shown when there's *anything* to toggle — i.e. always for
 // the forecast view (just aggregate) and on verify (aggregate + truth).
 const hasModels = computed(() => allModels.value.length > 0);
-// The ±1σ band is drawn for every line view; the precipitation-only view shows
-// bars instead, so its spread chip would be a no-op.
-const hasBand = computed(() => view.value !== "precipitation");
+// The ±1σ spread is drawn for every view — a shaded band on line views, and
+// error-bar whiskers on the precipitation bars — so the chip always applies.
+const hasBand = computed(() => true);
 </script>
 
 <template>
   <section class="border-ink-700 bg-ink-900/60 relative border p-4 sm:p-6">
-    <!-- Header: title + variable picker (left), window selector (right) -->
+    <!-- Header: title only -->
     <div class="border-ink-700 mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-b pb-3">
-      <div class="flex flex-wrap items-center gap-3">
-        <h2 class="eyebrow">{{ title }}</h2>
+      <h2 class="eyebrow">{{ title }}</h2>
+    </div>
 
-        <!-- Desktop (lg+): expanded variable rail, all options inline -->
-        <div class="border-ink-700 hidden border font-mono text-xs tracking-wide lg:flex">
+    <!-- Variable picker (left) + window selector (right) share a line -->
+    <div class="mb-4 flex flex-wrap items-center gap-3">
+      <!-- Desktop (lg+): expanded variable rail, all options inline -->
+      <div class="border-ink-700 hidden border font-mono text-xs tracking-wide lg:flex">
+        <button
+          v-for="vid in variables"
+          :key="vid"
+          class="border-ink-700 border-r px-2.5 py-1 whitespace-nowrap transition-colors last:border-r-0"
+          :class="isVarActive(vid) ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
+          @click="selectVariable(vid)"
+        >
+          {{ CHART_VIEWS[vid].label }}
+        </button>
+      </div>
+
+      <!-- Mobile / tablet (< lg): collapse the rail into a dropdown -->
+      <div ref="varRoot" class="relative lg:hidden">
+        <button
+          type="button"
+          class="group border-ink-700 bg-ink-900/60 text-paper-200 hover:border-sodium-300/60 hover:text-paper-50 flex items-center gap-2 border px-3 py-1 font-mono text-xs tracking-wide transition-colors"
+          :aria-expanded="varOpen"
+          aria-haspopup="menu"
+          @click="varOpen = !varOpen"
+        >
+          {{ CHART_VIEWS[view].label }}
+          <svg class="text-paper-300 size-3 transition-transform" :class="{ 'rotate-180': varOpen }" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+        <div
+          v-if="varOpen"
+          role="menu"
+          class="panel-in border-ink-700 bg-ink-900 absolute top-full left-0 z-40 mt-1 min-w-[12rem] overflow-hidden border shadow-2xl shadow-black/60"
+        >
           <button
             v-for="vid in variables"
             :key="vid"
-            class="border-ink-700 border-r px-2.5 py-1 whitespace-nowrap transition-colors last:border-r-0"
-            :class="isVarActive(vid) ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
+            type="button"
+            role="menuitemradio"
+            :aria-checked="isVarActive(vid)"
+            class="block w-full px-3 py-2 text-left font-mono text-xs tracking-wide transition-colors"
+            :class="isVarActive(vid) ? 'bg-ink-800 text-sodium-200' : 'text-paper-200 hover:bg-ink-800 hover:text-sodium-200'"
             @click="selectVariable(vid)"
           >
             {{ CHART_VIEWS[vid].label }}
           </button>
         </div>
-
-        <!-- Mobile / tablet (< lg): collapse the rail into a dropdown -->
-        <div ref="varRoot" class="relative lg:hidden">
-          <button
-            type="button"
-            class="group border-ink-700 bg-ink-900/60 text-paper-200 hover:border-sodium-300/60 hover:text-paper-50 flex items-center gap-2 border px-3 py-1 font-mono text-xs tracking-wide transition-colors"
-            :aria-expanded="varOpen"
-            aria-haspopup="menu"
-            @click="varOpen = !varOpen"
-          >
-            {{ CHART_VIEWS[view].label }}
-            <svg class="text-paper-300 size-3 transition-transform" :class="{ 'rotate-180': varOpen }" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </button>
-          <div
-            v-if="varOpen"
-            role="menu"
-            class="panel-in border-ink-700 bg-ink-900 absolute top-full left-0 z-40 mt-1 min-w-[12rem] overflow-hidden border shadow-2xl shadow-black/60"
-          >
-            <button
-              v-for="vid in variables"
-              :key="vid"
-              type="button"
-              role="menuitemradio"
-              :aria-checked="isVarActive(vid)"
-              class="block w-full px-3 py-2 text-left font-mono text-xs tracking-wide transition-colors"
-              :class="isVarActive(vid) ? 'bg-ink-800 text-sodium-200' : 'text-paper-200 hover:bg-ink-800 hover:text-sodium-200'"
-              @click="selectVariable(vid)"
-            >
-              {{ CHART_VIEWS[vid].label }}
-            </button>
-          </div>
-        </div>
       </div>
 
-      <!-- Window selector (right-aligned; wraps to its own line on the
-           forecast page where the 6-option rail fills the first row). -->
+      <!-- Window selector (right-aligned) -->
       <div class="border-ink-700 ml-auto flex border font-mono text-xs tracking-wide">
         <button
           v-for="c in WINDOW_CHOICES"
@@ -409,69 +475,73 @@ const hasBand = computed(() => view.value !== "precipitation");
          any model chip turns the spaghetti on; "All" flips every model at once. -->
     <div class="border-ink-700/60 mt-4 space-y-2.5 border-t pt-3 font-mono text-[11px] tracking-wide">
       <!-- SERIES -->
-      <div class="flex flex-wrap items-center gap-1.5">
-        <span class="text-paper-400 mr-2 w-14 shrink-0">Series</span>
-        <button
-          type="button"
-          class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
-          :class="showAggregate ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
-          @click="toggleAggregate"
-        >
-          <span class="inline-block size-2" :style="{ backgroundColor: AGG_COLOR }" />Aggregate
-        </button>
-        <button
-          v-if="hasBand"
-          type="button"
-          class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
-          :class="showBand ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
-          title="Model spread (±1σ)"
-          @click="toggleBand"
-        >
-          <span class="inline-block size-2" :style="{ backgroundColor: BAND_SWATCH }" />Spread ±1σ
-        </button>
-        <button
-          v-if="hasTruth"
-          type="button"
-          class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
-          :class="showTruth ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
-          @click="toggleTruth"
-        >
-          <span class="inline-block size-2" :style="{ backgroundColor: TRUTH_COLOR }" />Truth
-        </button>
+      <div class="flex items-start gap-2">
+        <span class="text-paper-400 w-14 shrink-0 pt-[5px]">Series</span>
+        <div class="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
+            :class="showAggregate ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
+            @click="toggleAggregate"
+          >
+            <span class="inline-block size-2" :style="{ backgroundColor: AGG_COLOR }" />Aggregate
+          </button>
+          <button
+            v-if="hasBand"
+            type="button"
+            class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
+            :class="showBand ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
+            title="Model spread (±1σ)"
+            @click="toggleBand"
+          >
+            <span class="inline-block size-2" :style="{ backgroundColor: BAND_SWATCH }" />Spread ±1σ
+          </button>
+          <button
+            v-if="hasTruth"
+            type="button"
+            class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
+            :class="showTruth ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
+            @click="toggleTruth"
+          >
+            <span class="inline-block size-2" :style="{ backgroundColor: TRUTH_COLOR }" />Truth
+          </button>
+        </div>
       </div>
 
       <!-- MODELS -->
-      <div v-if="hasModels" class="flex flex-wrap items-center gap-1.5">
-        <span class="text-paper-400 mr-2 w-14 shrink-0">Models</span>
-        <button
-          type="button"
-          class="border px-2 py-1 transition-colors"
-          :class="allModelsActive ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
-          :aria-pressed="allModelsActive"
-          :title="allModelsActive ? 'Disable all models' : 'Enable all models'"
-          @click="toggleAllModels"
-        >
-          All
-        </button>
-        <span class="bg-ink-700 mx-1 hidden h-4 w-px sm:inline-block" aria-hidden="true" />
-        <button
-          v-for="m in allModels"
-          :key="m.id"
-          type="button"
-          class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
-          :class="
-            !modelHasData[m.id]
-              ? 'border-ink-700/50 bg-ink-950 text-paper-500 cursor-not-allowed line-through opacity-50'
-              : enabledModels.has(m.id)
-                ? 'border-ink-600 bg-ink-800 text-paper-50'
-                : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'
-          "
-          :disabled="!modelHasData[m.id]"
-          :title="modelHasData[m.id] ? `${m.provider} · ${m.description}` : `${m.provider} · no data for this variable`"
-          @click="toggleModel(m.id)"
-        >
-          <span class="inline-block size-2" :style="{ backgroundColor: paletteFor(m.id) }" />{{ m.label }}
-        </button>
+      <div v-if="hasModels" class="flex items-start gap-2">
+        <span class="text-paper-400 w-14 shrink-0 pt-[5px]">Models</span>
+        <div class="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            class="border px-2 py-1 transition-colors"
+            :class="allModelsActive ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
+            :aria-pressed="allModelsActive"
+            :title="allModelsActive ? 'Disable all models' : 'Enable all models'"
+            @click="toggleAllModels"
+          >
+            All
+          </button>
+          <span class="bg-ink-700 mx-1 hidden h-4 w-px self-center sm:inline-block" aria-hidden="true" />
+          <button
+            v-for="m in allModels"
+            :key="m.id"
+            type="button"
+            class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
+            :class="
+              !modelHasData[m.id]
+                ? 'border-ink-700/50 bg-ink-950 text-paper-500 cursor-not-allowed line-through opacity-50'
+                : enabledModels.has(m.id)
+                  ? 'border-ink-600 bg-ink-800 text-paper-50'
+                  : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'
+            "
+            :disabled="!modelHasData[m.id]"
+            :title="modelHasData[m.id] ? `${m.provider} · ${m.description}` : `${m.provider} · no data for this variable`"
+            @click="toggleModel(m.id)"
+          >
+            <span class="inline-block size-2" :style="{ backgroundColor: paletteFor(m.id) }" />{{ m.label }}
+          </button>
+        </div>
       </div>
     </div>
   </section>

@@ -21,6 +21,7 @@ export const AGG_COLOR = "#e8826b"; // coral — aggregate forecast
 export const TRUTH_COLOR = "#f5b942"; // sodium amber — ERA5-Seamless truth
 export const BAND_SWATCH = "rgba(232, 130, 107, 0.45)"; // more visible coral for the legend chip
 const PRECIP_BAR_COLOR = "rgba(127, 184, 224, 0.65)"; // dusty rain blue
+const PRECIP_SPREAD_FILL = "rgba(186, 219, 247, 0.38)"; // pale rain blue — ±1σ spread band
 const BAND_FILL = "rgba(232, 130, 107, 0.16)"; // coral, low alpha — ±1σ band
 const TRUTH_AREA = "rgba(245, 185, 66, 0.12)"; // sodium, low alpha — precip truth fill
 const NIGHT_FILL = "rgba(120, 140, 200, 0.12)"; // cool marine wash — reads as night against the warm theme
@@ -268,9 +269,55 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
       z: 2,
       ...(attachMarks && markLine ? { markLine } : {}),
     });
-    // Only the primary "agg" bars answer to the Aggregate chip; the composite
-    // view's "agg-precip" bars are intentionally not toggleable.
-    if (id === "agg") toggles.push({ group: "aggregate", id, props: ["lineStyle", "itemStyle"], shown: 1 });
+    // The Aggregate chip hides the bars in both the precip-only and composite
+    // views (the composite's "agg-precip" bars toggle too — alongside the temp
+    // line, which shares the `aggregate` group).
+    toggles.push({ group: "aggregate", id, props: ["lineStyle", "itemStyle"], shown: 1 });
+
+    // ±1σ spread. The line views draw a shaded band; precipitation gets the bar
+    // equivalent — a translucent band stacked from (value−σ) to (value+σ) and
+    // overlaid on the solid average bar (barGap "-100%"). Below the average the
+    // band tints the solid bar; above it floats over the background — so the
+    // average reads as the step between the two shades. A transparent spacer
+    // floats the band off the baseline; the lower bound is clamped at 0 (precip
+    // can't be negative). Governed by the same "Spread ±1σ" chip (`band` group).
+    const spreadBase = pts.map((p) => {
+      const value = convertVar(p.value, "precipitation", units) ?? 0;
+      const sigma = Number.isFinite(p.stdDev) ? convertDelta(p.stdDev, "precipitation", units) : 0;
+      return Math.max(0, value - sigma);
+    });
+    const spreadSpan = pts.map((p, i) => {
+      const value = convertVar(p.value, "precipitation", units) ?? 0;
+      const sigma = Number.isFinite(p.stdDev) ? convertDelta(p.stdDev, "precipitation", units) : 0;
+      return value + sigma - spreadBase[i]!;
+    });
+    series.push({
+      id: `${id}-spread-base`,
+      type: "bar",
+      yAxisIndex: axisIndex,
+      stack: `${id}-spread`,
+      data: spreadBase,
+      itemStyle: { opacity: 0 },
+      barWidth: "60%",
+      barGap: "-100%",
+      silent: true,
+      tooltip: { show: false },
+      z: 3,
+    });
+    series.push({
+      id: `${id}-spread`,
+      name: "Spread ±1σ",
+      type: "bar",
+      yAxisIndex: axisIndex,
+      stack: `${id}-spread`,
+      data: spreadSpan,
+      itemStyle: { color: PRECIP_SPREAD_FILL },
+      barWidth: "60%",
+      silent: true,
+      tooltip: { show: false },
+      z: 3,
+    });
+    toggles.push({ group: "band", id: `${id}-spread`, props: ["itemStyle"], shown: 1 });
     const truth = data.truth?.precipitation;
     if (truth) {
       series.push({
@@ -351,8 +398,16 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
   // --- axes ------------------------------------------------------------------
   const leftIsPct = leftVar === "precipitation_probability" || leftVar === "cloud_cover";
   const leftUnit = leftVar ? unitLabel(leftVar, units) : "";
-  const precipUnit = unitLabel("precipitation", units);
+  // Hourly precip is the sum over the preceding hour — a rate — so the chart
+  // axis reads "mm/h" (vs. the bare "mm" used for daily totals elsewhere).
+  const precipUnit = `${unitLabel("precipitation", units)}/h`;
   const interval = args.hoursWindow <= 24 ? 2 : args.hoursWindow <= 72 ? 11 : 23;
+
+  // Floor the precipitation axis at 8 mm/h (converted to the active unit) so a
+  // few tenths of a millimetre don't fill the panel and read as heavy rain.
+  // The axis still grows past the floor when the data genuinely exceeds it.
+  const precipFloor = convertVar(8, "precipitation", units) ?? 8;
+  const precipMax = ((value: { max: number }) => Math.max(precipFloor, value.max)) as unknown as number;
 
   const option: EChartsOption = {
     backgroundColor: "transparent",
@@ -400,6 +455,7 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
         nameTextStyle: { color: "#93896f", fontSize: 10 },
         position: "right",
         min: 0,
+        max: precipMax,
         axisLine: { show: false },
         axisLabel: { color: "#93896f", fontSize: 10 },
         splitLine: { lineStyle: { color: "#131d2d", type: "dashed" }, show: rightActive && !leftVar },
