@@ -8,7 +8,7 @@ import type { DataVarId, HourlySeries } from "@/composables/hourlySeries";
 import { useUnits } from "@/composables/useUnits";
 import { MODELS, type ModelDef } from "@/domain/models";
 
-import { CHART_VIEWS, convertVar, DATA_VAR_META, type ChartViewId, type UnitPrefs } from "./chartHelpers";
+import { CHART_VIEWS, convertVar, type ChartViewId, type UnitPrefs } from "./chartHelpers";
 import { AGG_COLOR, BAND_SWATCH, buildHourlyChartOption, paletteFor, TRUTH_COLOR, visibilityPatches } from "./chartOption";
 
 const props = withDefaults(
@@ -328,10 +328,10 @@ const option = computed<EChartsOption>(() => {
     const vars: DataVarId[] = CHART_VIEWS[v].vars;
     for (const dv of vars) {
       const aggPt = props.data.aggregate[dv]?.[idx];
-      const isLine = DATA_VAR_META[dv].render === "line";
       if (showAggregate.value && aggPt && !Number.isNaN(aggPt.value)) {
-        const std =
-          isLine && showBand.value && Number.isFinite(aggPt.stdDev) ? ` <span style="color:#94a3b8">± ${fmtVar(dv, aggPt.stdDev).replace(/[°a-zA-Z%/ ]+$/, "")}</span>` : "";
+        // ±1σ shown whenever the spread is on — bars carry it as error-bar
+        // whiskers, line views as the shaded band, but the tooltip reads alike.
+        const std = showBand.value && Number.isFinite(aggPt.stdDev) ? ` <span style="color:#94a3b8">± ${fmtVar(dv, aggPt.stdDev).replace(/[°a-zA-Z%/ ]+$/, "")}</span>` : "";
         const label = vars.length > 1 ? `${dv === "temperature_2m" ? "Temp" : "Precip"} ` : "Forecast ";
         const color = dv === "precipitation" ? "#7dd3fc" : AGG_COLOR;
         lines.push(`<span style="color:${color}">${label}</span>${fmtVar(dv, aggPt.value)}${std}`);
@@ -387,9 +387,9 @@ watch(option, () => {
 // The series row is shown when there's *anything* to toggle — i.e. always for
 // the forecast view (just aggregate) and on verify (aggregate + truth).
 const hasModels = computed(() => allModels.value.length > 0);
-// The ±1σ band is drawn for every line view; the precipitation-only view shows
-// bars instead, so its spread chip would be a no-op.
-const hasBand = computed(() => view.value !== "precipitation");
+// The ±1σ spread is drawn for every view — a shaded band on line views, and
+// error-bar whiskers on the precipitation bars — so the chip always applies.
+const hasBand = computed(() => true);
 </script>
 
 <template>

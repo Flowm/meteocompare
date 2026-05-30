@@ -21,6 +21,7 @@ export const AGG_COLOR = "#e8826b"; // coral — aggregate forecast
 export const TRUTH_COLOR = "#f5b942"; // sodium amber — ERA5-Seamless truth
 export const BAND_SWATCH = "rgba(232, 130, 107, 0.45)"; // more visible coral for the legend chip
 const PRECIP_BAR_COLOR = "rgba(127, 184, 224, 0.65)"; // dusty rain blue
+const PRECIP_ERR_COLOR = "rgba(200, 226, 247, 0.9)"; // brighter rain blue — ±1σ whiskers
 const BAND_FILL = "rgba(232, 130, 107, 0.16)"; // coral, low alpha — ±1σ band
 const TRUTH_AREA = "rgba(245, 185, 66, 0.12)"; // sodium, low alpha — precip truth fill
 const NIGHT_FILL = "rgba(120, 140, 200, 0.12)"; // cool marine wash — reads as night against the warm theme
@@ -271,6 +272,51 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
     // Only the primary "agg" bars answer to the Aggregate chip; the composite
     // view's "agg-precip" bars are intentionally not toggleable.
     if (id === "agg") toggles.push({ group: "aggregate", id, props: ["lineStyle", "itemStyle"], shown: 1 });
+
+    // ±1σ spread. The line views draw a shaded band, but a band over discrete
+    // bars reads poorly — so precipitation gets error-bar whiskers instead,
+    // governed by the same "Spread ±1σ" chip (the `band` group). Lower whisker
+    // is clamped at 0 (precip can't be negative); zero-spread bars draw nothing.
+    const errData = pts.map((p, i) => {
+      const value = convertVar(p.value, "precipitation", units) ?? 0;
+      const sigma = Number.isFinite(p.stdDev) ? convertDelta(p.stdDev, "precipitation", units) : 0;
+      return [i, Math.max(0, value - sigma), value + sigma, sigma];
+    });
+    series.push({
+      id: `${id}-err`,
+      name: "Spread ±1σ",
+      type: "custom",
+      yAxisIndex: axisIndex,
+      data: errData,
+      itemStyle: { opacity: 1 },
+      silent: true,
+      tooltip: { show: false },
+      z: 6,
+      renderItem: (_params, api) => {
+        const sigma = api.value(3) as number;
+        if (!(sigma > 0)) return { type: "group", children: [] };
+        const xi = api.value(0);
+        const low = api.coord([xi, api.value(1)]) as number[];
+        const high = api.coord([xi, api.value(2)]) as number[];
+        const cap = Math.max(2, (api.size!([1, 0]) as number[])[0]! * 0.18);
+        const opacity = (api.style().opacity as number | undefined) ?? 1;
+        const seg = (x1: number, y1: number, x2: number, y2: number) => ({
+          type: "line" as const,
+          shape: { x1, y1, x2, y2 },
+          style: { stroke: PRECIP_ERR_COLOR, lineWidth: 1.3, opacity },
+          silent: true,
+        });
+        return {
+          type: "group",
+          children: [
+            seg(high[0]!, high[1]!, low[0]!, low[1]!), // whisker
+            seg(high[0]! - cap, high[1]!, high[0]! + cap, high[1]!), // top cap
+            seg(low[0]! - cap, low[1]!, low[0]! + cap, low[1]!), // bottom cap
+          ],
+        };
+      },
+    });
+    toggles.push({ group: "band", id: `${id}-err`, props: ["itemStyle"], shown: 1 });
     const truth = data.truth?.precipitation;
     if (truth) {
       series.push({
