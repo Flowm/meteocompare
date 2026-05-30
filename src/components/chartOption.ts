@@ -351,8 +351,16 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
   // --- axes ------------------------------------------------------------------
   const leftIsPct = leftVar === "precipitation_probability" || leftVar === "cloud_cover";
   const leftUnit = leftVar ? unitLabel(leftVar, units) : "";
-  const precipUnit = unitLabel("precipitation", units);
+  // Hourly precip is the sum over the preceding hour — a rate — so the chart
+  // axis reads "mm/h" (vs. the bare "mm" used for daily totals elsewhere).
+  const precipUnit = `${unitLabel("precipitation", units)}/h`;
   const interval = args.hoursWindow <= 24 ? 2 : args.hoursWindow <= 72 ? 11 : 23;
+
+  // Floor the precipitation axis at 8 mm/h (converted to the active unit) so a
+  // few tenths of a millimetre don't fill the panel and read as heavy rain.
+  // The axis still grows past the floor when the data genuinely exceeds it.
+  const precipFloor = convertVar(8, "precipitation", units) ?? 8;
+  const precipMax = ((value: { max: number }) => Math.max(precipFloor, value.max)) as unknown as number;
 
   const option: EChartsOption = {
     backgroundColor: "transparent",
@@ -400,6 +408,7 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
         nameTextStyle: { color: "#93896f", fontSize: 10 },
         position: "right",
         min: 0,
+        max: precipMax,
         axisLine: { show: false },
         axisLabel: { color: "#93896f", fontSize: 10 },
         splitLine: { lineStyle: { color: "#131d2d", type: "dashed" }, show: rightActive && !leftVar },
