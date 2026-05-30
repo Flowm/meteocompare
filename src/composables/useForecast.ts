@@ -1,8 +1,8 @@
 import { computed, onScopeDispose, ref, shallowRef, watch, type Ref } from "vue";
 
 import { fetchForecast, extractHourlyByModel, extractDailyByModel, extractDailySolar, type ForecastResponse, type HourlyVar, type DailyVar } from "@/api/omForecast";
-import { aggregateSeries, type AggregatePoint } from "@/domain/aggregate";
-import { confidenceFor } from "@/domain/confidence";
+import type { AggregatePoint } from "@/domain/aggregate";
+import { aggregateVariables } from "@/domain/aggregateVariables";
 import { MODELS, MODEL_IDS } from "@/domain/models";
 import type { Variable } from "@/domain/weighting";
 
@@ -122,23 +122,19 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
     const firstHourlyTime = times[0];
     if (firstHourlyTime === undefined) return null;
     const baseTime = new Date(firstHourlyTime);
-    const aggregate: Record<HourlyVar, AggregatePoint[]> = {} as never;
-    const confidence: Record<HourlyVar, number[]> = {} as never;
-    const perModel: Record<HourlyVar, Record<string, (number | null)[]>> = {} as never;
-    for (const v of HOURLY) {
-      const byModel = extractHourlyByModel(data, v, MODEL_IDS);
-      perModel[v] = byModel;
-      const agg = aggregateSeries(times, byModel, {
-        variable: v,
-        models: MODELS,
-        lat: location.value.latitude,
-        lon: location.value.longitude,
-        baseTime,
-      });
-      aggregate[v] = agg;
-      confidence[v] = agg.map((p, i) => confidenceFor(p, v, i));
-    }
-    return { times, aggregate, confidence, perModel };
+    const perModel = {} as Record<HourlyVar, Record<string, (number | null)[]>>;
+    for (const v of HOURLY) perModel[v] = extractHourlyByModel(data, v, MODEL_IDS);
+    const { aggregate, confidence } = aggregateVariables({
+      times,
+      perModel,
+      vars: HOURLY.map((v) => ({ key: v, family: v })),
+      models: MODELS,
+      lat: location.value.latitude,
+      lon: location.value.longitude,
+      baseTime,
+      cadence: "hourly",
+    });
+    return { times, aggregate, confidence, perModel } as HourlyAggregate;
   });
 
   const daily = computed<DailyAggregate | null>(() => {
@@ -148,25 +144,21 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
     const firstDailyTime = times[0];
     if (firstDailyTime === undefined) return null;
     const baseTime = new Date(firstDailyTime);
-    const series: Record<DailyVar, AggregatePoint[]> = {} as never;
-    const confidence: Record<DailyVar, number[]> = {} as never;
-    const perModel: Record<DailyVar, Record<string, (number | null)[]>> = {} as never;
-    for (const v of DAILY) {
-      const byModel = extractDailyByModel(data, v, MODEL_IDS);
-      perModel[v] = byModel;
-      const baseVar = dailyBase(v);
-      const agg = aggregateSeries(times, byModel, {
-        variable: baseVar,
-        models: MODELS,
-        lat: location.value.latitude,
-        lon: location.value.longitude,
-        baseTime,
-      });
-      series[v] = agg;
-      // Lead in hours: day index * 24 + 12 (noonish anchor for confidence calc).
-      confidence[v] = agg.map((p, i) => confidenceFor(p, baseVar, i * 24 + 12, "daily"));
-    }
-    return { times, series, confidence, perModel };
+    const perModel = {} as Record<DailyVar, Record<string, (number | null)[]>>;
+    for (const v of DAILY) perModel[v] = extractDailyByModel(data, v, MODEL_IDS);
+    // Daily cadence anchors confidence at lead = dayIndex*24 + 12, and each daily
+    // variable is weighted/scored under its base family (e.g. max → temperature_2m).
+    const { aggregate: series, confidence } = aggregateVariables({
+      times,
+      perModel,
+      vars: DAILY.map((v) => ({ key: v, family: dailyBase(v) })),
+      models: MODELS,
+      lat: location.value.latitude,
+      lon: location.value.longitude,
+      baseTime,
+      cadence: "daily",
+    });
+    return { times, series, confidence, perModel } as DailyAggregate;
   });
 
   const solar = computed(() => {
