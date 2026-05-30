@@ -5,14 +5,15 @@ import type { AggregatePoint } from "@/domain/aggregate";
 import { getModel } from "@/domain/models";
 
 import type { UnitPrefs } from "./chartHelpers";
-import { buildHourlyChartOption, type HourlyChartOptionArgs } from "./chartOption";
+import { buildHourlyChartOption, visibilityPatches, type HourlyChartOptionArgs, type VisibilityState, type VisibilityToggle } from "./chartOption";
 
 type Series = { id?: string; type?: string; data?: unknown[]; yAxisIndex?: number; stack?: string; markLine?: unknown; markArea?: unknown };
 type Axis = { min?: unknown; max?: unknown; show?: boolean };
 
-const seriesOf = (args: HourlyChartOptionArgs): Series[] => (buildHourlyChartOption(args).series as Series[]) ?? [];
+const seriesOf = (args: HourlyChartOptionArgs): Series[] => (buildHourlyChartOption(args).option.series as Series[]) ?? [];
 const byId = (args: HourlyChartOptionArgs, id: string): Series | undefined => seriesOf(args).find((s) => s.id === id);
-const yAxis = (args: HourlyChartOptionArgs): Axis[] => buildHourlyChartOption(args).yAxis as Axis[];
+const yAxis = (args: HourlyChartOptionArgs): Axis[] => buildHourlyChartOption(args).option.yAxis as Axis[];
+const togglesOf = (args: HourlyChartOptionArgs): VisibilityToggle[] => buildHourlyChartOption(args).toggles;
 
 const C: UnitPrefs = { temp: "c", precip: "mm", wind: "kmh" };
 
@@ -123,5 +124,64 @@ describe("buildHourlyChartOption — night/now marks", () => {
     };
     expect(byId(args, "night")?.markArea).toBeDefined();
     expect(byId(args, "agg")?.markLine).toBeDefined();
+  });
+});
+
+describe("buildHourlyChartOption — visibility toggles", () => {
+  const models = [getModel("ecmwf_ifs025")!, getModel("gfs_global")!];
+
+  it("emits aggregate + band toggles for a line view", () => {
+    const t = togglesOf(base);
+    expect(t.find((x) => x.group === "aggregate")?.id).toBe("agg");
+    const band = t.find((x) => x.group === "band");
+    expect(band?.id).toBe("band-delta");
+    expect(band?.props).toEqual(["areaStyle"]);
+  });
+
+  it("declares the area fill on precip truth only, not line truth", () => {
+    const lineTruth: HourlySeries = { ...DATA, truth: { temperature_2m: [9, 10, 11, 12, 13] } };
+    expect(togglesOf({ ...base, data: lineTruth }).find((x) => x.group === "truth")?.props).toEqual(["lineStyle", "itemStyle"]);
+
+    const precipTruth: HourlySeries = { ...DATA, truth: { precipitation: [0, 1, 0, 0, 0] } };
+    expect(togglesOf({ ...base, view: "precipitation", data: precipTruth }).find((x) => x.group === "truth")?.props).toEqual(["lineStyle", "itemStyle", "areaStyle"]);
+  });
+
+  it("toggles the composite temperature line (agg) but not the precip bars (agg-precip)", () => {
+    const aggIds = togglesOf({ ...base, view: "temp_precip" })
+      .filter((x) => x.group === "aggregate")
+      .map((x) => x.id);
+    expect(aggIds).toEqual(["agg"]);
+  });
+
+  it("emits one model toggle per spaghetti series and none when models are off", () => {
+    const on = togglesOf({ ...base, models, showModels: true }).filter((x) => x.group === "model");
+    expect(on.map((x) => x.id).toSorted()).toEqual(["s-ecmwf_ifs025", "s-gfs_global"]);
+    expect(on.every((x) => !!x.modelId && x.props.includes("lineStyle"))).toBe(true);
+    expect(togglesOf({ ...base, models, showModels: false }).some((x) => x.group === "model")).toBe(false);
+  });
+});
+
+describe("visibilityPatches", () => {
+  const state = (over: Partial<VisibilityState>): VisibilityState => ({ showAggregate: true, showBand: true, showTruth: true, enabledModels: new Set<string>(), ...over });
+
+  it("drives each toggle's props to its shown opacity, or 0 when hidden, independently", () => {
+    const toggles: VisibilityToggle[] = [
+      { group: "aggregate", id: "agg", props: ["lineStyle", "itemStyle"], shown: 1 },
+      { group: "band", id: "band-delta", props: ["areaStyle"], shown: 1 },
+    ];
+    const shown = visibilityPatches(toggles, state({}));
+    expect(shown.find((p) => p.id === "agg")?.lineStyle?.opacity).toBe(1);
+
+    const hidden = visibilityPatches(toggles, state({ showAggregate: false }));
+    expect(hidden.find((p) => p.id === "agg")?.lineStyle?.opacity).toBe(0);
+    expect(hidden.find((p) => p.id === "agg")?.itemStyle?.opacity).toBe(0);
+    // band is independent of the aggregate toggle — and "shown" is 1, not the fill alpha.
+    expect(hidden.find((p) => p.id === "band-delta")?.areaStyle?.opacity).toBe(1);
+  });
+
+  it("gates model toggles on enabledModels at the model's shown opacity", () => {
+    const toggles: VisibilityToggle[] = [{ group: "model", id: "s-x", modelId: "x", props: ["lineStyle"], shown: 0.55 }];
+    expect(visibilityPatches(toggles, state({ enabledModels: new Set(["x"]) }))[0]?.lineStyle?.opacity).toBe(0.55);
+    expect(visibilityPatches(toggles, state({ enabledModels: new Set() }))[0]?.lineStyle?.opacity).toBe(0);
   });
 });

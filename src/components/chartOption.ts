@@ -39,6 +39,76 @@ export function paletteFor(id: string): string {
   return MODEL_PALETTE[(i < 0 ? 0 : i) % MODEL_PALETTE.length]!;
 }
 
+// ---- Series visibility ------------------------------------------------------
+// Visibility is applied as a no-redraw merge-patch (opacity only) rather than by
+// rebuilding the option, so toggling a chip never triggers a full redraw. The
+// builder emits one VisibilityToggle per toggleable series *as it creates it*,
+// so the fact that (e.g.) precipitation truth carries an areaStyle fill is
+// declared exactly once, next to where that series is built — the component
+// never re-derives per-series style structure.
+
+/** ECharts style props that carry a series' opacity. Fills (areaStyle) keep
+ *  their alpha in the fill *colour*, so "shown" is opacity 1, not the alpha. */
+export type TogglePropKey = "lineStyle" | "itemStyle" | "areaStyle";
+
+export interface VisibilityToggle {
+  /** Logical group, keys the show/hide decision against VisibilityState. */
+  group: "aggregate" | "band" | "truth" | "model";
+  /** Series id in the built option. */
+  id: string;
+  /** Style props whose opacity this toggle drives. */
+  props: TogglePropKey[];
+  /** Opacity when shown (1 for lines/fills, MODEL_OPACITY for spaghetti). */
+  shown: number;
+  /** For `group: "model"` — the model id, checked against enabledModels. */
+  modelId?: string;
+}
+
+export interface VisibilityState {
+  showAggregate: boolean;
+  showBand: boolean;
+  showTruth: boolean;
+  enabledModels: Set<string>;
+}
+
+export interface SeriesPatch {
+  id: string;
+  lineStyle?: { opacity: number };
+  itemStyle?: { opacity: number };
+  areaStyle?: { opacity: number };
+}
+
+function isShown(t: VisibilityToggle, s: VisibilityState): boolean {
+  switch (t.group) {
+    case "aggregate":
+      return s.showAggregate;
+    case "band":
+      return s.showBand;
+    case "truth":
+      return s.showTruth;
+    case "model":
+      return t.modelId != null && s.enabledModels.has(t.modelId);
+  }
+}
+
+/** Pure map from (toggles, state) → the merge-patches to feed setOption. Every
+ *  toggle id is a series the builder actually created, so the patches are always
+ *  in sync with the current option. */
+export function visibilityPatches(toggles: VisibilityToggle[], state: VisibilityState): SeriesPatch[] {
+  return toggles.map((t) => {
+    const opacity = isShown(t, state) ? t.shown : 0;
+    const patch: SeriesPatch = { id: t.id };
+    for (const prop of t.props) patch[prop] = { opacity };
+    return patch;
+  });
+}
+
+export interface HourlyChartBuild {
+  option: EChartsOption;
+  /** Visibility descriptors for the toggleable series in `option`. */
+  toggles: VisibilityToggle[];
+}
+
 export interface HourlyChartOptionArgs {
   /** The unified hourly view-model (aggregate / perModel / optional truth). */
   data: HourlySeries;
@@ -59,14 +129,16 @@ export interface HourlyChartOptionArgs {
   showModels: boolean;
 }
 
-/** Build the chart's EChartsOption — everything except `tooltip.formatter`,
- *  which the component attaches so it can read live toggle state at hover. */
-export function buildHourlyChartOption(args: HourlyChartOptionArgs): EChartsOption {
+/** Build the chart's option plus its visibility descriptors. Everything except
+ *  `tooltip.formatter` is produced here; the component attaches the formatter so
+ *  it can read live toggle state at hover. */
+export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChartBuild {
   const { data, view: v, units, solar, currentTime, models, showModels: spaghetti } = args;
   const n = Math.min(args.hoursWindow, data.times.length);
   const times = data.times.slice(0, n);
   const nowIdx = currentTime ? findNowIndex(times, currentTime) : -1;
   const nightRanges = buildNightRanges(times, solar?.sunrise, solar?.sunset);
+  const toggles: VisibilityToggle[] = [];
 
   const labels = times.map((t) => {
     const d = new Date(t);
@@ -173,6 +245,10 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): EChartsOpti
       z: 5,
       ...(attachMarks && markLine ? { markLine } : {}),
     });
+
+    // ±1σ band toggles via its fill; the line via line+marker opacity.
+    toggles.push({ group: "band", id: "band-delta", props: ["areaStyle"], shown: 1 });
+    toggles.push({ group: "aggregate", id: "agg", props: ["lineStyle", "itemStyle"], shown: 1 });
   };
 
   // --- helper: push precipitation (bars + optional truth) --------------------
@@ -192,6 +268,9 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): EChartsOpti
       z: 2,
       ...(attachMarks && markLine ? { markLine } : {}),
     });
+    // Only the primary "agg" bars answer to the Aggregate chip; the composite
+    // view's "agg-precip" bars are intentionally not toggleable.
+    if (id === "agg") toggles.push({ group: "aggregate", id, props: ["lineStyle", "itemStyle"], shown: 1 });
     const truth = data.truth?.precipitation;
     if (truth) {
       series.push({
@@ -206,6 +285,8 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): EChartsOpti
         areaStyle: { color: TRUTH_AREA },
         z: 2,
       });
+      // Precip truth carries an area fill — declared here, once.
+      toggles.push({ group: "truth", id: "tr", props: ["lineStyle", "itemStyle", "areaStyle"], shown: 1 });
     }
   };
 
@@ -224,6 +305,8 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): EChartsOpti
       lineStyle: { width: 3, color: TRUTH_COLOR },
       z: 6,
     });
+    // Line truth has no area fill (unlike precip truth).
+    toggles.push({ group: "truth", id: "tr", props: ["lineStyle", "itemStyle"], shown: 1 });
   };
 
   // --- helper: push per-model spaghetti for a line variable ------------------
@@ -245,6 +328,7 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): EChartsOpti
         lineStyle: { width: 1, color: paletteFor(m.id), opacity: MODEL_OPACITY },
         z: 3,
       });
+      toggles.push({ group: "model", id: `s-${m.id}`, modelId: m.id, props: ["lineStyle"], shown: MODEL_OPACITY });
     }
   };
 
@@ -270,7 +354,7 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): EChartsOpti
   const precipUnit = unitLabel("precipitation", units);
   const interval = args.hoursWindow <= 24 ? 2 : args.hoursWindow <= 72 ? 11 : 23;
 
-  return {
+  const option: EChartsOption = {
     backgroundColor: "transparent",
     textStyle: { color: "#c9bea4", fontFamily: "JetBrains Mono, ui-monospace, monospace" },
     grid: { left: 52, right: 52, top: 32, bottom: 36 },
@@ -324,4 +408,6 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): EChartsOpti
     ],
     series,
   };
+
+  return { option, toggles };
 }

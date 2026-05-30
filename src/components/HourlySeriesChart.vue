@@ -9,7 +9,7 @@ import { useUnits } from "@/composables/useUnits";
 import { MODELS, type ModelDef } from "@/domain/models";
 
 import { CHART_VIEWS, DATA_VAR_META, type ChartViewId, type UnitPrefs } from "./chartHelpers";
-import { AGG_COLOR, BAND_SWATCH, buildHourlyChartOption, MODEL_OPACITY, paletteFor, TRUTH_COLOR } from "./chartOption";
+import { AGG_COLOR, BAND_SWATCH, buildHourlyChartOption, paletteFor, TRUTH_COLOR, visibilityPatches } from "./chartOption";
 
 const props = withDefaults(
   defineProps<{
@@ -174,55 +174,36 @@ watch(
 );
 
 // ---- Chip toggles (no-redraw) ----------------------------------------------
-/** Merge-patch only series whose ids are present in the current option. */
-function patch(patches: Array<Record<string, unknown> & { id: string }>): void {
+// One imperative shell: merge-patch the toggleable series' opacity straight onto
+// the ECharts instance, so flipping a chip never triggers a full redraw. The
+// per-series rules (which style prop, the "shown" opacity, the precip-truth
+// area-fill) live in the builder's `toggles`; visibilityPatches() maps those +
+// the current toggle state to the patches.
+function applyVisibility(): void {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const chart = chartRef.value?.chart;
   if (!chart) return;
-  const s = option.value.series;
-  const ids = new Set((Array.isArray(s) ? s : []).map((x) => (x as { id?: string }).id));
-  const valid = patches.filter((p) => ids.has(p.id));
+  const patches = visibilityPatches(toggles.value, {
+    showAggregate: showAggregate.value,
+    showBand: showBand.value,
+    showTruth: showTruth.value,
+    enabledModels: enabledModels.value,
+  });
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-  if (valid.length) chart.setOption({ series: valid }, false);
-}
-
-function applyAggregateVisibility(): void {
-  const op = showAggregate.value ? 1 : 0;
-  patch([{ id: "agg", lineStyle: { opacity: op }, itemStyle: { opacity: op } }]);
-}
-
-function applyBandVisibility(): void {
-  // The band's translucency lives in its fill colour (BAND_FILL, alpha ~0.16),
-  // so the "shown" areaStyle opacity must be a full 1 — setting it to the alpha
-  // value again would multiply the two and wash the band out after a recompute.
-  // Toggled independently of the aggregate line.
-  patch([{ id: "band-delta", areaStyle: { opacity: showBand.value ? 1 : 0 } }]);
-}
-
-function applyTruthVisibility(): void {
-  const op = showTruth.value ? 1 : 0;
-  const truthPatch: Record<string, unknown> & { id: string } = { id: "tr", lineStyle: { opacity: op }, itemStyle: { opacity: op } };
-  // Only precipitation truth carries an area fill — don't add one to temp truth.
-  // As with the band, the fill alpha lives in TRUTH_AREA, so toggle 1/0 only.
-  if (view.value === "precipitation") truthPatch.areaStyle = { opacity: op };
-  patch([truthPatch]);
-}
-
-function applyModelVisibility(): void {
-  patch(allModels.value.map((m) => ({ id: `s-${m.id}`, lineStyle: { opacity: enabledModels.value.has(m.id) ? MODEL_OPACITY : 0 } })));
+  if (patches.length) chart.setOption({ series: patches }, false);
 }
 
 function toggleAggregate(): void {
   showAggregate.value = !showAggregate.value;
-  applyAggregateVisibility();
+  applyVisibility();
 }
 function toggleBand(): void {
   showBand.value = !showBand.value;
-  applyBandVisibility();
+  applyVisibility();
 }
 function toggleTruth(): void {
   showTruth.value = !showTruth.value;
-  applyTruthVisibility();
+  applyVisibility();
 }
 function toggleModel(id: string): void {
   if (!modelHasData.value[id]) return;
@@ -230,15 +211,15 @@ function toggleModel(id: string): void {
   if (next.has(id)) next.delete(id);
   else next.add(id);
   enabledModels.value = next;
-  patch([{ id: `s-${id}`, lineStyle: { opacity: next.has(id) ? MODEL_OPACITY : 0 } }]);
+  applyVisibility();
 }
 function selectAllModels(): void {
   enabledModels.value = new Set(allModels.value.filter((m) => modelHasData.value[m.id]).map((m) => m.id));
-  applyModelVisibility();
+  applyVisibility();
 }
 function selectNoModels(): void {
   enabledModels.value = new Set();
-  applyModelVisibility();
+  applyVisibility();
 }
 
 // Single "All" toggle: active only when every available model is enabled;
@@ -262,22 +243,29 @@ function fmtVar(dv: DataVarId, base: number | null | undefined): string {
 }
 
 // ---- Chart option -----------------------------------------------------------
+// The pure builder produces the option plus the visibility descriptors for its
+// toggleable series; both stay in sync because they come from one build.
+const built = computed(() =>
+  buildHourlyChartOption({
+    data: props.data,
+    view: view.value,
+    hoursWindow: hoursWindow.value,
+    units: units.value,
+    solar: props.solar,
+    currentTime: props.currentTime,
+    models: allModels.value,
+    showModels: showModels.value,
+  }),
+);
+const toggles = computed(() => built.value.toggles);
+
 const option = computed<EChartsOption>(() => {
   const v = view.value;
   const n = Math.min(hoursWindow.value, props.data.times.length);
   const times = props.data.times.slice(0, n);
   const spaghetti = showModels.value;
 
-  const o = buildHourlyChartOption({
-    data: props.data,
-    view: v,
-    hoursWindow: hoursWindow.value,
-    units: units.value,
-    solar: props.solar,
-    currentTime: props.currentTime,
-    models: allModels.value,
-    showModels: spaghetti,
-  });
+  const o = built.value.option;
 
   // The tooltip formatter reads live toggle state (showAggregate / showBand /
   // showTruth / enabledModels) at hover time, not during option compute, so
@@ -325,10 +313,7 @@ const option = computed<EChartsOption>(() => {
 // hidden series stay hidden.
 watch(option, () => {
   void nextTick(() => {
-    applyAggregateVisibility();
-    applyBandVisibility();
-    applyTruthVisibility();
-    applyModelVisibility();
+    applyVisibility();
   });
 });
 
