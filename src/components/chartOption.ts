@@ -269,9 +269,10 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
       z: 2,
       ...(attachMarks && markLine ? { markLine } : {}),
     });
-    // Only the primary "agg" bars answer to the Aggregate chip; the composite
-    // view's "agg-precip" bars are intentionally not toggleable.
-    if (id === "agg") toggles.push({ group: "aggregate", id, props: ["lineStyle", "itemStyle"], shown: 1 });
+    // The Aggregate chip hides the bars in both the precip-only and composite
+    // views (the composite's "agg-precip" bars toggle too — alongside the temp
+    // line, which shares the `aggregate` group).
+    toggles.push({ group: "aggregate", id, props: ["lineStyle", "itemStyle"], shown: 1 });
 
     // ±1σ spread. The line views draw a shaded band; precipitation gets the bar
     // equivalent — a translucent band stacked from (value−σ) to (value+σ) and
