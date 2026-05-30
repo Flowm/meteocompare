@@ -328,61 +328,61 @@ const hasBand = computed(() => view.value !== "precipitation");
 
 <template>
   <section class="border-ink-700 bg-ink-900/60 relative border p-4 sm:p-6">
-    <!-- Header: title + variable picker (left), window selector (right) -->
+    <!-- Header: title only -->
     <div class="border-ink-700 mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-b pb-3">
-      <div class="flex flex-wrap items-center gap-3">
-        <h2 class="eyebrow">{{ title }}</h2>
+      <h2 class="eyebrow">{{ title }}</h2>
+    </div>
 
-        <!-- Desktop (lg+): expanded variable rail, all options inline -->
-        <div class="border-ink-700 hidden border font-mono text-xs tracking-wide lg:flex">
+    <!-- Variable picker (left) + window selector (right) share a line -->
+    <div class="mb-4 flex flex-wrap items-center gap-3">
+      <!-- Desktop (lg+): expanded variable rail, all options inline -->
+      <div class="border-ink-700 hidden border font-mono text-xs tracking-wide lg:flex">
+        <button
+          v-for="vid in variables"
+          :key="vid"
+          class="border-ink-700 border-r px-2.5 py-1 whitespace-nowrap transition-colors last:border-r-0"
+          :class="isVarActive(vid) ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
+          @click="selectVariable(vid)"
+        >
+          {{ CHART_VIEWS[vid].label }}
+        </button>
+      </div>
+
+      <!-- Mobile / tablet (< lg): collapse the rail into a dropdown -->
+      <div ref="varRoot" class="relative lg:hidden">
+        <button
+          type="button"
+          class="group border-ink-700 bg-ink-900/60 text-paper-200 hover:border-sodium-300/60 hover:text-paper-50 flex items-center gap-2 border px-3 py-1 font-mono text-xs tracking-wide transition-colors"
+          :aria-expanded="varOpen"
+          aria-haspopup="menu"
+          @click="varOpen = !varOpen"
+        >
+          {{ CHART_VIEWS[view].label }}
+          <svg class="text-paper-300 size-3 transition-transform" :class="{ 'rotate-180': varOpen }" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+        <div
+          v-if="varOpen"
+          role="menu"
+          class="panel-in border-ink-700 bg-ink-900 absolute top-full left-0 z-40 mt-1 min-w-[12rem] overflow-hidden border shadow-2xl shadow-black/60"
+        >
           <button
             v-for="vid in variables"
             :key="vid"
-            class="border-ink-700 border-r px-2.5 py-1 whitespace-nowrap transition-colors last:border-r-0"
-            :class="isVarActive(vid) ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
+            type="button"
+            role="menuitemradio"
+            :aria-checked="isVarActive(vid)"
+            class="block w-full px-3 py-2 text-left font-mono text-xs tracking-wide transition-colors"
+            :class="isVarActive(vid) ? 'bg-ink-800 text-sodium-200' : 'text-paper-200 hover:bg-ink-800 hover:text-sodium-200'"
             @click="selectVariable(vid)"
           >
             {{ CHART_VIEWS[vid].label }}
           </button>
         </div>
-
-        <!-- Mobile / tablet (< lg): collapse the rail into a dropdown -->
-        <div ref="varRoot" class="relative lg:hidden">
-          <button
-            type="button"
-            class="group border-ink-700 bg-ink-900/60 text-paper-200 hover:border-sodium-300/60 hover:text-paper-50 flex items-center gap-2 border px-3 py-1 font-mono text-xs tracking-wide transition-colors"
-            :aria-expanded="varOpen"
-            aria-haspopup="menu"
-            @click="varOpen = !varOpen"
-          >
-            {{ CHART_VIEWS[view].label }}
-            <svg class="text-paper-300 size-3 transition-transform" :class="{ 'rotate-180': varOpen }" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </button>
-          <div
-            v-if="varOpen"
-            role="menu"
-            class="panel-in border-ink-700 bg-ink-900 absolute top-full left-0 z-40 mt-1 min-w-[12rem] overflow-hidden border shadow-2xl shadow-black/60"
-          >
-            <button
-              v-for="vid in variables"
-              :key="vid"
-              type="button"
-              role="menuitemradio"
-              :aria-checked="isVarActive(vid)"
-              class="block w-full px-3 py-2 text-left font-mono text-xs tracking-wide transition-colors"
-              :class="isVarActive(vid) ? 'bg-ink-800 text-sodium-200' : 'text-paper-200 hover:bg-ink-800 hover:text-sodium-200'"
-              @click="selectVariable(vid)"
-            >
-              {{ CHART_VIEWS[vid].label }}
-            </button>
-          </div>
-        </div>
       </div>
 
-      <!-- Window selector (right-aligned; wraps to its own line on the
-           forecast page where the 6-option rail fills the first row). -->
+      <!-- Window selector (right-aligned) -->
       <div class="border-ink-700 ml-auto flex border font-mono text-xs tracking-wide">
         <button
           v-for="c in WINDOW_CHOICES"
