@@ -100,7 +100,7 @@ export async function fetchForecast(req: ForecastRequest, signal?: AbortSignal):
 }
 
 /** Pull a per-model hourly series for one base variable.
- *  open-meteo suffixes each variable with the model id (e.g. temperature_2m_ecmwf_ifs025). */
+ *  open-meteo suffixes each variable with the model id (e.g. temperature_2m_ecmwf_ifs). */
 export function extractHourlyByModel(resp: ForecastResponse, variable: HourlyVar, modelIds: string[]): Record<string, (number | null)[]> {
   const out: Record<string, (number | null)[]> = {};
   for (const id of modelIds) {

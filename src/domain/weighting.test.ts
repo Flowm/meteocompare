@@ -16,9 +16,21 @@ describe("modelWeight", () => {
   });
 
   it("keeps globals running through medium range", () => {
-    const ecmwf = getModel("ecmwf_ifs025")!;
+    const ecmwf = getModel("ecmwf_ifs")!;
     expect(modelWeight(ecmwf, 6, PARIS.lat, PARIS.lon, "temperature_2m")).toBeGreaterThan(0);
     expect(modelWeight(ecmwf, 168, PARIS.lat, PARIS.lon, "temperature_2m")).toBeGreaterThan(0);
+  });
+
+  it("keeps AI and ensemble-mean products below a full deterministic global vote with equal weighting", () => {
+    const aifs = getModel("ecmwf_aifs025_single")!;
+    const hgefs = getModel("ncep_hgefs025_ensemble_mean")!;
+    const ecmwf = getModel("ecmwf_ifs")!;
+    const ai = modelWeight(aifs, 24, PARIS.lat, PARIS.lon, "temperature_2m");
+    const ensembleMean = modelWeight(hgefs, 24, PARIS.lat, PARIS.lon, "temperature_2m");
+    const deterministic = modelWeight(ecmwf, 24, PARIS.lat, PARIS.lon, "temperature_2m");
+    expect(ai).toBeGreaterThan(0);
+    expect(ensembleMean).toBe(ai);
+    expect(ai).toBeLessThan(deterministic);
   });
 
   it("gives a regional model more weight inside its home region", () => {
@@ -36,7 +48,7 @@ describe("modelWeight", () => {
   });
 
   it("returns zero past the model horizon", () => {
-    const knmi = getModel("knmi_seamless")!;
+    const knmi = getModel("knmi_harmonie_arome_europe")!;
     expect(modelWeight(knmi, 120, PARIS.lat, PARIS.lon, "temperature_2m")).toBe(0);
   });
 });
@@ -52,9 +64,9 @@ describe("normalizedWeights", () => {
     const w = normalizedWeights(MODELS, 200, PARIS.lat, PARIS.lon, "temperature_2m");
     // CAMs (60h horizon) must be gone; ECMWF + GFS must remain.
     expect(w.has("meteofrance_seamless")).toBe(false);
-    expect(w.has("knmi_seamless")).toBe(false);
-    expect(w.has("ecmwf_ifs025")).toBe(true);
-    expect(w.has("gfs_global")).toBe(true);
+    expect(w.has("knmi_harmonie_arome_europe")).toBe(false);
+    expect(w.has("ecmwf_ifs")).toBe(true);
+    expect(w.has("gfs_seamless")).toBe(true);
   });
 
   it("puts more weight on BOM ACCESS-G near Sydney than near Paris", () => {

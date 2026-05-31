@@ -167,8 +167,8 @@ describe("buildDailyVerification", () => {
       aggregatePrecip: array(hours, () => 0).map(aggregate),
       confidenceTemp: array(hours, () => 0.8),
       confidencePrecip: array(hours, () => 0.5),
-      perModelTemp: { ecmwf_ifs025: array(hours, () => 21) },
-      perModelPrecip: { ecmwf_ifs025: array(hours, () => 0) },
+      perModelTemp: { ecmwf_ifs: array(hours, () => 21) },
+      perModelPrecip: { ecmwf_ifs: array(hours, () => 0) },
       truthTemp: array(hours, () => 19),
       truthPrecip: array(hours, () => 0),
     });
@@ -240,22 +240,22 @@ describe("buildDailyVerification", () => {
       confidenceTemp: array(hours, () => 0.8),
       confidencePrecip: array(hours, () => 0.5),
       perModelTemp: {
-        ecmwf_ifs025: array(hours, () => 22),
-        gfs_global: array(hours, () => 18),
+        ecmwf_ifs: array(hours, () => 22),
+        gfs_seamless: array(hours, () => 18),
       },
       perModelPrecip: {
-        ecmwf_ifs025: array(hours, () => 0),
-        gfs_global: array(hours, () => 0),
+        ecmwf_ifs: array(hours, () => 0),
+        gfs_seamless: array(hours, () => 0),
       },
       truthTemp: array(hours, () => 20),
       truthPrecip: array(hours, () => 0),
     });
     const day = result[0];
     expect(day).toBeDefined();
-    expect(Object.keys(day!.perModel)).toEqual(expect.arrayContaining(["ecmwf_ifs025", "gfs_global"]));
-    expect(day!.perModel.ecmwf_ifs025?.temperature?.bias).toBeCloseTo(2);
-    expect(day!.perModel.gfs_global?.temperature?.bias).toBeCloseTo(-2);
-    expect(day!.perModel.ecmwf_ifs025?.temperature?.confidence).toBeNaN();
+    expect(Object.keys(day!.perModel)).toEqual(expect.arrayContaining(["ecmwf_ifs", "gfs_seamless"]));
+    expect(day!.perModel.ecmwf_ifs?.temperature?.bias).toBeCloseTo(2);
+    expect(day!.perModel.gfs_seamless?.temperature?.bias).toBeCloseTo(-2);
+    expect(day!.perModel.ecmwf_ifs?.temperature?.confidence).toBeNaN();
   });
 
   it("returns null per-variable score when both forecast and truth are all-null", () => {

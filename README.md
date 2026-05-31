@@ -6,7 +6,7 @@ Frontend-only (Vue 3 + Vite). Forecasts come straight from [open-meteo.com](http
 
 ## Features
 
-- **11 NWP models**, automatically dropped in/out based on geographic coverage and forecast horizon.
+- **21 forecast models/products**, automatically dropped in/out based on geographic coverage and forecast horizon.
 - **Aggregate-first UI**: temperature + ±1σ confidence band, precipitation bars, daily strip with weather icon / high / low / precip prob / wind.
 - **Confidence score** per timestep — derived from inter-model spread normalised against typical seasonal spread, a model-count penalty, and lead-time decay encoded in the model weights.
 - **Multi-model breakdown** (opt-in) — spaghetti chart of every contributing model with per-model toggles, switchable between temperature, precipitation, precipitation probability, wind speed, and cloud cover.
@@ -22,7 +22,7 @@ Per timestep and per variable:
 2. **Weight them.**
    - Base weight = 1.
    - Region bonus of +0.2 (mid-resolution) or +0.3 (convection-allowing) when the location is inside the model's home region.
-   - Lead-time decay per model class: convection-allowing models fade out by 60 h, mid-resolution regionals by 120 h, globals decay gently from 72 h → 0.4× by 240 h.
+   - Lead-time decay per model class: convection-allowing models fade out by 60 h, mid-resolution regionals by 120 h, globals decay gently from 72 h → 0.4× by 240 h, and AI plus ensemble-mean products follow global decay with a smaller vote.
    - Variable boost: CAMs get ×1.3 for precipitation, since they explicitly resolve convection.
 3. **Aggregate**:
    - **Temperature / precip / cloud cover / wind speed** → weighted mean + weighted standard deviation.
@@ -50,28 +50,36 @@ Weather codes have no meaningful stdDev, so they use severity-group agreement in
 `confidence = clamp(weightShare(same severity group) × modelFactor, 0, 1)`.
 
 Lead-time decay is handled entirely in the model weighting layer (not as a separate
-multiplier here): CAMs fade out by 60 h, regionals by 120 h, globals decay past 72 h.
+multiplier here): CAMs fade out by 60 h, regionals by 120 h, globals decay past 72 h,
+and AI plus ensemble-mean products follow global decay with a smaller vote.
 
 The badge maps the result to one of three tiers — high (≥70 %, emerald), mid (≥40 %, amber), low (rose).
 
 ## Models
 
-| Open-meteo id          | Provider           | Resolution / scope          | Class        | Max lead |
-| ---------------------- | ------------------ | --------------------------- | ------------ | -------- |
-| `ecmwf_ifs025`         | ECMWF              | 25 km global                | global       | 240 h    |
-| `gfs_global`           | NOAA               | 13–25 km global             | global       | 384 h    |
-| `gfs_hrrr`             | NOAA               | 3 km CONUS CAM              | regional-cam | 48 h     |
-| `icon_global`          | DWD                | 11 km global                | global       | 180 h    |
-| `icon_eu`              | DWD                | 7 km Europe                 | regional-mid | 120 h    |
-| `icon_d2`              | DWD                | 2 km central Europe CAM     | regional-cam | 48 h     |
-| `gem_seamless`         | Environment Canada | 2.5–15 km, NA focus         | regional-mid | 240 h    |
-| `meteofrance_seamless` | Météo-France       | 1.3 km AROME / 25 km ARPEGE | regional-cam | 102 h    |
-| `ukmo_seamless`        | UK Met Office      | 2 km UKV / 10 km global     | regional-mid | 168 h    |
-| `knmi_seamless`        | KNMI               | 2.5 km Benelux              | regional-cam | 60 h     |
-| `metno_seamless`       | MET Norway         | 2.5 km Nordics              | regional-cam | 60 h     |
-| `jma_seamless`         | JMA                | 5 km Japan / 55 km global   | regional-mid | 264 h    |
-| `kma_seamless`         | KMA                | 1.5–13 km, Korea focus      | regional-mid | 288 h    |
-| `bom_access_global`    | BOM                | 15 km global, Aus. focus    | global       | 240 h    |
+| Open-meteo id                 | Provider           | Resolution / scope                 | Class         | Max lead |
+| ----------------------------- | ------------------ | ---------------------------------- | ------------- | -------- |
+| `ecmwf_ifs`                   | ECMWF              | 9 km HRES global                   | global        | 240 h    |
+| `gfs_seamless`                | NOAA               | seamless NOAA global/U.S. coverage | global        | 384 h    |
+| `cma_grapes_global`           | CMA                | 15 km global, East Asia focus      | global        | 240 h    |
+| `icon_global`                 | DWD                | 11 km global                       | global        | 180 h    |
+| `icon_eu`                     | DWD                | 7 km Europe                        | regional-mid  | 120 h    |
+| `icon_d2`                     | DWD                | 2 km central Europe CAM            | regional-cam  | 48 h     |
+| `gem_seamless`                | Environment Canada | 2.5–15 km, NA focus                | regional-mid  | 240 h    |
+| `meteofrance_seamless`        | Météo-France       | 1.3 km AROME / 25 km ARPEGE        | regional-cam  | 102 h    |
+| `ukmo_seamless`               | UK Met Office      | 2 km UKV / 10 km global            | regional-mid  | 168 h    |
+| `knmi_harmonie_arome_europe`  | KNMI               | 2 km Harmonie AROME Europe         | regional-cam  | 60 h     |
+| `metno_nordic`                | MET Norway         | 2.5 km Nordics                     | regional-cam  | 60 h     |
+| `dmi_harmonie_arome_europe`   | DMI                | 2 km Harmonie AROME Europe         | regional-cam  | 60 h     |
+| `meteoswiss_icon_seamless`    | MeteoSwiss         | 1–2 km ICON Switzerland seamless   | regional-cam  | 120 h    |
+| `geosphere_arome_austria`     | GeoSphere Austria  | AROME Austria                      | regional-cam  | 60 h     |
+| `jma_seamless`                | JMA                | 5 km Japan / 55 km global          | regional-mid  | 264 h    |
+| `kma_seamless`                | KMA                | 1.5–13 km, Korea focus             | regional-mid  | 288 h    |
+| `bom_access_global`           | BOM                | 15 km global, Aus. focus           | global        | 240 h    |
+| `ecmwf_aifs025_single`        | ECMWF              | 0.25° AI forecast                  | ai            | 360 h    |
+| `gfs_graphcast025`            | NOAA               | 0.25° GraphCast forecast           | ai            | 384 h    |
+| `ncep_aigfs025`               | NOAA               | 0.25° AI-enhanced GFS              | ai            | 384 h    |
+| `ncep_hgefs025_ensemble_mean` | NOAA               | 0.25° ensemble mean                | ensemble-mean | 384 h    |
 
 ## Tech
 
