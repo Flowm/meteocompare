@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onClickOutside } from "@vueuse/core";
 import type { EChartsOption } from "echarts";
+import type { ECharts } from "echarts/core";
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import VChart from "vue-echarts";
 
@@ -64,8 +65,8 @@ const showTruth = ref(true);
 const enabledModels = ref<Set<string>>(new Set());
 
 // Direct handle to the ECharts instance for no-redraw merge patches.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const chartRef = ref<any>(null);
+// vue-echarts exposes the underlying instance as `.chart` on its component ref.
+const chartRef = ref<{ chart?: ECharts } | null>(null);
 
 const hasTruth = computed(() => !!props.data.truth);
 
@@ -159,7 +160,6 @@ watch(
 // area-fill) live in the builder's `toggles`; visibilityPatches() maps those +
 // the current toggle state to the patches.
 function applyVisibility(): void {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const chart = chartRef.value?.chart;
   if (!chart) return;
   const patches = visibilityPatches(toggles.value, {
@@ -168,7 +168,6 @@ function applyVisibility(): void {
     showTruth: showTruth.value,
     enabledModels: enabledModels.value,
   });
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
   if (patches.length) chart.setOption({ series: patches }, false);
 }
 
@@ -223,35 +222,27 @@ const spaghettiAxis = computed(() => (activeVar.value === "precipitation" ? 1 : 
 
 let detachCursor: (() => void) | null = null;
 watch(
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
   () => chartRef.value?.chart,
   (chart) => {
     detachCursor?.();
     detachCursor = null;
     if (!chart) return;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     const zr = chart.getZr();
     const onMove = (e: { offsetX: number; offsetY: number }): void => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       if (!chart.containPixel("grid", [e.offsetX, e.offsetY])) {
         cursorValue.value = null;
         return;
       }
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      const v = chart.convertFromPixel({ yAxisIndex: spaghettiAxis.value }, e.offsetY) as unknown;
+      const v = chart.convertFromPixel({ yAxisIndex: spaghettiAxis.value }, e.offsetY);
       cursorValue.value = typeof v === "number" ? v : null;
     };
     const onOut = (): void => {
       cursorValue.value = null;
     };
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     zr.on("mousemove", onMove);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     zr.on("globalout", onOut);
     detachCursor = (): void => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       zr.off("mousemove", onMove);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       zr.off("globalout", onOut);
     };
   },
