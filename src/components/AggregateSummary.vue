@@ -5,6 +5,7 @@ import type { ForecastResponse } from "@/api/omForecast";
 import type { DailyAggregate } from "@/composables/useForecast";
 import { useLocation } from "@/composables/useLocation";
 import { useUnits } from "@/composables/useUnits";
+import { overallConfidence } from "@/domain/confidence";
 import { weatherLabel } from "@/domain/weatherCodes";
 
 import ConfidenceBadge from "./ConfidenceBadge.vue";
@@ -34,13 +35,9 @@ const currentIsDay = computed(() => (props.raw.current.is_day ?? 1) === 1);
 const todayHigh = computed(() => props.daily.series.temperature_2m_max[0]?.value ?? null);
 const todayLow = computed(() => props.daily.series.temperature_2m_min[0]?.value ?? null);
 const todayPrecipProb = computed(() => props.daily.series.precipitation_probability_max[0]?.value ?? null);
-const todayConfidence = computed(() => {
-  const vals = [props.daily.confidence.temperature_2m_max[0], props.daily.confidence.precipitation_sum[0], props.daily.confidence.weather_code[0]].filter((v): v is number =>
-    Number.isFinite(v),
-  );
-  if (vals.length === 0) return 0;
-  return vals.reduce((a, b) => a + b, 0) / vals.length;
-});
+const todayConfidence = computed(() =>
+  overallConfidence([props.daily.confidence.temperature_2m_max[0], props.daily.confidence.precipitation_sum[0], props.daily.confidence.weather_code[0]]),
+);
 const lastUpdated = computed(() => new Date(props.raw.current.time));
 
 const sunrise = computed(() => props.solar?.sunrise[0] ?? null);

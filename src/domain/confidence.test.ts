@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 
 import type { AggregatePoint } from "./aggregate";
-import { confidenceFor, confidenceTier } from "./confidence";
+import { confidenceFor, confidenceTier, overallConfidence } from "./confidence";
 
 function mkPoint(perModel: Record<string, number | null>, weights: Record<string, number>, value: number, stdDev: number): AggregatePoint {
   return { time: "2026-05-20T00:00", value, stdDev, perModel, weights };
@@ -64,5 +64,22 @@ describe("confidenceTier", () => {
     expect(confidenceTier(0.9)).toBe("high");
     expect(confidenceTier(0.5)).toBe("mid");
     expect(confidenceTier(0.2)).toBe("low");
+  });
+});
+
+describe("overallConfidence", () => {
+  it("averages the finite parts", () => {
+    expect(overallConfidence([0.6, 0.9, 0.3])).toBeCloseTo(0.6, 5);
+  });
+
+  it("skips non-finite parts rather than counting them as zero", () => {
+    // NaN/null are dropped — the mean is over the two finite parts, not three.
+    expect(overallConfidence([0.6, NaN, 0.8])).toBeCloseTo(0.7, 5);
+    expect(overallConfidence([0.6, null, undefined])).toBeCloseTo(0.6, 5);
+  });
+
+  it("returns 0 when nothing is finite", () => {
+    expect(overallConfidence([NaN, null, undefined])).toBe(0);
+    expect(overallConfidence([])).toBe(0);
   });
 });
