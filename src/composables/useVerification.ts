@@ -12,10 +12,12 @@ import type { DataVarId, HourlySeries } from "./hourlySeries";
 import type { Location } from "./useLocation";
 
 /** Conforms to the unified chart contract (HourlySeries) — temperature and
- *  precipitation only, the two variables ERA5-Seamless provides truth for. */
+ *  precipitation only, the two variables we currently verify. ERA5-Seamless
+ *  also provides wind and cloud-cover truth; scoring them is a later,
+ *  data-only change (see CONTEXT.md "Truth"). */
 export interface VerificationHourly extends HourlySeries {
   /** Per-hour aggregate per-variable confidence — input to the daily card's
-   *  calibration display. Keyed by variable id. */
+   *  confidence-vs-error display. Keyed by variable id. */
   confidence: Partial<Record<DataVarId, number[]>>;
 }
 

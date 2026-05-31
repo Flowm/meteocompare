@@ -36,7 +36,7 @@ const props = withDefaults(
 
 /** Two-way when the parent binds it (verify, to share with the day cards);
  *  derived locally from `enabledModels.size > 0` — kept as a writable ref so
- *  selectView() can also clear spaghetti when switching to a composite view. */
+ *  selectView() can also clear the overlay when switching to a composite view. */
 const showModels = defineModel<boolean>("showModels", { default: false });
 
 const { temp, precip, wind, formatTemp, formatPrecip, formatWind } = useUnits();
@@ -73,18 +73,18 @@ const chartRef = ref<{ chart?: ECharts } | null>(null);
 
 const hasTruth = computed(() => !!props.data.truth);
 
-/** The single variable a line/spaghetti is drawn for. Composite views resolve
- *  to their `spaghettiVar`. */
-const activeVar = computed<DataVarId>(() => CHART_VIEWS[view.value].spaghettiVar);
+/** The single variable an overlay line is drawn for. Composite views resolve
+ *  to their `overlayVar`. */
+const activeVar = computed<DataVarId>(() => CHART_VIEWS[view.value].overlayVar);
 
-// Q11 (option A): spaghetti needs a single variable. Enabling any model while
+// Q11 (option A): the per-model overlay needs a single variable. Enabling any model while
 // the composite Temp+Precip view is selected snaps to Temperature.
 watch(showModels, (on) => {
   if (on && view.value === "temp_precip") view.value = "temperature_2m";
 });
 
 function selectView(v: ChartViewId): void {
-  // The reverse of the snap: picking the composite while spaghetti is on
+  // The reverse of the snap: picking the composite while the overlay is on
   // clears the enabled models (two fans on two axes is unreadable).
   if (v === "temp_precip" && showModels.value) enabledModels.value = new Set();
   view.value = v;
@@ -157,7 +157,7 @@ const modelHasData = computed<Record<string, boolean>>(() => {
 
 // Reset enabled models whenever the chip universe changes (new data / run).
 // Default: nothing is enabled, so the chart starts clean (aggregate + band +
-// truth only). The user opts in to model spaghetti via the chips below the
+// truth only). The user opts in to the per-model overlay via the chips below the
 // chart — this is the single source of truth for "show contributing models".
 watch(
   () => allModels.value.map((m) => m.id).join(","),
@@ -238,12 +238,12 @@ function toggleAllModels(): void {
 
 // ---- Cursor tracking (tooltip highlight) ------------------------------------
 // With many model lines enabled the tooltip lists them all, and it's hard to
-// tell which row is which line. We track the cursor's value on the spaghetti
+// tell which row is which line. We track the cursor's value on the overlay
 // axis (the formatter gets no pointer position) so the nearest model entry can
 // be highlighted. Stored in the active unit, to match the converted line data.
 const cursorValue = ref<number | null>(null);
 /** Axis the per-model lines live on — right (1) for precip, left (0) otherwise. */
-const spaghettiAxis = computed(() => (activeVar.value === "precipitation" ? 1 : 0));
+const overlayAxis = computed(() => (activeVar.value === "precipitation" ? 1 : 0));
 
 let detachCursor: (() => void) | null = null;
 watch(
@@ -258,7 +258,7 @@ watch(
         cursorValue.value = null;
         return;
       }
-      const v = chart.convertFromPixel({ yAxisIndex: spaghettiAxis.value }, e.offsetY);
+      const v = chart.convertFromPixel({ yAxisIndex: overlayAxis.value }, e.offsetY);
       cursorValue.value = typeof v === "number" ? v : null;
     };
     const onOut = (): void => {
@@ -305,7 +305,7 @@ const option = computed<EChartsOption>(() => {
   const v = view.value;
   const n = Math.min(hoursWindow.value, props.data.times.length);
   const times = props.data.times.slice(0, n);
-  const spaghetti = showModels.value;
+  const overlay = showModels.value;
 
   const o = built.value.option;
 
@@ -334,10 +334,10 @@ const option = computed<EChartsOption>(() => {
       const truthVal = props.data.truth?.[dv]?.[idx];
       if (showTruth.value && truthVal != null) lines.push(`<span style="color:${TRUTH_COLOR}">Truth</span> ${fmtVar(dv, truthVal)}`);
     }
-    // Per-model values when spaghetti is on (enabled models only). The model
+    // Per-model values when the overlay is on (enabled models only). The model
     // whose value sits closest to the cursor is highlighted, so a busy fan of
     // lines can be read off against the tooltip.
-    if (spaghetti) {
+    if (overlay) {
       const dv = activeVar.value;
       const cv = cursorValue.value;
       const shown = allModels.value.filter((m) => enabledModels.value.has(m.id) && props.data.perModel[dv]?.[m.id]?.[idx] != null);
@@ -468,8 +468,8 @@ const hasBand = computed(() => true);
 
     <!-- Legend / filter strip ---------------------------------------------
          Two labelled sections — SERIES (aggregate / spread / truth toggles)
-         and MODELS (an "All" toggle plus per-model spaghetti chips). Enabling
-         any model chip turns the spaghetti on; "All" flips every model at once. -->
+         and MODELS (an "All" toggle plus per-model overlay chips). Enabling
+         any model chip turns the overlay on; "All" flips every model at once. -->
     <div class="border-ink-700/60 mt-2 space-y-2.5 border-t pt-3 font-mono text-[11px] tracking-wide">
       <!-- SERIES -->
       <div class="flex items-start gap-2">

@@ -21,18 +21,18 @@ export interface ChartViewMeta {
   label: string;
   /** Underlying data variables this view renders. */
   vars: DataVarId[];
-  /** Variable a single line/spaghetti is drawn for. Composite views snap to
-   *  this when spaghetti mode is enabled (two fans on two axes is unreadable). */
-  spaghettiVar: DataVarId;
+  /** Variable a single overlay line is drawn for. Composite views snap to
+   *  this when the per-model overlay is enabled (two fans on two axes is unreadable). */
+  overlayVar: DataVarId;
 }
 
 export const CHART_VIEWS: Record<ChartViewId, ChartViewMeta> = {
-  temp_precip: { label: "Temp + Precip", vars: ["temperature_2m", "precipitation"], spaghettiVar: "temperature_2m" },
-  temperature_2m: { label: "Temperature", vars: ["temperature_2m"], spaghettiVar: "temperature_2m" },
-  precipitation: { label: "Precipitation", vars: ["precipitation"], spaghettiVar: "precipitation" },
-  precipitation_probability: { label: "Precip. prob.", vars: ["precipitation_probability"], spaghettiVar: "precipitation_probability" },
-  wind_speed_10m: { label: "Wind speed", vars: ["wind_speed_10m"], spaghettiVar: "wind_speed_10m" },
-  cloud_cover: { label: "Cloud cover", vars: ["cloud_cover"], spaghettiVar: "cloud_cover" },
+  temp_precip: { label: "Temp + Precip", vars: ["temperature_2m", "precipitation"], overlayVar: "temperature_2m" },
+  temperature_2m: { label: "Temperature", vars: ["temperature_2m"], overlayVar: "temperature_2m" },
+  precipitation: { label: "Precipitation", vars: ["precipitation"], overlayVar: "precipitation" },
+  precipitation_probability: { label: "Precip. prob.", vars: ["precipitation_probability"], overlayVar: "precipitation_probability" },
+  wind_speed_10m: { label: "Wind speed", vars: ["wind_speed_10m"], overlayVar: "wind_speed_10m" },
+  cloud_cover: { label: "Cloud cover", vars: ["cloud_cover"], overlayVar: "cloud_cover" },
 };
 
 interface DataVarMeta {

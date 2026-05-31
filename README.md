@@ -9,7 +9,7 @@ Frontend-only (Vue 3 + Vite). Forecasts come straight from [open-meteo.com](http
 - **21 forecast models/products**, automatically dropped in/out based on geographic coverage and forecast horizon.
 - **Aggregate-first UI**: temperature + ±1σ confidence band, precipitation bars, daily strip with weather icon / high / low / precip prob / wind.
 - **Confidence score** per timestep — derived from inter-model spread normalised against typical seasonal spread, a model-count penalty, and lead-time decay encoded in the model weights.
-- **Multi-model breakdown** (opt-in) — spaghetti chart of every contributing model with per-model toggles, switchable between temperature, precipitation, precipitation probability, wind speed, and cloud cover.
+- **Per-model overlay** (opt-in) — one line per contributing model drawn over the aggregate, with per-model toggles, switchable between temperature, precipitation, precipitation probability, wind speed, and cloud cover.
 - **Window toggle** — 24 h / 3 d / 7 d on both charts.
 - **Locations** — open-meteo geocoding search, browser geolocation, URL-shareable state, favourites and recent-search in localStorage.
 - **Units** — °C ⇄ °F, mm ⇄ in, km/h ⇄ mph; persisted.
@@ -23,7 +23,7 @@ Per timestep and per variable:
    - Base weight = 1.
    - Region bonus of +0.2 (mid-resolution) or +0.3 (convection-allowing) when the location is inside the model's home region.
    - Lead-time decay per model class: convection-allowing models fade out by 60 h, mid-resolution regionals by 120 h, globals decay gently from 72 h → 0.4× by 240 h, and AI plus ensemble-mean products follow global decay with a smaller vote.
-   - Variable boost: CAMs get ×1.3 for precipitation, since they explicitly resolve convection.
+   - Variable boost: CAMs get ×1.3 for precipitation and precipitation probability, since they explicitly resolve convection.
 3. **Aggregate**:
    - **Temperature / precip / cloud cover / wind speed** → weighted mean + weighted standard deviation.
    - **Wind direction** → weighted circular mean via unit-vector sum (so 350° + 10° averages to 0°, not 180°). Angular standard deviation via Mardia's formula on the mean resultant length.
@@ -36,7 +36,7 @@ For each numeric variable:
 ```
 spreadScore  = clamp(1 − stdDev / typicalSpread, 0, 1)
                typicalSpread ramps with lead time; daily accumulated variables
-               (precipitation_sum) use a day-scale calibration (mm/day) rather
+               (precipitation_sum) use a day-scale typical spread (mm/day) rather
                than the hourly rate scale (mm/h).
 
 modelFactor  = min(1, n / 3)   where n = number of contributing models
@@ -161,8 +161,9 @@ npm run deploy
 
 ## Limitations
 
-- **No bias correction.** Weights are static — no calibration against ERA5 reanalysis. Some models systematically run cold/warm or under/over-predict precipitation in some regions; that bias passes through to the aggregate.
+- **No bias correction.** Weights are static — no weight calibration against ERA5 reanalysis. Some models systematically run cold/warm or under/over-predict precipitation in some regions; that bias passes through to the aggregate.
 - **No ensemble members.** We pull deterministic runs only, not full ensemble distributions. Confidence is derived from inter-model spread, not from individual ensemble forecasts.
+- **Verification covers temperature and precipitation only.** ERA5-Seamless also provides wind and cloud-cover truth, but the verification page does not yet score them.
 
 ## Acknowledgements
 

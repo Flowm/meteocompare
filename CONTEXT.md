@@ -15,7 +15,7 @@ open-meteo derives `precipitation_probability` only from ensembles, so determini
 _Avoid_: registering a graft source as a Model.
 
 **Model class**:
-Resolution/product-and-scope tier: `global`, `regional-mid`, `regional-cam` (convection-allowing), `ai` (machine-learned single forecast product), or `ensemble-mean` (mean of ensemble members exposed as one forecast product). Drives lead-time decay, precipitation boost, and how strongly a model contributes relative to deterministic NWP products.
+Resolution/product-and-scope tier: `global`, `regional-mid`, `regional-cam` (convection-allowing), `ai` (machine-learned single forecast product), or `ensemble-mean` (mean of ensemble members exposed as one forecast product). Drives lead-time decay, the precipitation (amount + probability) boost, and how strongly a model contributes relative to deterministic NWP products.
 
 **Home region**:
 The geographic bounding box where a regional model has a structural advantage. Drives the region bonus inside the weighting recipe. Global models have no home region.
@@ -49,12 +49,12 @@ Weighted standard deviation across the contributing models at a timestep. Inputs
 Empirically chosen reference spread per variable per lead-time band, used to normalise raw spread into a 0..1 score. Defined in `confidence.ts`.
 
 **Hourly series chart**:
-The single shared hourly chart rendered on both the forecast and verification pages. It draws the aggregate for a selected variable (with its confidence band), optionally overlays the per-model spaghetti, and — on the verification page — the truth series. One surface, configured per page.
+The single shared hourly chart rendered on both the forecast and verification pages. It draws the aggregate for a selected variable (with its confidence band), optionally overlays the per-model lines, and — on the verification page — the truth series. One surface, configured per page.
 _Avoid_: per-page names ("forecast chart", "verification chart", "compare-models chart"); these described the three separate charts that preceded it.
 
-**Spaghetti view**:
-The opt-in mode of the hourly series chart that draws one line per contributing model. Secondary surface — the aggregate view is primary.
-_Avoid_: breakdown view (used historically; "spaghetti" is the term we keep).
+**Per-model overlay**:
+The opt-in mode of the hourly series chart that draws one line per contributing model, overlaid on the aggregate. Secondary surface — the aggregate view is primary.
+_Avoid_: spaghetti view, breakdown view (both used historically). "Spaghetti" specifically implies ensemble members, which we don't use (see "Aggregate"); "per-model overlay" is the term we keep.
 
 ### Confidence
 
@@ -114,6 +114,9 @@ In meteorology, the **analysis** is a model's initial-condition field after assi
 
 **"Model".**
 Always refers to an NWP source (ECMWF, GFS, ICON, etc.), never to a UI/data shape or a domain type. When you mean a TypeScript type, name it explicitly (`ModelDef`, `ModelRow`).
+
+**"Calibration".**
+Three unrelated things have worn this word; keep them apart. **Bias correction** — adjusting model weights against past performance — is what the README's "No bias correction" limitation means; the app does none. **Confidence calibration** — whether a 0.7 confidence actually verifies ~70% of the time — is what the verification page surfaces informally (per-variable confidence shown beside the measured error) and the "evidence" the under-review _overall confidence_ collapse is waiting on. The reference values that normalise raw spread are **typical spread**, never "calibration". Reserve the bare word "calibration" for confidence calibration.
 
 ## Example dialogue
 

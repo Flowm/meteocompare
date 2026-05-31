@@ -73,7 +73,7 @@ export interface VisibilityToggle {
   id: string;
   /** Style props whose opacity this toggle drives. */
   props: TogglePropKey[];
-  /** Opacity when shown (1 for lines/fills, MODEL_OPACITY for spaghetti). */
+  /** Opacity when shown (1 for lines/fills, MODEL_OPACITY for overlay lines). */
   shown: number;
   /** For `group: "model"` — the model id, checked against enabledModels. */
   modelId?: string;
@@ -137,9 +137,9 @@ export interface HourlyChartOptionArgs {
   solar?: { sunrise: string[]; sunset: string[] } | null;
   /** Current local time — drives the "Now" marker (hidden outside the window). */
   currentTime?: string;
-  /** Models with data (the spaghetti universe), in render order. */
+  /** Models with data (the per-model overlay universe), in render order. */
   models: ModelDef[];
-  /** Whether per-model spaghetti series are built (visibility is patched
+  /** Whether per-model overlay series are built (visibility is patched
    *  separately by the component, so the series exist at constant opacity). */
   showModels: boolean;
 }
@@ -148,7 +148,7 @@ export interface HourlyChartOptionArgs {
  *  `tooltip.formatter` is produced here; the component attaches the formatter so
  *  it can read live toggle state at hover. */
 export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChartBuild {
-  const { data, view: v, units, solar, currentTime, models, showModels: spaghetti } = args;
+  const { data, view: v, units, solar, currentTime, models, showModels: overlay } = args;
   const n = Math.min(args.hoursWindow, data.times.length);
   const times = data.times.slice(0, n);
   const nowIdx = currentTime ? findNowIndex(times, currentTime) : -1;
@@ -218,7 +218,7 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
     const values = pts.map((p) => convertVar(p.value, dv, units));
     const smooth = dv === "temperature_2m";
 
-    // Band (±1σ). Always built — even in spaghetti mode — so the spread can be
+    // Band (±1σ). Always built — even in overlay mode — so the spread can be
     // toggled independently and stays visible behind the per-model lines.
     const lower = pts.map((p) => convertVar(p.value - p.stdDev, dv, units));
     const delta = pts.map((p) => (Number.isFinite(p.stdDev) ? convertDelta(p.stdDev * 2, dv, units) : 0));
@@ -256,7 +256,7 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
       data: values,
       smooth,
       symbol: "none",
-      lineStyle: { width: spaghetti ? 4 : 2.5, color: AGG_COLOR },
+      lineStyle: { width: overlay ? 4 : 2.5, color: AGG_COLOR },
       z: 5,
       ...(attachMarks && markLine ? { markLine } : {}),
     });
@@ -370,8 +370,8 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
     toggles.push({ group: "truth", id: "tr", props: ["lineStyle", "itemStyle"], shown: 1 });
   };
 
-  // --- helper: push per-model spaghetti for a line variable ------------------
-  const pushSpaghetti = (dv: DataVarId, axisIndex: number): void => {
+  // --- helper: push per-model overlay lines for a line variable ------------------
+  const pushOverlay = (dv: DataVarId, axisIndex: number): void => {
     const byModel = data.perModel[dv] ?? {};
     for (const m of models) {
       const arr = byModel[m.id];
@@ -401,12 +401,12 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
     pushPrecip(1, false, "agg-precip");
   } else if (v === "precipitation") {
     pushPrecip(1, true);
-    if (spaghetti) pushSpaghetti("precipitation", 1);
+    if (overlay) pushOverlay("precipitation", 1);
   } else {
     const dv = v as DataVarId;
     pushLineAggregate(dv, 0, true);
     pushLineTruth(dv, 0);
-    if (spaghetti) pushSpaghetti(dv, 0);
+    if (overlay) pushOverlay(dv, 0);
   }
 
   // --- axes ------------------------------------------------------------------

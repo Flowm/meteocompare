@@ -25,7 +25,7 @@ export interface ModelDef {
   /** Geographic region where this model has a structural advantage.
    *  `null` for genuinely global models (ECMWF, GFS). */
   homeRegion: BBox | null;
-  /** Short description shown in the model breakdown UI. */
+  /** Short description shown in the per-model overlay UI. */
   description: string;
 }
 
