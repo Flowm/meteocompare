@@ -61,21 +61,21 @@ The badge maps the result to one of three tiers — high (≥70 %, emerald), mid
 | ----------------------------- | ------------------ | ---------------------------------- | ------------- | -------- |
 | `ecmwf_ifs`                   | ECMWF              | 9 km HRES global                   | global        | 240 h    |
 | `gfs_seamless`                | NOAA               | seamless NOAA global/U.S. coverage | global        | 384 h    |
+| `gem_seamless`                | Environment Canada | 2.5–15 km, NA focus                | regional-mid  | 240 h    |
+| `ukmo_seamless`               | UK Met Office      | 2 km UKV / 10 km global            | regional-mid  | 168 h    |
+| `meteofrance_seamless`        | Météo-France       | 1.3 km AROME / 25 km ARPEGE        | regional-cam  | 102 h    |
 | `cma_grapes_global`           | CMA                | 15 km global, East Asia focus      | global        | 240 h    |
+| `bom_access_global`           | BOM                | 15 km global, Aus. focus           | global        | 240 h    |
+| `jma_seamless`                | JMA                | 5 km Japan / 55 km global          | regional-mid  | 264 h    |
+| `kma_seamless`                | KMA                | 1.5–13 km, Korea focus             | regional-mid  | 288 h    |
 | `icon_global`                 | DWD                | 11 km global                       | global        | 180 h    |
 | `icon_eu`                     | DWD                | 7 km Europe                        | regional-mid  | 120 h    |
 | `icon_d2`                     | DWD                | 2 km central Europe CAM            | regional-cam  | 48 h     |
-| `gem_seamless`                | Environment Canada | 2.5–15 km, NA focus                | regional-mid  | 240 h    |
-| `meteofrance_seamless`        | Météo-France       | 1.3 km AROME / 25 km ARPEGE        | regional-cam  | 102 h    |
-| `ukmo_seamless`               | UK Met Office      | 2 km UKV / 10 km global            | regional-mid  | 168 h    |
 | `knmi_harmonie_arome_europe`  | KNMI               | 2 km Harmonie AROME Europe         | regional-cam  | 60 h     |
-| `metno_nordic`                | MET Norway         | 2.5 km Nordics                     | regional-cam  | 60 h     |
 | `dmi_harmonie_arome_europe`   | DMI                | 2 km Harmonie AROME Europe         | regional-cam  | 60 h     |
+| `metno_nordic`                | MET Norway         | 2.5 km Nordics                     | regional-cam  | 60 h     |
 | `meteoswiss_icon_seamless`    | MeteoSwiss         | 1–2 km ICON Switzerland seamless   | regional-cam  | 120 h    |
 | `geosphere_arome_austria`     | GeoSphere Austria  | AROME Austria                      | regional-cam  | 60 h     |
-| `jma_seamless`                | JMA                | 5 km Japan / 55 km global          | regional-mid  | 264 h    |
-| `kma_seamless`                | KMA                | 1.5–13 km, Korea focus             | regional-mid  | 288 h    |
-| `bom_access_global`           | BOM                | 15 km global, Aus. focus           | global        | 240 h    |
 | `ecmwf_aifs025_single`        | ECMWF              | 0.25° AI forecast                  | ai            | 360 h    |
 | `gfs_graphcast025`            | NOAA               | 0.25° GraphCast forecast           | ai            | 384 h    |
 | `ncep_aigfs025`               | NOAA               | 0.25° AI-enhanced GFS              | ai            | 384 h    |
