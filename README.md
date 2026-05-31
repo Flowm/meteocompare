@@ -163,6 +163,7 @@ npm run deploy
 
 - **No bias correction.** Weights are static — no calibration against ERA5 reanalysis. Some models systematically run cold/warm or under/over-predict precipitation in some regions; that bias passes through to the aggregate.
 - **No ensemble members.** We pull deterministic runs only, not full ensemble distributions. Confidence is derived from inter-model spread, not from individual ensemble forecasts.
+- **Verification covers temperature and precipitation only.** ERA5-Seamless also provides wind and cloud-cover truth, but the verification page does not yet score them.
 
 ## Acknowledgements
 
