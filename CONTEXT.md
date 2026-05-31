@@ -15,7 +15,7 @@ open-meteo derives `precipitation_probability` only from ensembles, so determini
 _Avoid_: registering a graft source as a Model.
 
 **Model class**:
-Resolution/product-and-scope tier: `global`, `regional-mid`, `regional-cam` (convection-allowing), `ai` (machine-learned single forecast product), or `ensemble-mean` (mean of ensemble members exposed as one forecast product). Drives lead-time decay, precipitation boost, and how strongly a model contributes relative to deterministic NWP products.
+Resolution/product-and-scope tier: `global`, `regional-mid`, `regional-cam` (convection-allowing), `ai` (machine-learned single forecast product), or `ensemble-mean` (mean of ensemble members exposed as one forecast product). Drives lead-time decay, the precipitation (amount + probability) boost, and how strongly a model contributes relative to deterministic NWP products.
 
 **Home region**:
 The geographic bounding box where a regional model has a structural advantage. Drives the region bonus inside the weighting recipe. Global models have no home region.

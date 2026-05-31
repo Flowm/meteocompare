@@ -23,7 +23,7 @@ Per timestep and per variable:
    - Base weight = 1.
    - Region bonus of +0.2 (mid-resolution) or +0.3 (convection-allowing) when the location is inside the model's home region.
    - Lead-time decay per model class: convection-allowing models fade out by 60 h, mid-resolution regionals by 120 h, globals decay gently from 72 h → 0.4× by 240 h, and AI plus ensemble-mean products follow global decay with a smaller vote.
-   - Variable boost: CAMs get ×1.3 for precipitation, since they explicitly resolve convection.
+   - Variable boost: CAMs get ×1.3 for precipitation and precipitation probability, since they explicitly resolve convection.
 3. **Aggregate**:
    - **Temperature / precip / cloud cover / wind speed** → weighted mean + weighted standard deviation.
    - **Wind direction** → weighted circular mean via unit-vector sum (so 350° + 10° averages to 0°, not 180°). Angular standard deviation via Mardia's formula on the mean resultant length.
