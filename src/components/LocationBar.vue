@@ -126,13 +126,9 @@ function geolocate(): void {
       <!-- Wordmark + view switcher ------------------------------------ -->
       <div class="flex items-center gap-2.5 sm:gap-5">
         <a href="/" class="group flex items-center gap-2 leading-none">
-          <!-- The mark itself: a hairline circle with a sodium dot in the
-               centre — a stylised barometer dial. -->
-          <span class="relative inline-block size-5 shrink-0">
-            <span class="border-paper-300/60 absolute inset-0 rounded-full border" aria-hidden="true" />
-            <span class="bg-sodium-300 absolute top-1/2 left-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full" aria-hidden="true" />
-            <span class="bg-sodium-300/70 absolute top-[1px] left-1/2 h-1 w-px -translate-x-1/2" aria-hidden="true" />
-          </span>
+          <!-- The mark: the stylised barometer dial, shared with the
+               favicon / PWA icons via the single source in public/logo.svg. -->
+          <img src="/logo.svg" alt="" aria-hidden="true" class="size-5 shrink-0" />
           <span class="hidden text-lg leading-none font-semibold tracking-tight sm:inline"
             ><span class="text-paper-50">Meteo</span><span class="text-sodium-300">Compare</span></span
           >
