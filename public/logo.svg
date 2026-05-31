@@ -1,10 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#60a5fa"/>
-      <stop offset="1" stop-color="#1d4ed8"/>
-    </linearGradient>
-  </defs>
-  <circle cx="22" cy="26" r="14" fill="#fbbf24"/>
-  <path d="M14 42 Q14 30 26 30 Q30 22 40 24 Q52 22 52 36 Q58 36 58 44 Q58 52 50 52 L18 52 Q10 52 10 46 Q10 42 14 42 Z" fill="url(#g)"/>
+  <!-- MeteoCompare mark: the navbar's stylised barometer dial — a hairline
+       paper ring with a sodium-amber centre dot and a needle at the top.
+       Transparent so it floats on any tab/OS background; the apple & maskable
+       icons get their opaque ink fill from the pwaAssets config in vite. The
+       dial fills the canvas — the generator's per-variant padding adds the
+       breathing room back for the home-screen icons. -->
+  <!-- Needle first, tucked under the ring's centreline (y=5) so the ring's
+       opaque stroke is the only thing visible where the two overlap. -->
+  <path d="M30.5 5 H33.5 V21 A1.5 1.5 0 0 1 30.5 21 Z" fill="#f5b942" fill-opacity="0.75"/>
+  <circle cx="32" cy="32" r="27" fill="none" stroke="#93896f" stroke-width="3"/>
+  <circle cx="32" cy="32" r="7.5" fill="#f5b942"/>
 </svg>
