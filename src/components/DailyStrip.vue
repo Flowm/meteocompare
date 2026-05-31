@@ -1,19 +1,14 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import type { ForecastResponse } from "@/api/omForecast";
 import type { DailyAggregate } from "@/composables/useForecast";
 import { overallConfidence } from "@/domain/confidence";
 import { MODELS } from "@/domain/models";
 
-import CurrentCard from "./CurrentCard.vue";
 import DayCard, { type ModelRow } from "./DayCard.vue";
 
 const props = defineProps<{
   daily: DailyAggregate;
-  raw: ForecastResponse;
-  solar: { sunrise: string[]; sunset: string[] } | null;
-  locationName: string;
 }>();
 
 interface DayRow {
@@ -55,26 +50,20 @@ const days = computed<DayRow[]>(() =>
 </script>
 
 <template>
-  <section>
-    <h2 class="eyebrow mb-3">Conditions &amp; outlook</h2>
-    <div class="flex snap-x gap-2 overflow-x-auto pt-1 pb-3">
-      <CurrentCard class="snap-start" :raw="raw" :daily="daily" :solar="solar" :location-name="locationName" />
-      <DayCard
-        v-for="(d, i) in days"
-        :key="d.date"
-        class="snap-start"
-        :date="d.date"
-        :code="d.code"
-        :high="d.high"
-        :low="d.low"
-        :precip-prob="d.precipProb"
-        :precip-sum="d.precipSum"
-        :wind-speed="d.windSpeed"
-        :wind-direction="d.windDirection"
-        :confidence="d.confidence"
-        :highlight="i === 0"
-        :models="d.models"
-      />
-    </div>
-  </section>
+  <DayCard
+    v-for="(d, i) in days"
+    :key="d.date"
+    class="snap-start"
+    :date="d.date"
+    :code="d.code"
+    :high="d.high"
+    :low="d.low"
+    :precip-prob="d.precipProb"
+    :precip-sum="d.precipSum"
+    :wind-speed="d.windSpeed"
+    :wind-direction="d.windDirection"
+    :confidence="d.confidence"
+    :highlight="i === 0"
+    :models="d.models"
+  />
 </template>
