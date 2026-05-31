@@ -361,132 +361,131 @@ const hasBand = computed(() => true);
 </script>
 
 <template>
-  <section class="border-ink-700 bg-ink-900/60 relative border p-4 sm:p-6">
-    <!-- Header: title only -->
-    <div class="border-ink-700 mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-b pb-3">
-      <h2 class="eyebrow">{{ title }}</h2>
-    </div>
+  <section>
+    <h2 class="eyebrow mb-3">{{ title }}</h2>
 
-    <!-- Variable picker (left) + window selector (right) share a line -->
-    <div class="mb-4 flex flex-wrap items-center gap-3">
-      <!-- Desktop (lg+): expanded variable rail, all options inline -->
-      <div class="border-ink-700 hidden border font-mono text-xs tracking-wide lg:flex">
-        <button
-          v-for="vid in variables"
-          :key="vid"
-          class="border-ink-700 border-r px-2.5 py-1 whitespace-nowrap transition-colors last:border-r-0"
-          :class="isVarActive(vid) ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
-          @click="selectVariable(vid)"
-        >
-          {{ CHART_VIEWS[vid].label }}
-        </button>
-      </div>
-
-      <!-- Mobile / tablet (< lg): collapse the rail into a dropdown -->
-      <div ref="varRoot" class="relative lg:hidden">
-        <button
-          type="button"
-          class="group border-ink-700 bg-ink-900/60 text-paper-200 hover:border-sodium-300/60 hover:text-paper-50 flex items-center gap-2 border px-3 py-1 font-mono text-xs tracking-wide transition-colors"
-          :aria-expanded="varOpen"
-          aria-haspopup="menu"
-          @click="varOpen = !varOpen"
-        >
-          {{ CHART_VIEWS[view].label }}
-          <svg class="text-paper-300 size-3 transition-transform" :class="{ 'rotate-180': varOpen }" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-        </button>
-        <div
-          v-if="varOpen"
-          role="menu"
-          class="panel-in border-ink-700 bg-ink-900 absolute top-full left-0 z-40 mt-1 min-w-[12rem] overflow-hidden border shadow-2xl shadow-black/60"
-        >
+    <div class="border-ink-700 bg-ink-900/60 relative border p-4 sm:p-6">
+      <!-- Variable picker (left) + window selector (right) share a line -->
+      <div class="mb-4 flex flex-wrap items-center gap-3">
+        <!-- Desktop (lg+): expanded variable rail, all options inline -->
+        <div class="border-ink-700 hidden border font-mono text-xs tracking-wide lg:flex">
           <button
             v-for="vid in variables"
             :key="vid"
-            type="button"
-            role="menuitemradio"
-            :aria-checked="isVarActive(vid)"
-            class="block w-full px-3 py-2 text-left font-mono text-xs tracking-wide transition-colors"
-            :class="isVarActive(vid) ? 'bg-ink-800 text-sodium-200' : 'text-paper-200 hover:bg-ink-800 hover:text-sodium-200'"
+            class="border-ink-700 border-r px-2.5 py-1 whitespace-nowrap transition-colors last:border-r-0"
+            :class="isVarActive(vid) ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
             @click="selectVariable(vid)"
           >
             {{ CHART_VIEWS[vid].label }}
           </button>
         </div>
-      </div>
 
-      <!-- Window selector (right-aligned) -->
-      <div class="border-ink-700 ml-auto flex border font-mono text-xs tracking-wide">
-        <button
-          v-for="c in WINDOW_CHOICES"
-          :key="c.hours"
-          class="px-3 py-1 transition-colors"
-          :class="hoursWindow === c.hours ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
-          @click="hoursWindow = c.hours"
-        >
-          {{ c.label }}
-        </button>
-      </div>
-    </div>
-
-    <!-- Bleed the plot slightly past the card padding so it spans a touch
-         wider; the labelled controls above/below keep their full inset. -->
-    <div class="relative -mx-2">
-      <!-- Faint graph-paper backplate so the chart reads as an instrument
-           plot, not a flat panel. -->
-      <div class="graph-paper pointer-events-none absolute inset-0 opacity-40" aria-hidden="true" />
-      <VChart ref="chartRef" style="height: 21rem" :option="option" autoresize class="relative" />
-    </div>
-
-    <!-- Legend / filter strip ---------------------------------------------
-         Two labelled sections — SERIES (aggregate / spread / truth toggles)
-         and MODELS (an "All" toggle plus per-model spaghetti chips). Enabling
-         any model chip turns the spaghetti on; "All" flips every model at once. -->
-    <div class="border-ink-700/60 mt-2 space-y-2.5 border-t pt-3 font-mono text-[11px] tracking-wide">
-      <!-- SERIES -->
-      <div class="flex items-start gap-2">
-        <span class="text-paper-400 w-14 shrink-0 pt-[5px]">Series</span>
-        <div class="flex flex-wrap items-center gap-1.5">
+        <!-- Mobile / tablet (< lg): collapse the rail into a dropdown -->
+        <div ref="varRoot" class="relative lg:hidden">
           <button
             type="button"
-            class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
-            :class="showAggregate ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
-            @click="toggleAggregate"
+            class="group border-ink-700 bg-ink-900/60 text-paper-200 hover:border-sodium-300/60 hover:text-paper-50 flex items-center gap-2 border px-3 py-1 font-mono text-xs tracking-wide transition-colors"
+            :aria-expanded="varOpen"
+            aria-haspopup="menu"
+            @click="varOpen = !varOpen"
           >
-            <span class="inline-block size-2" :style="{ backgroundColor: AGG_COLOR }" />Aggregate
+            {{ CHART_VIEWS[view].label }}
+            <svg class="text-paper-300 size-3 transition-transform" :class="{ 'rotate-180': varOpen }" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
           </button>
-          <button
-            v-if="hasBand"
-            type="button"
-            class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
-            :class="showBand ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
-            title="Model spread (±1σ)"
-            @click="toggleBand"
+          <div
+            v-if="varOpen"
+            role="menu"
+            class="panel-in border-ink-700 bg-ink-900 absolute top-full left-0 z-40 mt-1 min-w-[12rem] overflow-hidden border shadow-2xl shadow-black/60"
           >
-            <span class="inline-block size-2" :style="{ backgroundColor: BAND_SWATCH }" />Spread ±1σ
-          </button>
+            <button
+              v-for="vid in variables"
+              :key="vid"
+              type="button"
+              role="menuitemradio"
+              :aria-checked="isVarActive(vid)"
+              class="block w-full px-3 py-2 text-left font-mono text-xs tracking-wide transition-colors"
+              :class="isVarActive(vid) ? 'bg-ink-800 text-sodium-200' : 'text-paper-200 hover:bg-ink-800 hover:text-sodium-200'"
+              @click="selectVariable(vid)"
+            >
+              {{ CHART_VIEWS[vid].label }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Window selector (right-aligned) -->
+        <div class="border-ink-700 ml-auto flex border font-mono text-xs tracking-wide">
           <button
-            v-if="hasTruth"
-            type="button"
-            class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
-            :class="showTruth ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
-            @click="toggleTruth"
+            v-for="c in WINDOW_CHOICES"
+            :key="c.hours"
+            class="px-3 py-1 transition-colors"
+            :class="hoursWindow === c.hours ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
+            @click="hoursWindow = c.hours"
           >
-            <span class="inline-block size-2" :style="{ backgroundColor: TRUTH_COLOR }" />Truth
+            {{ c.label }}
           </button>
         </div>
       </div>
 
-      <!-- MODELS -->
-      <ModelControlRail
-        :models="allModels"
-        :model-has-data="modelHasData"
-        :enabled-models="enabledModels"
-        :all-models-active="allModelsActive"
-        @toggle-all="toggleAllModels"
-        @toggle-model="toggleModel"
-      />
+      <!-- Bleed the plot slightly past the card padding so it spans a touch
+         wider; the labelled controls above/below keep their full inset. -->
+      <div class="relative -mx-2">
+        <!-- Faint graph-paper backplate so the chart reads as an instrument
+           plot, not a flat panel. -->
+        <div class="graph-paper pointer-events-none absolute inset-0 opacity-40" aria-hidden="true" />
+        <VChart ref="chartRef" style="height: 21rem" :option="option" autoresize class="relative" />
+      </div>
+
+      <!-- Legend / filter strip ---------------------------------------------
+         Two labelled sections — SERIES (aggregate / spread / truth toggles)
+         and MODELS (an "All" toggle plus per-model spaghetti chips). Enabling
+         any model chip turns the spaghetti on; "All" flips every model at once. -->
+      <div class="border-ink-700/60 mt-2 space-y-2.5 border-t pt-3 font-mono text-[11px] tracking-wide">
+        <!-- SERIES -->
+        <div class="flex items-start gap-2">
+          <span class="text-paper-400 w-14 shrink-0 pt-[5px]">Series</span>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
+              :class="showAggregate ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
+              @click="toggleAggregate"
+            >
+              <span class="inline-block size-2" :style="{ backgroundColor: AGG_COLOR }" />Aggregate
+            </button>
+            <button
+              v-if="hasBand"
+              type="button"
+              class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
+              :class="showBand ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
+              title="Model spread (±1σ)"
+              @click="toggleBand"
+            >
+              <span class="inline-block size-2" :style="{ backgroundColor: BAND_SWATCH }" />Spread ±1σ
+            </button>
+            <button
+              v-if="hasTruth"
+              type="button"
+              class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
+              :class="showTruth ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
+              @click="toggleTruth"
+            >
+              <span class="inline-block size-2" :style="{ backgroundColor: TRUTH_COLOR }" />Truth
+            </button>
+          </div>
+        </div>
+
+        <!-- MODELS -->
+        <ModelControlRail
+          :models="allModels"
+          :model-has-data="modelHasData"
+          :enabled-models="enabledModels"
+          :all-models-active="allModelsActive"
+          @toggle-all="toggleAllModels"
+          @toggle-model="toggleModel"
+        />
+      </div>
     </div>
   </section>
 </template>
