@@ -211,6 +211,13 @@ function toggleAllModels(): void {
   else selectAllModels();
 }
 
+// The per-model chip list is long (13 models), so it collapses by default —
+// only the "All" toggle and an expand control show. The count of currently
+// enabled models is surfaced on the collapsed control so the user can tell
+// spaghetti is on without expanding.
+const modelsExpanded = ref(false);
+const enabledCount = computed(() => allModels.value.filter((m) => enabledModels.value.has(m.id)).length);
+
 // ---- Cursor tracking (tooltip highlight) ------------------------------------
 // With many model lines enabled the tooltip lists them all, and it's hard to
 // tell which row is which line. We track the cursor's value on the spaghetti
@@ -495,24 +502,40 @@ const hasBand = computed(() => true);
             All
           </button>
           <span class="bg-ink-700 mx-1 hidden h-4 w-px self-center sm:inline-block" aria-hidden="true" />
+          <!-- Expand / collapse the per-model chips. Collapsed by default. -->
           <button
-            v-for="m in allModels"
-            :key="m.id"
             type="button"
-            class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
-            :class="
-              !modelHasData[m.id]
-                ? 'border-ink-700/50 bg-ink-950 text-paper-500 cursor-not-allowed line-through opacity-50'
-                : enabledModels.has(m.id)
-                  ? 'border-ink-600 bg-ink-800 text-paper-50'
-                  : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'
-            "
-            :disabled="!modelHasData[m.id]"
-            :title="modelHasData[m.id] ? `${m.provider} · ${m.description}` : `${m.provider} · no data for this variable`"
-            @click="toggleModel(m.id)"
+            class="border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200 flex items-center gap-1.5 border px-2 py-1 transition-colors"
+            :aria-expanded="modelsExpanded"
+            :title="modelsExpanded ? 'Hide model list' : 'Show all models'"
+            @click="modelsExpanded = !modelsExpanded"
           >
-            <span class="inline-block size-2" :style="{ backgroundColor: paletteFor(m.id) }" />{{ m.label }}
+            <span v-if="enabledCount > 0 && !allModelsActive" class="text-paper-200">{{ enabledCount }}/{{ allModels.length }} on</span>
+            <span v-else>{{ allModels.length }} models</span>
+            <svg class="text-paper-300 size-3 transition-transform" :class="{ 'rotate-180': modelsExpanded }" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
           </button>
+          <template v-if="modelsExpanded">
+            <button
+              v-for="m in allModels"
+              :key="m.id"
+              type="button"
+              class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
+              :class="
+                !modelHasData[m.id]
+                  ? 'border-ink-700/50 bg-ink-950 text-paper-500 cursor-not-allowed line-through opacity-50'
+                  : enabledModels.has(m.id)
+                    ? 'border-ink-600 bg-ink-800 text-paper-50'
+                    : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'
+              "
+              :disabled="!modelHasData[m.id]"
+              :title="modelHasData[m.id] ? `${m.provider} · ${m.description}` : `${m.provider} · no data for this variable`"
+              @click="toggleModel(m.id)"
+            >
+              <span class="inline-block size-2" :style="{ backgroundColor: paletteFor(m.id) }" />{{ m.label }}
+            </button>
+          </template>
         </div>
       </div>
     </div>
