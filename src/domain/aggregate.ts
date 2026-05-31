@@ -5,6 +5,17 @@ import { normalizedWeights, type Variable } from "./weighting";
 /** A single (model → value) sample at one timestep. Null = model has no value here. */
 export type ModelSamples = Record<string, number | null>;
 
+/** Renormalize the accumulated raw weights so the exposed shares sum to 1 (even
+ *  after dropping models that were null at this timestep). Mutates and returns
+ *  `used` for convenience. */
+function normalizeShares(used: Record<string, number>, totalW: number): Record<string, number> {
+  for (const id in used) {
+    const w = used[id];
+    if (w !== undefined) used[id] = w / totalW;
+  }
+  return used;
+}
+
 export interface AggregatePoint {
   /** ISO-like local timestamp from open-meteo. */
   time: string;
@@ -57,12 +68,7 @@ function weightedMean(perModel: ModelSamples, weights: Map<string, number>): { m
     if (v == null || w === undefined) continue;
     varSum += (w / totalW) * (v - mean) ** 2;
   }
-  // Renormalize so the exposed weights sum to 1 even after dropping nulls.
-  for (const id in used) {
-    const w = used[id];
-    if (w !== undefined) used[id] = w / totalW;
-  }
-  return { mean, stdDev: Math.sqrt(varSum), effectiveWeights: used };
+  return { mean, stdDev: Math.sqrt(varSum), effectiveWeights: normalizeShares(used, totalW) };
 }
 
 /** Weighted average of angles via unit-vector sum.
@@ -92,11 +98,7 @@ function weightedCircularMean(perModel: ModelSamples, weights: Map<string, numbe
   const R = Math.min(1, Math.sqrt(mx * mx + my * my));
   // Circular standard deviation in radians: sqrt(-2 * ln(R)). Convert to degrees.
   const stdDev = R > 0 ? (Math.sqrt(-2 * Math.log(R)) * 180) / Math.PI : 180;
-  for (const id in used) {
-    const w = used[id];
-    if (w !== undefined) used[id] = w / totalW;
-  }
-  return { mean, stdDev, effectiveWeights: used };
+  return { mean, stdDev, effectiveWeights: normalizeShares(used, totalW) };
 }
 
 function severityWeightedMode(perModel: ModelSamples, weights: Map<string, number>): { code: number; effectiveWeights: Record<string, number> } {
@@ -132,11 +134,7 @@ function severityWeightedMode(perModel: ModelSamples, weights: Map<string, numbe
       bestCodeW = w;
     }
   }
-  for (const id in used) {
-    const w = used[id];
-    if (w !== undefined) used[id] = w / totalW;
-  }
-  return { code: bestCode, effectiveWeights: used };
+  return { code: bestCode, effectiveWeights: normalizeShares(used, totalW) };
 }
 
 /** Stitch per-model timeseries into a single aggregate timeseries.
