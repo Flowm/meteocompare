@@ -3,9 +3,10 @@ import { useDebounceFn, onClickOutside } from "@vueuse/core";
 import { computed, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 
-import { searchLocations, formatLocation, type GeocodingResult } from "@/api/geocoding";
+import { searchLocations, type GeocodingResult } from "@/api/geocoding";
 import { useLocation, type Location } from "@/composables/useLocation";
 
+import SearchResultsPanel from "./SearchResultsPanel.vue";
 import SettingsMenu from "./SettingsMenu.vue";
 
 const route = useRoute();
@@ -232,65 +233,17 @@ function geolocate(): void {
           <span class="sr-only">Use my location</span>
         </button>
 
-        <!-- On mobile the search column is narrow, so the results panel is
-             pinned to span the full viewport width minus the header's gutters
-             (fixed inset-x-4, just below the sticky header); on >=sm it reverts
-             to tracking the wide input as before. -->
-        <div
+        <SearchResultsPanel
           v-if="isOpen && (results.length || favourites.length || recent.length || isSearching || searchError)"
-          class="panel-in border-ink-700 bg-ink-900 fixed inset-x-4 top-14 z-40 overflow-hidden border shadow-2xl shadow-black/60 sm:absolute sm:inset-x-auto sm:top-auto sm:left-0 sm:mt-1 sm:w-full"
-        >
-          <div v-if="isSearching" class="text-paper-400 flex items-center gap-2 px-3 py-2 font-mono text-[11px] tracking-wide">
-            <span class="bg-sodium-300 size-1 animate-pulse rounded-full" /> Searching…
-          </div>
-          <div v-else-if="searchError" class="text-heat-400 px-3 py-2 font-mono text-[11px] tracking-wide">{{ searchError }}</div>
-
-          <div v-if="results.length" class="max-h-64 overflow-y-auto">
-            <button
-              v-for="r in results"
-              :key="`${r.id}-${r.latitude}`"
-              class="group border-ink-800/60 hover:bg-ink-800 flex w-full items-center justify-between gap-3 border-b px-3 py-2 text-left text-sm last:border-b-0"
-              @click="pick(r)"
-            >
-              <span class="text-paper-100 group-hover:text-paper-50 truncate">{{ formatLocation(r) }}</span>
-              <span class="text-paper-400 shrink-0 font-mono text-[10px] tabular-nums">
-                {{ r.latitude.toFixed(2) }}<span class="text-sodium-300/60">°</span>
-                <span class="text-paper-500 mx-1">,</span>
-                {{ r.longitude.toFixed(2) }}<span class="text-sodium-300/60">°</span>
-              </span>
-            </button>
-          </div>
-
-          <template v-if="!query && favourites.length">
-            <div class="border-ink-800 text-paper-400 border-t px-3 pt-2 pb-1 font-mono text-[11px] tracking-wide"><span class="text-sodium-300">★</span> Favourites</div>
-            <button
-              v-for="f in favourites"
-              :key="`f-${f.latitude},${f.longitude}`"
-              class="hover:bg-ink-800 flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm"
-              @click="pickSaved(f)"
-            >
-              <span class="text-sodium-300">★</span>
-              <span class="text-paper-100 truncate"
-                >{{ f.name }}<span v-if="f.detail" class="text-paper-400">, {{ f.detail }}</span></span
-              >
-            </button>
-          </template>
-
-          <template v-if="!query && recent.length">
-            <div class="border-ink-800 text-paper-400 border-t px-3 pt-2 pb-1 font-mono text-[11px] tracking-wide"><span class="text-paper-300">↻</span> Recent</div>
-            <button
-              v-for="r in recent.slice(0, 5)"
-              :key="`r-${r.latitude},${r.longitude}`"
-              class="hover:bg-ink-800 flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm"
-              @click="pickSaved(r)"
-            >
-              <span class="text-paper-400">↻</span>
-              <span class="text-paper-100 truncate"
-                >{{ r.name }}<span v-if="r.detail" class="text-paper-400">, {{ r.detail }}</span></span
-              >
-            </button>
-          </template>
-        </div>
+          :query="query"
+          :results="results"
+          :favourites="favourites"
+          :recent="recent"
+          :is-searching="isSearching"
+          :search-error="searchError"
+          @pick-result="pick"
+          @pick-saved="pickSaved"
+        />
       </div>
 
       <!-- Settings ---------------------------------------------------- -->
