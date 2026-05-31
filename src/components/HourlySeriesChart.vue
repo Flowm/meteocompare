@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { onClickOutside } from "@vueuse/core";
+import { onClickOutside, useResizeObserver } from "@vueuse/core";
 import type { EChartsOption } from "echarts";
 import type { ECharts } from "echarts/core";
-import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import VChart from "vue-echarts";
 
 import type { DataVarId, HourlySeries } from "@/composables/hourlySeries";
@@ -88,10 +88,32 @@ function selectView(v: ChartViewId): void {
   view.value = v;
 }
 
-// Variable picker: an expanded rail on desktop, a dropdown on mobile.
+// Variable picker: keep the expanded rail while it fits beside the window
+// selector; collapse only when the two controls would wrap.
+const variableControlsRoot = ref<HTMLElement | null>(null);
+const variableRailProbe = ref<HTMLElement | null>(null);
+const windowSelector = ref<HTMLElement | null>(null);
+const showExpandedVariableRail = ref(true);
 const varOpen = ref(false);
 const varRoot = ref<HTMLElement | null>(null);
 onClickOutside(varRoot, () => (varOpen.value = false));
+
+function updateVariableRailMode(): void {
+  void nextTick(() => {
+    const root = variableControlsRoot.value;
+    const rail = variableRailProbe.value;
+    const window = windowSelector.value;
+    if (!root || !rail || !window) return;
+    const rowGap = 12; // gap-3
+    showExpandedVariableRail.value = rail.offsetWidth + window.offsetWidth + rowGap <= root.clientWidth;
+    if (showExpandedVariableRail.value) varOpen.value = false;
+  });
+}
+
+useResizeObserver(variableControlsRoot, updateVariableRailMode);
+useResizeObserver(windowSelector, updateVariableRailMode);
+onMounted(updateVariableRailMode);
+watch(() => props.variables.map((v) => v).join(","), updateVariableRailMode);
 
 /** Whether a picker entry reads as "active". Temperature and precipitation are
  *  a combinable pair on the forecast page: either is active in the composite. */
@@ -366,9 +388,15 @@ const hasBand = computed(() => true);
 
     <div class="border-ink-700 bg-ink-900/60 relative border p-4 sm:p-6">
       <!-- Variable picker (left) + window selector (right) share a line -->
-      <div class="mb-4 flex flex-wrap items-center gap-3">
-        <!-- Desktop (lg+): expanded variable rail, all options inline -->
-        <div class="border-ink-700 hidden border font-mono text-xs tracking-wide lg:flex">
+      <div ref="variableControlsRoot" class="relative mb-4 flex items-center gap-3">
+        <div ref="variableRailProbe" aria-hidden="true" class="border-ink-700 pointer-events-none invisible absolute -z-10 flex w-max border font-mono text-xs tracking-wide">
+          <span v-for="vid in variables" :key="vid" class="border-ink-700 border-r px-2.5 py-1 whitespace-nowrap last:border-r-0">
+            {{ CHART_VIEWS[vid].label }}
+          </span>
+        </div>
+
+        <!-- Expanded variable rail while it fits beside the window selector. -->
+        <div v-if="showExpandedVariableRail" class="border-ink-700 flex border font-mono text-xs tracking-wide">
           <button
             v-for="vid in variables"
             :key="vid"
@@ -380,8 +408,8 @@ const hasBand = computed(() => true);
           </button>
         </div>
 
-        <!-- Mobile / tablet (< lg): collapse the rail into a dropdown -->
-        <div ref="varRoot" class="relative lg:hidden">
+        <!-- Dropdown fallback when the expanded rail would wrap. -->
+        <div v-else ref="varRoot" class="relative">
           <button
             type="button"
             class="group border-ink-700 bg-ink-900/60 text-paper-200 hover:border-sodium-300/60 hover:text-paper-50 flex items-center gap-2 border px-3 py-1 font-mono text-xs tracking-wide transition-colors"
@@ -415,7 +443,7 @@ const hasBand = computed(() => true);
         </div>
 
         <!-- Window selector (right-aligned) -->
-        <div class="border-ink-700 ml-auto flex border font-mono text-xs tracking-wide">
+        <div ref="windowSelector" class="border-ink-700 ml-auto flex shrink-0 border font-mono text-xs tracking-wide">
           <button
             v-for="c in WINDOW_CHOICES"
             :key="c.hours"
