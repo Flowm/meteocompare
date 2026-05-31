@@ -86,7 +86,7 @@ describe("buildHourlyChartOption — axis pinning", () => {
   });
 });
 
-describe("buildHourlyChartOption — spaghetti", () => {
+describe("buildHourlyChartOption — per-model overlay", () => {
   const models = [getModel("ecmwf_ifs")!, getModel("gfs_seamless")!];
   it("builds one per-model series per available model when showModels is on", () => {
     const ids = seriesOf({ ...base, models, showModels: true })
@@ -153,7 +153,7 @@ describe("buildHourlyChartOption — visibility toggles", () => {
     expect(aggIds.toSorted()).toEqual(["agg", "agg-precip"]);
   });
 
-  it("emits one model toggle per spaghetti series and none when models are off", () => {
+  it("emits one model toggle per overlay series and none when models are off", () => {
     const on = togglesOf({ ...base, models, showModels: true }).filter((x) => x.group === "model");
     expect(on.map((x) => x.id).toSorted()).toEqual(["s-ecmwf_ifs", "s-gfs_seamless"]);
     expect(on.every((x) => !!x.modelId && x.props.includes("lineStyle"))).toBe(true);
