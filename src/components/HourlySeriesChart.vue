@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onClickOutside } from "@vueuse/core";
 import type { EChartsOption } from "echarts";
+import type { ECharts } from "echarts/core";
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import VChart from "vue-echarts";
 
@@ -8,7 +9,7 @@ import type { DataVarId, HourlySeries } from "@/composables/hourlySeries";
 import { useUnits } from "@/composables/useUnits";
 import { MODELS, type ModelDef } from "@/domain/models";
 
-import { CHART_VIEWS, convertVar, type ChartViewId, type UnitPrefs } from "./chartHelpers";
+import { CHART_VIEWS, convertVar, isVarActive as isVarActiveFor, nextCombinableView, type ChartViewId, type UnitPrefs } from "./chartHelpers";
 import { AGG_COLOR, BAND_SWATCH, buildHourlyChartOption, paletteFor, TRUTH_COLOR, visibilityPatches } from "./chartOption";
 
 const props = withDefaults(
@@ -64,8 +65,8 @@ const showTruth = ref(true);
 const enabledModels = ref<Set<string>>(new Set());
 
 // Direct handle to the ECharts instance for no-redraw merge patches.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const chartRef = ref<any>(null);
+// vue-echarts exposes the underlying instance as `.chart` on its component ref.
+const chartRef = ref<{ chart?: ECharts } | null>(null);
 
 const hasTruth = computed(() => !!props.data.truth);
 
@@ -94,36 +95,15 @@ onClickOutside(varRoot, () => (varOpen.value = false));
 /** Whether a picker entry reads as "active". Temperature and precipitation are
  *  a combinable pair on the forecast page: either is active in the composite. */
 function isVarActive(vid: ChartViewId): boolean {
-  if (canCombineTempPrecip) {
-    if (vid === "temperature_2m") return view.value === "temp_precip" || view.value === "temperature_2m";
-    if (vid === "precipitation") return view.value === "temp_precip" || view.value === "precipitation";
-  }
-  return view.value === vid;
+  return isVarActiveFor(view.value, vid, canCombineTempPrecip);
 }
 
 function selectVariable(vid: ChartViewId): void {
-  // Temperature & precipitation toggle independently (dual-axis), so the two
-  // can be shown together — that combination *is* the composite view. The
-  // remaining variables are exclusive single-axis views.
+  // Temperature & precipitation toggle independently (dual-axis) into the
+  // composite; every other variable is an exclusive single-axis view. The set
+  // arithmetic for the combinable pair lives in chartHelpers.nextCombinableView.
   if (canCombineTempPrecip && (vid === "temperature_2m" || vid === "precipitation")) {
-    const inPair = view.value === "temp_precip" || view.value === "temperature_2m" || view.value === "precipitation";
-    let tempOn = view.value === "temp_precip" || view.value === "temperature_2m";
-    let precipOn = view.value === "temp_precip" || view.value === "precipitation";
-    if (!inPair) {
-      // Coming from an exclusive view (wind / cloud / prob) → focus the click.
-      tempOn = vid === "temperature_2m";
-      precipOn = vid === "precipitation";
-    } else if (vid === "temperature_2m") {
-      tempOn = !tempOn;
-    } else {
-      precipOn = !precipOn;
-    }
-    // Never leave the pair empty: toggling off the last one is a no-op.
-    if (!tempOn && !precipOn) {
-      tempOn = vid === "temperature_2m";
-      precipOn = vid === "precipitation";
-    }
-    selectView(tempOn && precipOn ? "temp_precip" : tempOn ? "temperature_2m" : "precipitation");
+    selectView(nextCombinableView(view.value, vid));
   } else {
     selectView(vid);
   }
@@ -180,7 +160,6 @@ watch(
 // area-fill) live in the builder's `toggles`; visibilityPatches() maps those +
 // the current toggle state to the patches.
 function applyVisibility(): void {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const chart = chartRef.value?.chart;
   if (!chart) return;
   const patches = visibilityPatches(toggles.value, {
@@ -189,7 +168,6 @@ function applyVisibility(): void {
     showTruth: showTruth.value,
     enabledModels: enabledModels.value,
   });
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
   if (patches.length) chart.setOption({ series: patches }, false);
 }
 
@@ -244,35 +222,27 @@ const spaghettiAxis = computed(() => (activeVar.value === "precipitation" ? 1 : 
 
 let detachCursor: (() => void) | null = null;
 watch(
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
   () => chartRef.value?.chart,
   (chart) => {
     detachCursor?.();
     detachCursor = null;
     if (!chart) return;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     const zr = chart.getZr();
     const onMove = (e: { offsetX: number; offsetY: number }): void => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       if (!chart.containPixel("grid", [e.offsetX, e.offsetY])) {
         cursorValue.value = null;
         return;
       }
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      const v = chart.convertFromPixel({ yAxisIndex: spaghettiAxis.value }, e.offsetY) as unknown;
+      const v = chart.convertFromPixel({ yAxisIndex: spaghettiAxis.value }, e.offsetY);
       cursorValue.value = typeof v === "number" ? v : null;
     };
     const onOut = (): void => {
       cursorValue.value = null;
     };
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     zr.on("mousemove", onMove);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     zr.on("globalout", onOut);
     detachCursor = (): void => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       zr.off("mousemove", onMove);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       zr.off("globalout", onOut);
     };
   },

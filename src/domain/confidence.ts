@@ -65,6 +65,24 @@ export function bandWidth(point: AggregatePoint, variable: Variable): number {
   return point.stdDev;
 }
 
+/** UI-side "overall confidence": the unweighted mean of the finite per-variable
+ *  parts (non-finite parts — e.g. a variable with no data — are skipped, not
+ *  counted as zero). Returns 0 when nothing is finite. This is the single
+ *  definition of the collapse CONTEXT.md flags as "overall confidence (under
+ *  review)"; the forecast view's badge and the daily strip both route through it
+ *  so they can never drift apart. */
+export function overallConfidence(parts: readonly (number | null | undefined)[]): number {
+  let sum = 0;
+  let n = 0;
+  for (const v of parts) {
+    if (v != null && Number.isFinite(v)) {
+      sum += v;
+      n += 1;
+    }
+  }
+  return n === 0 ? 0 : sum / n;
+}
+
 export type ConfidenceTier = "high" | "mid" | "low";
 
 export function confidenceTier(c: number): ConfidenceTier {

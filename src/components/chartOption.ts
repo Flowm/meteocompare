@@ -5,7 +5,7 @@
 // and attaches the tooltip.formatter, which reads live toggle state at hover
 // time (the no-redraw trick) and therefore cannot be pure.
 
-import type { EChartsOption } from "echarts";
+import type { EChartsOption, YAXisComponentOption } from "echarts";
 
 import type { DataVarId, HourlySeries } from "@/composables/hourlySeries";
 import { MODELS } from "@/domain/models";
@@ -32,6 +32,20 @@ export const MODEL_OPACITY = 0.55;
 // number | string | undefined. We need the literal null (not undefined) so a
 // merged setOption actually clears a previously-pinned min/max — hence the cast.
 const AUTO = null as unknown as undefined;
+
+/** The type ECharts accepts for an axis min/max bound. Beyond a static
+ *  `number | string`, it includes a callback evaluated against the data extent
+ *  each layout pass — which is how we grow the precipitation axis past a floor
+ *  without pinning it. Aliased so the call site reads as what it is instead of a
+ *  bare `number`. */
+type AxisBound = YAXisComponentOption["max"];
+
+/** A precipitation-axis ceiling that tracks the data but never drops below
+ *  `floor`, so a few tenths of a mm/h don't fill the panel and read as heavy
+ *  rain. Returned as the callback form ECharts evaluates per layout. */
+function precipAxisCeiling(floor: number): AxisBound {
+  return (extent: { max: number }) => Math.max(floor, extent.max);
+}
 
 /** Stable colour for a model, keyed by its index in the registry so the same
  *  model always reads the same hue across renders. */
@@ -407,7 +421,7 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
   // few tenths of a millimetre don't fill the panel and read as heavy rain.
   // The axis still grows past the floor when the data genuinely exceeds it.
   const precipFloor = convertVar(8, "precipitation", units) ?? 8;
-  const precipMax = ((value: { max: number }) => Math.max(precipFloor, value.max)) as unknown as number;
+  const precipMax = precipAxisCeiling(precipFloor);
 
   const option: EChartsOption = {
     backgroundColor: "transparent",

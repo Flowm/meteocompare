@@ -146,11 +146,11 @@ describe("buildHourlyChartOption — visibility toggles", () => {
     expect(togglesOf({ ...base, view: "precipitation", data: precipTruth }).find((x) => x.group === "truth")?.props).toEqual(["lineStyle", "itemStyle", "areaStyle"]);
   });
 
-  it("toggles the composite temperature line (agg) but not the precip bars (agg-precip)", () => {
+  it("toggles both the composite temperature line (agg) and the precip bars (agg-precip) together", () => {
     const aggIds = togglesOf({ ...base, view: "temp_precip" })
       .filter((x) => x.group === "aggregate")
       .map((x) => x.id);
-    expect(aggIds).toEqual(["agg"]);
+    expect(aggIds.toSorted()).toEqual(["agg", "agg-precip"]);
   });
 
   it("emits one model toggle per spaghetti series and none when models are off", () => {
