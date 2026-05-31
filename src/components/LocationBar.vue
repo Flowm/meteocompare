@@ -141,7 +141,7 @@ function geolocate(): void {
         <div ref="viewRoot" class="relative">
           <button
             type="button"
-            class="group border-ink-700 bg-ink-900/60 text-paper-200 hover:border-sodium-300/60 hover:text-paper-50 flex items-center gap-2 border px-2.5 py-1.5 font-mono text-xs tracking-wide transition-colors"
+            class="group border-ink-700 bg-ink-900/60 text-paper-200 hover:border-sodium-300/60 hover:text-paper-50 flex h-9 items-center gap-2 border px-2.5 font-mono text-xs tracking-wide transition-colors"
             :aria-expanded="viewOpen"
             aria-haspopup="menu"
             @click="viewOpen = !viewOpen"
@@ -199,7 +199,7 @@ function geolocate(): void {
           v-model="query"
           type="search"
           placeholder="Search station, city, coordinates…"
-          class="border-ink-700 bg-ink-900/70 text-paper-50 placeholder:text-paper-400/70 focus:border-sodium-300/70 focus:bg-ink-900 w-full min-w-0 border py-2 pr-10 pl-9 text-sm outline-none"
+          class="border-ink-700 bg-ink-900/70 text-paper-50 placeholder:text-paper-400/70 focus:border-sodium-300/70 focus:bg-ink-900 h-9 w-full min-w-0 border pr-10 pl-9 text-sm outline-none"
           @focus="isOpen = true"
         />
         <button
@@ -232,9 +232,13 @@ function geolocate(): void {
           <span class="sr-only">Use my location</span>
         </button>
 
+        <!-- On mobile the search column is narrow, so the results panel is
+             pinned to span the full viewport width minus the header's gutters
+             (fixed inset-x-4, just below the sticky header); on >=sm it reverts
+             to tracking the wide input as before. -->
         <div
           v-if="isOpen && (results.length || favourites.length || recent.length || isSearching || searchError)"
-          class="panel-in border-ink-700 bg-ink-900 absolute z-40 mt-1 w-full overflow-hidden border shadow-2xl shadow-black/60"
+          class="panel-in border-ink-700 bg-ink-900 fixed inset-x-4 top-14 z-40 overflow-hidden border shadow-2xl shadow-black/60 sm:absolute sm:inset-x-auto sm:top-auto sm:left-0 sm:mt-1 sm:w-full"
         >
           <div v-if="isSearching" class="text-paper-400 flex items-center gap-2 px-3 py-2 font-mono text-[11px] tracking-wide">
             <span class="bg-sodium-300 size-1 animate-pulse rounded-full" /> Searching…

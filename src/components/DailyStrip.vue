@@ -1,13 +1,20 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
+import type { ForecastResponse } from "@/api/omForecast";
 import type { DailyAggregate } from "@/composables/useForecast";
 import { overallConfidence } from "@/domain/confidence";
 import { MODELS } from "@/domain/models";
 
+import CurrentCard from "./CurrentCard.vue";
 import DayCard, { type ModelRow } from "./DayCard.vue";
 
-const props = defineProps<{ daily: DailyAggregate }>();
+const props = defineProps<{
+  daily: DailyAggregate;
+  raw: ForecastResponse;
+  solar: { sunrise: string[]; sunset: string[] } | null;
+  locationName: string;
+}>();
 
 interface DayRow {
   date: string;
@@ -49,8 +56,9 @@ const days = computed<DayRow[]>(() =>
 
 <template>
   <section>
-    <h2 class="eyebrow mb-3">10-day outlook</h2>
-    <div class="-mx-2 flex snap-x gap-2 overflow-x-auto px-2 pt-1 pb-3">
+    <h2 class="eyebrow mb-3">Conditions &amp; outlook</h2>
+    <div class="flex snap-x gap-2 overflow-x-auto pt-1 pb-3">
+      <CurrentCard class="snap-start" :raw="raw" :daily="daily" :solar="solar" :location-name="locationName" />
       <DayCard
         v-for="(d, i) in days"
         :key="d.date"
