@@ -77,7 +77,7 @@ The badge maps the result to one of three tiers — high (≥70 %, emerald), mid
 
 - **Vue 3** (`<script setup>`, Composition API) + **Vite** + **TypeScript** (strict)
 - **Tailwind CSS v4** via `@tailwindcss/vite`
-- **vue-echarts** (ECharts 5) for the charts
+- **vue-echarts** (ECharts 6) for the charts
 - **vue-router** for URL state, **@vueuse/core** for localStorage / debounce
 - **Erik Flowers' [weather-icons](https://github.com/erikflowers/weather-icons)** for the icon set
 - **Vitest** for unit tests
@@ -87,31 +87,32 @@ The badge maps the result to one of three tiers — high (≥70 %, emerald), mid
 ## Architecture
 
 ```
-            UI (Vue components)              Composables               Domain layer (pure TS)
-┌──────────────────────────────────┐   ┌──────────────────┐   ┌────────────────────────────────┐
-│  LocationBar  ─────┐             │   │  useLocation     │   │  models.ts                     │
-│  AggregateSummary  │             │   │   ─ URL sync     │   │   ─ registry + bboxes          │
-│  HourlyChart       │             │   │   ─ favourites   │   │  weighting.ts                  │
-│  DailyStrip ──────►│ ForecastView│◄──┤  useForecast     │◄──┤   ─ region bonus + decay       │
-│  ModelBreakdown    │             │   │   ─ fetch+aggreg.│   │  aggregate.ts                  │
-│  WeatherIcon       │             │   │  useUnits        │   │   ─ weighted mean / circ. mean │
-│  ConfidenceBadge ──┘             │   │   ─ formatters   │   │   ─ severity-weighted mode     │
-└──────────────────────────────────┘   └──────────────────┘   │  confidence.ts                 │
-                                                              │   ─ spread + model-count factor │
-                                                              │  weatherCodes.ts               │
-                                                              │   ─ WMO ↔ icon ↔ severity      │
-                                                              └────────────────────────────────┘
+        UI (Vue components)               Composables                Domain layer (pure TS)
+┌──────────────────────────────────┐  ┌──────────────────┐  ┌────────────────────────────────┐
+│  LocationBar                     │  │  useLocation     │  │  models.ts                     │
+│  AggregateSummary                │  │   ─ URL sync     │  │   ─ registry + bboxes          │
+│  HourlySeriesChart  (shared)     │  │   ─ favourites   │  │  weighting.ts                  │
+│  DailyStrip / DayCard            │  │  useForecast     │  │   ─ region bonus + decay       │
+│  VerificationDayCard            ►│◄─┤   ─ fetch+aggreg.│◄─┤  aggregate.ts                  │
+│  HitMissStrip                    │  │  useVerification │  │  aggregateVariables.ts (triad) │
+│  WeatherIcon / ConfidenceBadge   │  │   ─ fetch+score  │  │  confidence.ts                 │
+│                                  │  │  useUnits        │  │  verification.ts (bias/MAE …)  │
+│  ForecastView · VerificationView │  │   ─ formatters   │  │  weatherCodes.ts               │
+└──────────────────────────────────┘  └──────────────────┘  └────────────────────────────────┘
                                                                             ▲
                                                                             │
-                                                              ┌─────────────┴──────────────────┐
-                                                              │  api/openMeteo.ts              │
-                                                              │   ─ typed forecast client +    │
-                                                              │     30-min in-memory cache     │
-                                                              │  api/geocoding.ts              │
-                                                              └────────────────────────────────┘
+                                            ┌───────────────────────────────┴──────────────────┐
+                                            │  api/omForecast.ts      ─ live forecast client    │
+                                            │  api/omSingleRuns.ts    ─ historical model runs   │
+                                            │  api/omHistoricalWeather.ts ─ ERA5-Seamless truth │
+                                            │  api/geocoding.ts       ─ location search         │
+                                            │  (HTTP caching via the service worker, SWR)       │
+                                            └────────────────────────────────────────────────────┘
 ```
 
-The **domain layer** is pure TS, unit-tested with Vitest (21 tests). The UI sits on top of it via three composables. There is no global store — the URL is the source of truth for the location, and localStorage holds units, favourites, and recent searches.
+The **domain layer** is pure TS, unit-tested with Vitest. The UI sits on top of it via the
+composables. There is no global store — the URL is the source of truth for the location, and
+localStorage holds units, favourites, and recent searches.
 
 ## Develop
 
@@ -127,7 +128,7 @@ npm run dev          # Vite dev server
 npm run build        # type-check + production build to ./dist
 npm run preview      # serve ./dist locally
 
-npm test             # Vitest unit tests (21 cases)
+npm test             # Vitest unit tests
 npm run test:watch   # interactive
 
 npm run lint         # oxlint + oxfmt --check + vue-tsc (CI gate)
