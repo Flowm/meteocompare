@@ -21,7 +21,7 @@ const props = defineProps<{
 const { current, isFavourite, toggleFavourite } = useLocation();
 const starred = computed(() => isFavourite(current.value));
 
-const { temp, formatTemp, formatPercent } = useUnits();
+const { temp, formatPercent } = useUnits();
 
 const tempUnitLetter = computed(() => (temp.value === "f" ? "F" : "C"));
 
@@ -32,8 +32,6 @@ const currentTemp = computed(() => {
 });
 const currentCode = computed(() => Number(props.raw.current.weather_code ?? 0));
 const currentIsDay = computed(() => (props.raw.current.is_day ?? 1) === 1);
-const todayHigh = computed(() => props.daily.series.temperature_2m_max[0]?.value ?? null);
-const todayLow = computed(() => props.daily.series.temperature_2m_min[0]?.value ?? null);
 const todayPrecipProb = computed(() => props.daily.series.precipitation_probability_max[0]?.value ?? null);
 const todayConfidence = computed(() =>
   overallConfidence([props.daily.confidence.temperature_2m_max[0], props.daily.confidence.precipitation_sum[0], props.daily.confidence.weather_code[0]]),
@@ -99,19 +97,10 @@ const tempWhole = computed(() => {
         {{ weatherLabel(currentCode) }}
       </div>
 
-      <!-- High / low presented as a paired register (matches DayCard) -->
-      <div class="divide-ink-700/60 border-ink-700/60 mt-3 grid grid-cols-2 divide-x border-y py-1.5 font-mono tabular-nums">
-        <div class="flex flex-col items-center gap-0.5">
-          <span class="text-paper-400 text-[9px] tracking-wide">Hi</span>
-          <span class="text-heat-300 text-sm font-medium">{{ formatTemp(todayHigh, 0) }}</span>
-        </div>
-        <div class="flex flex-col items-center gap-0.5">
-          <span class="text-paper-400 text-[9px] tracking-wide">Lo</span>
-          <span class="text-cold-300 text-sm font-medium">{{ formatTemp(todayLow, 0) }}</span>
-        </div>
-      </div>
-
-      <div class="mt-2 flex items-center justify-center gap-1.5 font-mono text-[10px] tabular-nums">
+      <!-- Hi/Lo intentionally omitted: the adjacent "Today" card already
+           carries today's high/low, so the live card stays focused on the
+           current reading. -->
+      <div class="border-ink-700/60 mt-3 flex items-center justify-center gap-1.5 border-t pt-3 font-mono text-[10px] tabular-nums">
         <template v-if="todayPrecipProb != null && todayPrecipProb > 5">
           <span class="bg-rain-400 size-1 rounded-full" aria-hidden="true" />
           <span class="text-rain-300">{{ formatPercent(todayPrecipProb) }}</span>
