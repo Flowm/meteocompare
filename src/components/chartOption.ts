@@ -426,7 +426,11 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
   const option: EChartsOption = {
     backgroundColor: "transparent",
     textStyle: { color: "#c9bea4", fontFamily: "JetBrains Mono, ui-monospace, monospace" },
-    grid: { left: 52, right: 52, top: 32, bottom: 36 },
+    // Trimmed left/right gutters (was 52) so the plot spans more of the card;
+    // 36 still clears the 2-digit axis labels and the unit names on top.
+    // bottom kept tight (26) so the x-axis labels sit just under the plot
+    // rather than leaving dead canvas before the legend.
+    grid: { left: 36, right: 36, top: 32, bottom: 26 },
     animationDurationUpdate: 0,
     tooltip: {
       trigger: "axis",

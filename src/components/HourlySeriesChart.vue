@@ -432,7 +432,9 @@ const hasBand = computed(() => true);
       </div>
     </div>
 
-    <div class="relative">
+    <!-- Bleed the plot slightly past the card padding so it spans a touch
+         wider; the labelled controls above/below keep their full inset. -->
+    <div class="relative -mx-2">
       <!-- Faint graph-paper backplate so the chart reads as an instrument
            plot, not a flat panel. -->
       <div class="graph-paper pointer-events-none absolute inset-0 opacity-40" aria-hidden="true" />
@@ -443,7 +445,7 @@ const hasBand = computed(() => true);
          Two labelled sections — SERIES (aggregate / spread / truth toggles)
          and MODELS (an "All" toggle plus per-model spaghetti chips). Enabling
          any model chip turns the spaghetti on; "All" flips every model at once. -->
-    <div class="border-ink-700/60 mt-4 space-y-2.5 border-t pt-3 font-mono text-[11px] tracking-wide">
+    <div class="border-ink-700/60 mt-2 space-y-2.5 border-t pt-3 font-mono text-[11px] tracking-wide">
       <!-- SERIES -->
       <div class="flex items-start gap-2">
         <span class="text-paper-400 w-14 shrink-0 pt-[5px]">Series</span>
