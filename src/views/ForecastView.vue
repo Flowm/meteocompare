@@ -2,9 +2,11 @@
 import { computed } from "vue";
 
 import { type ChartViewId } from "@/components/chartHelpers";
+import CollapsibleSection from "@/components/CollapsibleSection.vue";
 import ConditionsOutlookCard from "@/components/ConditionsOutlookCard.vue";
 import HourlySeriesChart from "@/components/HourlySeriesChart.vue";
 import LocationBar from "@/components/LocationBar.vue";
+import WindyMap from "@/components/WindyMap.vue";
 import { useForecast } from "@/composables/useForecast";
 import { useLocation } from "@/composables/useLocation";
 
@@ -43,8 +45,25 @@ const locationLabel = computed(() => {
       </div>
 
       <template v-if="raw && hourly && daily">
-        <ConditionsOutlookCard :daily="daily" :raw="raw" :solar="solar" :location-name="locationLabel" />
-        <HourlySeriesChart title="Hourly forecast" :data="hourly" :variables="FORECAST_VARIABLES" :solar="solar" :current-time="raw.current.time" :default-window="72" />
+        <CollapsibleSection title="Conditions &amp; outlook">
+          <ConditionsOutlookCard :daily="daily" :raw="raw" :solar="solar" :location-name="locationLabel" />
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Hourly forecast">
+          <HourlySeriesChart
+            title="Hourly forecast"
+            :show-title="false"
+            :data="hourly"
+            :variables="FORECAST_VARIABLES"
+            :solar="solar"
+            :current-time="raw.current.time"
+            :default-window="72"
+          />
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Windy weather radar" :default-open="false" lazy>
+          <WindyMap :latitude="current.latitude" :longitude="current.longitude" :location-name="locationLabel" />
+        </CollapsibleSection>
       </template>
     </main>
 

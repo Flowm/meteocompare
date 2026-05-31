@@ -14,11 +14,8 @@ const props = defineProps<{
 </script>
 
 <template>
-  <section>
-    <h2 class="eyebrow mb-3">Conditions &amp; outlook</h2>
-    <div class="flex snap-x gap-2 overflow-x-auto pt-1 pb-3">
-      <CurrentCard class="snap-start" :raw="props.raw" :daily="props.daily" :solar="props.solar" :location-name="props.locationName" />
-      <DailyStrip :daily="props.daily" />
-    </div>
-  </section>
+  <div class="flex snap-x gap-2 overflow-x-auto pt-1 pb-3">
+    <CurrentCard class="snap-start" :raw="props.raw" :daily="props.daily" :solar="props.solar" :location-name="props.locationName" />
+    <DailyStrip :daily="props.daily" />
+  </div>
 </template>
