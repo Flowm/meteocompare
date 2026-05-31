@@ -43,8 +43,8 @@ const locationLabel = computed(() => {
       </div>
 
       <template v-if="raw && hourly && daily">
-        <HourlySeriesChart title="Hourly forecast" :data="hourly" :variables="FORECAST_VARIABLES" :solar="solar" :current-time="raw.current.time" :default-window="72" />
         <DailyStrip :daily="daily" :raw="raw" :solar="solar" :location-name="locationLabel" />
+        <HourlySeriesChart title="Hourly forecast" :data="hourly" :variables="FORECAST_VARIABLES" :solar="solar" :current-time="raw.current.time" :default-window="72" />
       </template>
     </main>
 
