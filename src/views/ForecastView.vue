@@ -2,7 +2,7 @@
 import { computed } from "vue";
 
 import { type ChartViewId } from "@/components/chartHelpers";
-import DailyStrip from "@/components/DailyStrip.vue";
+import ConditionsOutlookCard from "@/components/ConditionsOutlookCard.vue";
 import HourlySeriesChart from "@/components/HourlySeriesChart.vue";
 import LocationBar from "@/components/LocationBar.vue";
 import { useForecast } from "@/composables/useForecast";
@@ -43,7 +43,7 @@ const locationLabel = computed(() => {
       </div>
 
       <template v-if="raw && hourly && daily">
-        <DailyStrip :daily="daily" :raw="raw" :solar="solar" :location-name="locationLabel" />
+        <ConditionsOutlookCard :daily="daily" :raw="raw" :solar="solar" :location-name="locationLabel" />
         <HourlySeriesChart title="Hourly forecast" :data="hourly" :variables="FORECAST_VARIABLES" :solar="solar" :current-time="raw.current.time" :default-window="72" />
       </template>
     </main>
