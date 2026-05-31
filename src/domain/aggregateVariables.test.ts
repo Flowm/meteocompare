@@ -6,7 +6,7 @@ import { confidenceFor } from "./confidence";
 import { getModel } from "./models";
 
 const PARIS = { lat: 48.85, lon: 2.35 };
-const subset = [getModel("ecmwf_ifs025")!, getModel("gfs_global")!, getModel("icon_global")!, getModel("meteofrance_seamless")!];
+const subset = [getModel("ecmwf_ifs")!, getModel("gfs_seamless")!, getModel("icon_global")!, getModel("meteofrance_seamless")!];
 
 function makeTimes(n: number, baseISO: string): string[] {
   const base = new Date(baseISO).getTime();
@@ -24,8 +24,8 @@ describe("aggregateVariables — index→lead-hours convention", () => {
     // (no clamping) — the typicalSpread band differs between lead 1 and lead 36.
     const perModel = {
       temperature_2m: {
-        ecmwf_ifs025: [10, 10],
-        gfs_global: [10.6, 10.6],
+        ecmwf_ifs: [10, 10],
+        gfs_seamless: [10.6, 10.6],
         icon_global: [10.3, 10.3],
         meteofrance_seamless: [10.1, 10.1],
       },
@@ -48,7 +48,7 @@ describe("aggregateVariables — index→lead-hours convention", () => {
 describe("aggregateVariables — key vs family", () => {
   it("keys the result by `key` but weights/scores by `family`", () => {
     const times = makeTimes(1, "2026-05-20T00:00:00Z");
-    const byModel = { ecmwf_ifs025: [18], gfs_global: [22], icon_global: [20], meteofrance_seamless: [19] };
+    const byModel = { ecmwf_ifs: [18], gfs_seamless: [22], icon_global: [20], meteofrance_seamless: [19] };
     const out = aggregateVariables({
       times,
       perModel: { temperature_2m_max: byModel },
@@ -72,8 +72,8 @@ describe("aggregateVariables — shape", () => {
   it("echoes perModel and keys aggregate/confidence per variable, lengths match times", () => {
     const times = makeTimes(3, "2026-05-20T00:00:00Z");
     const perModel = {
-      temperature_2m: { ecmwf_ifs025: [10, 11, 12], gfs_global: [10, 11, 12], icon_global: [10, 11, 12], meteofrance_seamless: [10, 11, 12] },
-      precipitation: { ecmwf_ifs025: [0, 1, 0], gfs_global: [0, 1, 0], icon_global: [0, 2, 0], meteofrance_seamless: [0, 1, 0] },
+      temperature_2m: { ecmwf_ifs: [10, 11, 12], gfs_seamless: [10, 11, 12], icon_global: [10, 11, 12], meteofrance_seamless: [10, 11, 12] },
+      precipitation: { ecmwf_ifs: [0, 1, 0], gfs_seamless: [0, 1, 0], icon_global: [0, 2, 0], meteofrance_seamless: [0, 1, 0] },
     };
     const out = aggregateVariables({
       times,
@@ -100,7 +100,7 @@ describe("aggregateVariables — shape", () => {
 describe("aggregateVariables — weather_code is lead-independent", () => {
   it("scores weather_code by agreement, so cadence does not change confidence", () => {
     const times = makeTimes(1, "2026-05-20T00:00:00Z");
-    const perModel = { weather_code: { ecmwf_ifs025: [61], gfs_global: [63], icon_global: [80], meteofrance_seamless: [0] } };
+    const perModel = { weather_code: { ecmwf_ifs: [61], gfs_seamless: [63], icon_global: [80], meteofrance_seamless: [0] } };
     const vars = [{ key: "weather_code", family: "weather_code" as const }];
     const base = { times, perModel, vars, models: subset, lat: PARIS.lat, lon: PARIS.lon, baseTime };
 
@@ -115,7 +115,7 @@ describe("aggregateVariables — weather_code is lead-independent", () => {
 describe("aggregateVariables — degenerate input", () => {
   it("yields a NaN aggregate value and zero confidence when every model is null", () => {
     const times = makeTimes(1, "2026-05-20T00:00:00Z");
-    const perModel = { temperature_2m: { ecmwf_ifs025: [null], gfs_global: [null], icon_global: [null], meteofrance_seamless: [null] } };
+    const perModel = { temperature_2m: { ecmwf_ifs: [null], gfs_seamless: [null], icon_global: [null], meteofrance_seamless: [null] } };
     const out = aggregateVariables({
       times,
       perModel,

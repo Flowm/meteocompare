@@ -60,7 +60,7 @@ export interface DailyVerification {
   /** Exclusive end. */
   leadHoursEnd: number;
   aggregate: VariableScores;
-  /** Keyed by model id (e.g. `"ecmwf_ifs025"`). */
+  /** Keyed by model id (e.g. `"ecmwf_ifs"`). */
   perModel: Record<string, VariableScores>;
 }
 

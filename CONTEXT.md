@@ -1,13 +1,13 @@
 # MeteoCompare
 
-Multi-model weather forecast comparison. The app pulls deterministic numerical-weather-prediction (NWP) forecasts from many models via open-meteo, weights them, and produces a single aggregate forecast plus a per-timestep confidence score. A secondary verification surface compares past forecasts against a reference reanalysis field to expose which models (and the aggregate) were actually right.
+Multi-model weather forecast comparison. The app pulls operational forecast products from many models via open-meteo, weights them, and produces a single aggregate forecast plus a per-timestep confidence score. A secondary verification surface compares past forecasts against a reference reanalysis field to expose which models (and the aggregate) were actually right.
 
 ## Language
 
 ### Models & runs
 
 **Model**:
-A specific NWP product exposed by open-meteo, e.g. ECMWF IFS or DWD ICON-EU. One logical model per row in `src/domain/models.ts`.
+A specific forecast product exposed by open-meteo, e.g. ECMWF IFS HRES, DWD ICON-EU, or ECMWF AIFS. One logical model per row in `src/domain/models.ts`.
 _Avoid_: provider, source, dataset.
 
 **Probability graft**:
@@ -15,7 +15,7 @@ open-meteo derives `precipitation_probability` only from ensembles, so determini
 _Avoid_: registering a graft source as a Model.
 
 **Model class**:
-Resolution-and-scope tier: `global`, `regional-mid`, or `regional-cam` (convection-allowing). Drives lead-time decay and precipitation boost.
+Resolution/product-and-scope tier: `global`, `regional-mid`, `regional-cam` (convection-allowing), `ai` (machine-learned single forecast product), or `ensemble-mean` (mean of ensemble members exposed as one forecast product). Drives lead-time decay, precipitation boost, and how strongly a model contributes relative to deterministic NWP products.
 
 **Home region**:
 The geographic bounding box where a regional model has a structural advantage. Drives the region bonus inside the weighting recipe. Global models have no home region.

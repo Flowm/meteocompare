@@ -33,7 +33,7 @@ const DATA: HourlySeries = {
     cloud_cover: [pt(50), pt(60), pt(70), pt(80), pt(90)],
   },
   perModel: {
-    temperature_2m: { ecmwf_ifs025: [10, 11, 12, 13, 14], gfs_global: [9, 10, 11, 12, 13] },
+    temperature_2m: { ecmwf_ifs: [10, 11, 12, 13, 14], gfs_seamless: [9, 10, 11, 12, 13] },
   },
 };
 
@@ -87,12 +87,12 @@ describe("buildHourlyChartOption — axis pinning", () => {
 });
 
 describe("buildHourlyChartOption — spaghetti", () => {
-  const models = [getModel("ecmwf_ifs025")!, getModel("gfs_global")!];
+  const models = [getModel("ecmwf_ifs")!, getModel("gfs_seamless")!];
   it("builds one per-model series per available model when showModels is on", () => {
     const ids = seriesOf({ ...base, models, showModels: true })
       .map((s) => s.id)
       .filter((id): id is string => !!id?.startsWith("s-"));
-    expect(ids.toSorted()).toEqual(["s-ecmwf_ifs025", "s-gfs_global"]);
+    expect(ids.toSorted()).toEqual(["s-ecmwf_ifs", "s-gfs_seamless"]);
   });
   it("builds no per-model series when showModels is off", () => {
     const ids = seriesOf({ ...base, models, showModels: false }).filter((s) => s.id?.startsWith("s-"));
@@ -128,7 +128,7 @@ describe("buildHourlyChartOption — night/now marks", () => {
 });
 
 describe("buildHourlyChartOption — visibility toggles", () => {
-  const models = [getModel("ecmwf_ifs025")!, getModel("gfs_global")!];
+  const models = [getModel("ecmwf_ifs")!, getModel("gfs_seamless")!];
 
   it("emits aggregate + band toggles for a line view", () => {
     const t = togglesOf(base);
@@ -155,7 +155,7 @@ describe("buildHourlyChartOption — visibility toggles", () => {
 
   it("emits one model toggle per spaghetti series and none when models are off", () => {
     const on = togglesOf({ ...base, models, showModels: true }).filter((x) => x.group === "model");
-    expect(on.map((x) => x.id).toSorted()).toEqual(["s-ecmwf_ifs025", "s-gfs_global"]);
+    expect(on.map((x) => x.id).toSorted()).toEqual(["s-ecmwf_ifs", "s-gfs_seamless"]);
     expect(on.every((x) => !!x.modelId && x.props.includes("lineStyle"))).toBe(true);
     expect(togglesOf({ ...base, models, showModels: false }).some((x) => x.group === "model")).toBe(false);
   });

@@ -4,7 +4,7 @@ import { aggregateSeries } from "./aggregate";
 import { getModel } from "./models";
 
 const PARIS = { lat: 48.85, lon: 2.35 };
-const subset = [getModel("ecmwf_ifs025")!, getModel("gfs_global")!, getModel("icon_global")!, getModel("meteofrance_seamless")!];
+const subset = [getModel("ecmwf_ifs")!, getModel("gfs_seamless")!, getModel("icon_global")!, getModel("meteofrance_seamless")!];
 
 function makeTimes(n: number, baseISO: string): string[] {
   const base = new Date(baseISO).getTime();
@@ -16,8 +16,8 @@ describe("aggregateSeries (temperature)", () => {
     const baseTime = new Date("2026-05-20T00:00:00Z");
     const times = makeTimes(4, "2026-05-20T00:00:00Z");
     const series = {
-      ecmwf_ifs025: [10, 11, 12, 13],
-      gfs_global: [10, 11, 12, 13],
+      ecmwf_ifs: [10, 11, 12, 13],
+      gfs_seamless: [10, 11, 12, 13],
       icon_global: [10, 11, 12, 13],
       meteofrance_seamless: [10, 11, 12, 13],
     };
@@ -38,8 +38,8 @@ describe("aggregateSeries (temperature)", () => {
     const baseTime = new Date("2026-05-20T00:00:00Z");
     const times = makeTimes(1, "2026-05-20T00:00:00Z");
     const series = {
-      ecmwf_ifs025: [10],
-      gfs_global: [14],
+      ecmwf_ifs: [10],
+      gfs_seamless: [14],
       icon_global: [12],
       meteofrance_seamless: [11],
     };
@@ -59,8 +59,8 @@ describe("aggregateSeries (temperature)", () => {
     const baseTime = new Date("2026-05-20T00:00:00Z");
     const times = makeTimes(1, "2026-05-20T00:00:00Z");
     const series = {
-      ecmwf_ifs025: [10],
-      gfs_global: [null],
+      ecmwf_ifs: [10],
+      gfs_seamless: [null],
       icon_global: [null],
       meteofrance_seamless: [null],
     };
@@ -84,8 +84,8 @@ describe("aggregateSeries (wind_direction_10m)", () => {
     const out = aggregateSeries(
       times,
       {
-        ecmwf_ifs025: [350],
-        gfs_global: [10],
+        ecmwf_ifs: [350],
+        gfs_seamless: [10],
         icon_global: [355],
         meteofrance_seamless: [5],
       },
@@ -110,8 +110,8 @@ describe("aggregateSeries (wind_direction_10m)", () => {
     const out = aggregateSeries(
       times,
       {
-        ecmwf_ifs025: [180],
-        gfs_global: [185],
+        ecmwf_ifs: [180],
+        gfs_seamless: [185],
         icon_global: [175],
         meteofrance_seamless: [180],
       },
@@ -131,8 +131,8 @@ describe("aggregateSeries (wind_direction_10m)", () => {
     const out = aggregateSeries(
       times,
       {
-        ecmwf_ifs025: [0],
-        gfs_global: [180],
+        ecmwf_ifs: [0],
+        gfs_seamless: [180],
         icon_global: [0],
         meteofrance_seamless: [180],
       },
@@ -155,8 +155,8 @@ describe("aggregateSeries (weather_code)", () => {
     const times = makeTimes(1, "2026-05-20T00:00:00Z");
     // 3 models say "rain" (61, 63, 80), 1 says "clear" (0).
     const series = {
-      ecmwf_ifs025: [61],
-      gfs_global: [63],
+      ecmwf_ifs: [61],
+      gfs_seamless: [63],
       icon_global: [80],
       meteofrance_seamless: [0],
     };

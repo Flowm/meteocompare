@@ -22,8 +22,17 @@ function leadFactor(model: ModelDef, leadHours: number): number {
       // Decay gently past 3 days (1.0 → 0.4 by 240 h) so the weight
       // system is the single source of lead-time authority.
       const longRangeDecay = leadHours <= 72 ? 1.0 : Math.max(0.4, 1 - ((leadHours - 72) / 168) * 0.6);
-      if (model.id === "ecmwf_ifs025" && leadHours > 72) return 1.1 * longRangeDecay;
+      if (model.id === "ecmwf_ifs" && leadHours > 72) return 1.1 * longRangeDecay;
       return longRangeDecay;
+    }
+    case "ai":
+    case "ensemble-mean": {
+      // AI and ensemble-mean products are useful independent signals, but they
+      // should not overwhelm the deterministic NWP aggregate with a full vote.
+      // Keep the two product classes equally weighted until verification evidence
+      // supports calibrating them independently.
+      const longRangeDecay = leadHours <= 72 ? 1.0 : Math.max(0.4, 1 - ((leadHours - 72) / 168) * 0.6);
+      return 0.75 * longRangeDecay;
     }
   }
 }
