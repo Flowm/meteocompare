@@ -126,9 +126,7 @@ const tempWhole = computed(() => {
         <span class="flex items-center gap-1" :title="`Sunrise ${formatClock(sunrise)}`">
           <span class="text-sodium-300" aria-hidden="true">↑</span>{{ formatClock(sunrise) }}
         </span>
-        <span class="flex items-center gap-1" :title="`Sunset ${formatClock(sunset)}`">
-          <span class="text-heat-300" aria-hidden="true">↓</span>{{ formatClock(sunset) }}
-        </span>
+        <span class="flex items-center gap-1" :title="`Sunset ${formatClock(sunset)}`"> <span class="text-heat-300" aria-hidden="true">↓</span>{{ formatClock(sunset) }} </span>
       </div>
 
       <div class="mt-auto flex justify-center pt-3">
