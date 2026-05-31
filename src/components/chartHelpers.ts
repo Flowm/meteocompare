@@ -51,6 +51,60 @@ export const DATA_VAR_META: Record<DataVarId, DataVarMeta> = {
 };
 
 // ---------------------------------------------------------------------------
+// Combinable-pair view model
+// ---------------------------------------------------------------------------
+// Temperature (left axis) and precipitation (right axis) are the one
+// combinable pair: showing both together *is* the `temp_precip` composite
+// view. Every other variable is an exclusive single-axis view. Modelling the
+// active selection as a set of variables — rather than juggling tempOn/precipOn
+// booleans — keeps the picker's toggle logic a single, testable transform.
+
+/** The dual-axis pair that can be shown together as the composite view. */
+export const COMBINABLE_VARS: readonly DataVarId[] = ["temperature_2m", "precipitation"];
+
+function isCombinable(v: DataVarId): boolean {
+  return COMBINABLE_VARS.includes(v);
+}
+
+/** The underlying data variables a view renders, as a set. */
+export function viewVars(view: ChartViewId): Set<DataVarId> {
+  return new Set(CHART_VIEWS[view].vars);
+}
+
+/** Map a non-empty set of combinable variables back to its view id. */
+function combinableView(active: Set<DataVarId>): ChartViewId {
+  const temp = active.has("temperature_2m");
+  const precip = active.has("precipitation");
+  return temp && precip ? "temp_precip" : temp ? "temperature_2m" : "precipitation";
+}
+
+/** Whether a picker entry reads as "active" for the current view. When the
+ *  combinable pair is in play, temperature/precipitation are active whenever the
+ *  current view includes them (the composite counts for both). */
+export function isVarActive(view: ChartViewId, vid: ChartViewId, combinable: boolean): boolean {
+  if (combinable && vid !== "temp_precip" && isCombinable(vid)) {
+    return viewVars(view).has(vid);
+  }
+  return view === vid;
+}
+
+/** Toggle `clicked` within the active combinable set and return the resulting
+ *  view. Coming from an exclusive view (wind/cloud/prob) focuses the click;
+ *  toggling off the last remaining variable is a no-op (the pair never empties). */
+export function nextCombinableView(view: ChartViewId, clicked: DataVarId): ChartViewId {
+  const active = new Set<DataVarId>([...viewVars(view)].filter(isCombinable));
+  if (active.size === 0) {
+    active.add(clicked); // focusing in from an exclusive view
+  } else if (active.has(clicked)) {
+    active.delete(clicked);
+  } else {
+    active.add(clicked);
+  }
+  if (active.size === 0) active.add(clicked); // never leave the pair empty
+  return combinableView(active);
+}
+
+// ---------------------------------------------------------------------------
 // Unit conversion / formatting
 // ---------------------------------------------------------------------------
 

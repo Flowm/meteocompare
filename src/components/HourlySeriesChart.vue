@@ -8,7 +8,7 @@ import type { DataVarId, HourlySeries } from "@/composables/hourlySeries";
 import { useUnits } from "@/composables/useUnits";
 import { MODELS, type ModelDef } from "@/domain/models";
 
-import { CHART_VIEWS, convertVar, type ChartViewId, type UnitPrefs } from "./chartHelpers";
+import { CHART_VIEWS, convertVar, isVarActive as isVarActiveFor, nextCombinableView, type ChartViewId, type UnitPrefs } from "./chartHelpers";
 import { AGG_COLOR, BAND_SWATCH, buildHourlyChartOption, paletteFor, TRUTH_COLOR, visibilityPatches } from "./chartOption";
 
 const props = withDefaults(
@@ -94,36 +94,15 @@ onClickOutside(varRoot, () => (varOpen.value = false));
 /** Whether a picker entry reads as "active". Temperature and precipitation are
  *  a combinable pair on the forecast page: either is active in the composite. */
 function isVarActive(vid: ChartViewId): boolean {
-  if (canCombineTempPrecip) {
-    if (vid === "temperature_2m") return view.value === "temp_precip" || view.value === "temperature_2m";
-    if (vid === "precipitation") return view.value === "temp_precip" || view.value === "precipitation";
-  }
-  return view.value === vid;
+  return isVarActiveFor(view.value, vid, canCombineTempPrecip);
 }
 
 function selectVariable(vid: ChartViewId): void {
-  // Temperature & precipitation toggle independently (dual-axis), so the two
-  // can be shown together — that combination *is* the composite view. The
-  // remaining variables are exclusive single-axis views.
+  // Temperature & precipitation toggle independently (dual-axis) into the
+  // composite; every other variable is an exclusive single-axis view. The set
+  // arithmetic for the combinable pair lives in chartHelpers.nextCombinableView.
   if (canCombineTempPrecip && (vid === "temperature_2m" || vid === "precipitation")) {
-    const inPair = view.value === "temp_precip" || view.value === "temperature_2m" || view.value === "precipitation";
-    let tempOn = view.value === "temp_precip" || view.value === "temperature_2m";
-    let precipOn = view.value === "temp_precip" || view.value === "precipitation";
-    if (!inPair) {
-      // Coming from an exclusive view (wind / cloud / prob) → focus the click.
-      tempOn = vid === "temperature_2m";
-      precipOn = vid === "precipitation";
-    } else if (vid === "temperature_2m") {
-      tempOn = !tempOn;
-    } else {
-      precipOn = !precipOn;
-    }
-    // Never leave the pair empty: toggling off the last one is a no-op.
-    if (!tempOn && !precipOn) {
-      tempOn = vid === "temperature_2m";
-      precipOn = vid === "precipitation";
-    }
-    selectView(tempOn && precipOn ? "temp_precip" : tempOn ? "temperature_2m" : "precipitation");
+    selectView(nextCombinableView(view.value, vid));
   } else {
     selectView(vid);
   }
