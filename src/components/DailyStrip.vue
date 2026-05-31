@@ -57,7 +57,7 @@ const days = computed<DayRow[]>(() =>
 <template>
   <section>
     <h2 class="eyebrow mb-3">Conditions &amp; outlook</h2>
-    <div class="-mx-2 flex snap-x gap-2 overflow-x-auto px-2 pt-1 pb-3">
+    <div class="flex snap-x gap-2 overflow-x-auto pt-1 pb-3">
       <CurrentCard class="snap-start" :raw="raw" :daily="daily" :solar="solar" :location-name="locationName" />
       <DayCard
         v-for="(d, i) in days"
