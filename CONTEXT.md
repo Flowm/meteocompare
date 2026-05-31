@@ -49,12 +49,12 @@ Weighted standard deviation across the contributing models at a timestep. Inputs
 Empirically chosen reference spread per variable per lead-time band, used to normalise raw spread into a 0..1 score. Defined in `confidence.ts`.
 
 **Hourly series chart**:
-The single shared hourly chart rendered on both the forecast and verification pages. It draws the aggregate for a selected variable (with its confidence band), optionally overlays the per-model spaghetti, and — on the verification page — the truth series. One surface, configured per page.
+The single shared hourly chart rendered on both the forecast and verification pages. It draws the aggregate for a selected variable (with its confidence band), optionally overlays the per-model lines, and — on the verification page — the truth series. One surface, configured per page.
 _Avoid_: per-page names ("forecast chart", "verification chart", "compare-models chart"); these described the three separate charts that preceded it.
 
-**Spaghetti view**:
-The opt-in mode of the hourly series chart that draws one line per contributing model. Secondary surface — the aggregate view is primary.
-_Avoid_: breakdown view (used historically; "spaghetti" is the term we keep).
+**Per-model overlay**:
+The opt-in mode of the hourly series chart that draws one line per contributing model, overlaid on the aggregate. Secondary surface — the aggregate view is primary.
+_Avoid_: spaghetti view, breakdown view (both used historically). "Spaghetti" specifically implies ensemble members, which we don't use (see "Aggregate"); "per-model overlay" is the term we keep.
 
 ### Confidence
 

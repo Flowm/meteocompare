@@ -9,7 +9,7 @@ Frontend-only (Vue 3 + Vite). Forecasts come straight from [open-meteo.com](http
 - **21 forecast models/products**, automatically dropped in/out based on geographic coverage and forecast horizon.
 - **Aggregate-first UI**: temperature + ±1σ confidence band, precipitation bars, daily strip with weather icon / high / low / precip prob / wind.
 - **Confidence score** per timestep — derived from inter-model spread normalised against typical seasonal spread, a model-count penalty, and lead-time decay encoded in the model weights.
-- **Multi-model breakdown** (opt-in) — spaghetti chart of every contributing model with per-model toggles, switchable between temperature, precipitation, precipitation probability, wind speed, and cloud cover.
+- **Per-model overlay** (opt-in) — one line per contributing model drawn over the aggregate, with per-model toggles, switchable between temperature, precipitation, precipitation probability, wind speed, and cloud cover.
 - **Window toggle** — 24 h / 3 d / 7 d on both charts.
 - **Locations** — open-meteo geocoding search, browser geolocation, URL-shareable state, favourites and recent-search in localStorage.
 - **Units** — °C ⇄ °F, mm ⇄ in, km/h ⇄ mph; persisted.
