@@ -25,7 +25,7 @@ const precipOptions: { value: PrecipitationUnit; label: string }[] = [
   <div ref="root" class="relative">
     <button
       type="button"
-      class="border-ink-700 bg-ink-900/60 text-paper-300 hover:border-sodium-300/60 hover:text-sodium-300 flex items-center justify-center border p-2 transition-colors"
+      class="border-ink-700 bg-ink-900/60 text-paper-300 hover:border-sodium-300/60 hover:text-sodium-300 flex h-9 w-9 items-center justify-center border transition-colors"
       :aria-expanded="isOpen"
       aria-haspopup="true"
       title="Settings"
