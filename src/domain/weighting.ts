@@ -29,7 +29,7 @@ function leadFactor(model: ModelDef, leadHours: number): number {
       // AI and ensemble-mean products are useful independent signals, but they
       // should not overwhelm the deterministic NWP aggregate with a full vote.
       // Keep the two product classes equally weighted until verification evidence
-      // supports calibrating them independently.
+      // supports tuning their weights independently.
       const longRangeDecay = leadHours <= 72 ? 1.0 : Math.max(0.4, 1 - ((leadHours - 72) / 168) * 0.6);
       return 0.75 * longRangeDecay;
     }

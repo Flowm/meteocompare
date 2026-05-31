@@ -115,6 +115,9 @@ In meteorology, the **analysis** is a model's initial-condition field after assi
 **"Model".**
 Always refers to an NWP source (ECMWF, GFS, ICON, etc.), never to a UI/data shape or a domain type. When you mean a TypeScript type, name it explicitly (`ModelDef`, `ModelRow`).
 
+**"Calibration".**
+Three unrelated things have worn this word; keep them apart. **Bias correction** — adjusting model weights against past performance — is what the README's "No bias correction" limitation means; the app does none. **Confidence calibration** — whether a 0.7 confidence actually verifies ~70% of the time — is what the verification page surfaces informally (per-variable confidence shown beside the measured error) and the "evidence" the under-review _overall confidence_ collapse is waiting on. The reference values that normalise raw spread are **typical spread**, never "calibration". Reserve the bare word "calibration" for confidence calibration.
+
 ## Example dialogue
 
 > **Dev:** I'm seeing the aggregate score worse than ECMWF on this day card. Bug?

@@ -36,7 +36,7 @@ For each numeric variable:
 ```
 spreadScore  = clamp(1 − stdDev / typicalSpread, 0, 1)
                typicalSpread ramps with lead time; daily accumulated variables
-               (precipitation_sum) use a day-scale calibration (mm/day) rather
+               (precipitation_sum) use a day-scale typical spread (mm/day) rather
                than the hourly rate scale (mm/h).
 
 modelFactor  = min(1, n / 3)   where n = number of contributing models
@@ -161,7 +161,7 @@ npm run deploy
 
 ## Limitations
 
-- **No bias correction.** Weights are static — no calibration against ERA5 reanalysis. Some models systematically run cold/warm or under/over-predict precipitation in some regions; that bias passes through to the aggregate.
+- **No bias correction.** Weights are static — no weight calibration against ERA5 reanalysis. Some models systematically run cold/warm or under/over-predict precipitation in some regions; that bias passes through to the aggregate.
 - **No ensemble members.** We pull deterministic runs only, not full ensemble distributions. Confidence is derived from inter-model spread, not from individual ensemble forecasts.
 - **Verification covers temperature and precipitation only.** ERA5-Seamless also provides wind and cloud-cover truth, but the verification page does not yet score them.
 

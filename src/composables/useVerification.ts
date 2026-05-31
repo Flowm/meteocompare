@@ -17,7 +17,7 @@ import type { Location } from "./useLocation";
  *  data-only change (see CONTEXT.md "Truth"). */
 export interface VerificationHourly extends HourlySeries {
   /** Per-hour aggregate per-variable confidence — input to the daily card's
-   *  calibration display. Keyed by variable id. */
+   *  confidence-vs-error display. Keyed by variable id. */
   confidence: Partial<Record<DataVarId, number[]>>;
 }
 
