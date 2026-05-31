@@ -232,9 +232,12 @@ function geolocate(): void {
           <span class="sr-only">Use my location</span>
         </button>
 
+        <!-- On mobile the search column is narrow, so the results panel breaks
+             out to nearly the full viewport width (anchored to the input's
+             right edge); on >=sm it tracks the wide input as before. -->
         <div
           v-if="isOpen && (results.length || favourites.length || recent.length || isSearching || searchError)"
-          class="panel-in border-ink-700 bg-ink-900 absolute z-40 mt-1 w-full overflow-hidden border shadow-2xl shadow-black/60"
+          class="panel-in border-ink-700 bg-ink-900 absolute right-0 z-40 mt-1 w-[calc(100vw-4.5rem)] overflow-hidden border shadow-2xl shadow-black/60 sm:right-auto sm:left-0 sm:w-full"
         >
           <div v-if="isSearching" class="text-paper-400 flex items-center gap-2 px-3 py-2 font-mono text-[11px] tracking-wide">
             <span class="bg-sodium-300 size-1 animate-pulse rounded-full" /> Searching…
