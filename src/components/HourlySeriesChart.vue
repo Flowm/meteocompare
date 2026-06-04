@@ -390,10 +390,16 @@ const hasBand = computed(() => true);
   <div class="border-ink-700 bg-ink-900/60 relative border p-4 sm:p-6">
     <!-- Variable picker (left) + window selector (right) share a line -->
     <div ref="variableControlsRoot" class="relative mb-4 flex items-center gap-3">
-      <div ref="variableRailProbe" aria-hidden="true" class="border-ink-700 pointer-events-none invisible absolute -z-10 flex w-max border font-mono text-xs tracking-wide">
-        <span v-for="vid in variables" :key="vid" class="border-ink-700 border-r px-2.5 py-1 whitespace-nowrap last:border-r-0">
-          {{ CHART_VIEWS[vid].label }}
-        </span>
+      <!-- Off-layout probe used only to measure the rail's natural width. The
+           zero-size, overflow-hidden wrapper keeps the w-max child from
+           expanding the page (it would otherwise leak horizontal scroll on
+           mobile); offsetWidth still reports the child's full intrinsic width. -->
+      <div aria-hidden="true" class="pointer-events-none absolute -z-10 h-0 w-0 overflow-hidden">
+        <div ref="variableRailProbe" class="border-ink-700 flex w-max border font-mono text-xs tracking-wide">
+          <span v-for="vid in variables" :key="vid" class="border-ink-700 border-r px-2.5 py-1 whitespace-nowrap last:border-r-0">
+            {{ CHART_VIEWS[vid].label }}
+          </span>
+        </div>
       </div>
 
       <!-- Expanded variable rail while it fits beside the window selector. -->
