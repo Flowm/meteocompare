@@ -6,12 +6,19 @@
 // runs) and /v1/archive (reanalysis truth). The response shape is the same
 // as the forecast API, so we reuse ForecastResponse and the extract helpers.
 
-import { MODEL_IDS } from "@/domain/models";
+import { MODELS } from "@/domain/models";
 
 import type { ForecastResponse } from "./omForecast";
 import { extractDailyByModel, extractHourlyByModel } from "./omForecast";
 
 const SINGLE_RUNS_URL = "https://single-runs-api.open-meteo.com/v1/forecast";
+
+// Two model sets, derived from each model's `singleRunAvailability` (see the
+// registry). CORE = consistently archived, the reliable fallback. FULL also
+// includes `partial` models for max coverage; one of them missing for the chosen
+// date 4xx's the whole batch, so we fall back to CORE. `never` models are dropped.
+const CORE_MODEL_IDS: string[] = MODELS.filter((m) => m.singleRunAvailability === "core").map((m) => m.id);
+const FULL_MODEL_IDS: string[] = MODELS.filter((m) => m.singleRunAvailability !== "never").map((m) => m.id);
 
 const HOURLY_VARS = ["temperature_2m", "precipitation"] as const;
 
@@ -41,28 +48,43 @@ export interface SingleRunsRequest {
  *  `_<modelId>` when `models=` carries multiple ids. */
 export type SingleRunsResponse = ForecastResponse;
 
-export async function fetchSingleRuns(req: SingleRunsRequest, signal?: AbortSignal): Promise<SingleRunsResponse> {
+function buildUrl(models: string[], req: SingleRunsRequest): string {
   const params = new URLSearchParams({
     latitude: String(req.lat),
     longitude: String(req.lon),
     run: `${req.runDate}T00:00`,
     hourly: HOURLY_VARS.join(","),
     daily: [...DAILY_VARS, ...DAILY_SOLAR_VARS].join(","),
-    models: (req.models ?? MODEL_IDS).join(","),
+    models: models.join(","),
     forecast_days: String(req.forecastDays ?? 7),
     timezone: "auto",
     wind_speed_unit: "kmh",
     temperature_unit: "celsius",
     precipitation_unit: "mm",
   });
+  return `${SINGLE_RUNS_URL}?${params}`;
+}
 
-  const url = `${SINGLE_RUNS_URL}?${params}`;
-  const res = await fetch(url, { signal });
+async function fetchModels(models: string[], req: SingleRunsRequest, signal?: AbortSignal): Promise<SingleRunsResponse> {
+  const res = await fetch(buildUrl(models, req), { signal });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`open-meteo single-runs ${res.status}: ${text || res.statusText}`);
   }
   return (await res.json()) as SingleRunsResponse;
+}
+
+// Try the full set; if the chosen date is missing any of its patchy models (a
+// 4xx, or a 200 whose body aborts mid-stream into invalid JSON), retry with the
+// reliable core. A caller-supplied subset is taken as-is, no fallback.
+export async function fetchSingleRuns(req: SingleRunsRequest, signal?: AbortSignal): Promise<SingleRunsResponse> {
+  if (req.models) return fetchModels(req.models, req, signal);
+  try {
+    return await fetchModels(FULL_MODEL_IDS, req, signal);
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") throw e;
+    return fetchModels(CORE_MODEL_IDS, req, signal);
+  }
 }
 
 export { HOURLY_VARS, DAILY_VARS, extractHourlyByModel, extractDailyByModel };

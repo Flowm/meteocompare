@@ -7,6 +7,14 @@
 
 export type ModelKind = "global" | "regional-cam" | "regional-mid" | "ai" | "ensemble-mean";
 
+/** Whether this model's runs are in open-meteo's single-runs archive (used for
+ *  verification). Empirical — may change as the archive backfills.
+ *  - `core`: consistently archived, always safe to batch.
+ *  - `partial`: patchy archive, may 4xx a batch on dates it's missing (tried, then dropped).
+ *  - `never`: not archived, excluded entirely.
+ */
+export type SingleRunAvailability = "core" | "partial" | "never";
+
 export interface BBox {
   /** lat min, lat max */
   lat: [number, number];
@@ -27,6 +35,8 @@ export interface ModelDef {
   homeRegion: BBox | null;
   /** Short description shown in the per-model overlay UI. */
   description: string;
+  /** Presence in open-meteo's single-runs archive (verification). See type docs. */
+  singleRunAvailability: SingleRunAvailability;
 }
 
 export const MODELS: ModelDef[] = [
@@ -38,6 +48,7 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 240,
     homeRegion: null,
     description: "9 km global HRES; the medium-range gold standard.",
+    singleRunAvailability: "core",
   },
   {
     id: "gfs_seamless",
@@ -47,6 +58,7 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 384,
     homeRegion: null,
     description: "Seamless NOAA forecast, global long horizon with high-resolution U.S. coverage.",
+    singleRunAvailability: "partial",
   },
   {
     id: "gem_seamless",
@@ -56,6 +68,7 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 240,
     homeRegion: { lat: [25, 72], lon: [-170, -50] },
     description: "2.5–15 km seamless, strongest over North America.",
+    singleRunAvailability: "never",
   },
   {
     id: "ukmo_seamless",
@@ -65,6 +78,7 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 168,
     homeRegion: { lat: [49, 61], lon: [-11, 2] },
     description: "2 km UKV over the British Isles, 10 km global.",
+    singleRunAvailability: "core",
   },
   {
     id: "meteofrance_seamless",
@@ -74,6 +88,7 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 102,
     homeRegion: { lat: [41, 52], lon: [-5, 10] },
     description: "AROME (1.3 km) over France, ARPEGE globally.",
+    singleRunAvailability: "core",
   },
   {
     id: "cma_grapes_global",
@@ -83,6 +98,7 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 240,
     homeRegion: { lat: [15, 55], lon: [70, 140] },
     description: "15 km global; strongest over China and East Asia.",
+    singleRunAvailability: "partial",
   },
   {
     id: "bom_access_global",
@@ -92,6 +108,7 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 240,
     homeRegion: { lat: [-45, -10], lon: [110, 155] },
     description: "15 km, strongest over Australasia.",
+    singleRunAvailability: "never",
   },
   {
     id: "jma_seamless",
@@ -101,6 +118,7 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 264,
     homeRegion: { lat: [24, 46], lon: [122, 146] },
     description: "GSM + MSM, strongest over Japan & nearby seas.",
+    singleRunAvailability: "core",
   },
   {
     id: "kma_seamless",
@@ -110,6 +128,7 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 288,
     homeRegion: { lat: [33, 43], lon: [124, 132] },
     description: "1.5–13 km, strongest over the Korean peninsula.",
+    singleRunAvailability: "partial",
   },
   {
     id: "icon_global",
@@ -119,6 +138,7 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 180,
     homeRegion: null,
     description: "11 km global; strong all-rounder, 6-hourly updates.",
+    singleRunAvailability: "core",
   },
   {
     id: "icon_eu",
@@ -128,6 +148,7 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 120,
     homeRegion: { lat: [29, 70], lon: [-23, 45] },
     description: "7 km regional, strongest over Europe.",
+    singleRunAvailability: "core",
   },
   {
     id: "icon_d2",
@@ -137,6 +158,7 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 48,
     homeRegion: { lat: [43, 58], lon: [-3, 20] },
     description: "2 km convection-allowing over central Europe.",
+    singleRunAvailability: "core",
   },
   {
     id: "knmi_harmonie_arome_europe",
@@ -146,6 +168,7 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 60,
     homeRegion: { lat: [45, 58], lon: [-5, 16] },
     description: "2 km Harmonie AROME Europe without ECMWF fallback.",
+    singleRunAvailability: "core",
   },
   {
     id: "dmi_harmonie_arome_europe",
@@ -155,6 +178,7 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 60,
     homeRegion: { lat: [50, 65], lon: [-5, 20] },
     description: "2 km Harmonie AROME Europe without ECMWF fallback.",
+    singleRunAvailability: "core",
   },
   {
     id: "metno_nordic",
@@ -164,6 +188,7 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 60,
     homeRegion: { lat: [55, 72], lon: [-5, 35] },
     description: "2.5 km Nordic forecast without ECMWF fallback.",
+    singleRunAvailability: "partial",
   },
   {
     id: "meteoswiss_icon_seamless",
@@ -173,6 +198,7 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 120,
     homeRegion: { lat: [45.5, 48.5], lon: [5.5, 11] },
     description: "1–2 km ICON seamless over Switzerland.",
+    singleRunAvailability: "core",
   },
   {
     id: "geosphere_arome_austria",
@@ -182,6 +208,7 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 60,
     homeRegion: { lat: [46, 50], lon: [9, 18] },
     description: "AROME Austria without ECMWF fallback.",
+    singleRunAvailability: "partial",
   },
   {
     id: "ecmwf_aifs025_single",
@@ -191,6 +218,7 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 360,
     homeRegion: null,
     description: "0.25° AI forecast product from ECMWF.",
+    singleRunAvailability: "core",
   },
   {
     id: "gfs_graphcast025",
@@ -200,6 +228,7 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 384,
     homeRegion: null,
     description: "0.25° GraphCast forecast based on NOAA inputs.",
+    singleRunAvailability: "partial",
   },
   {
     id: "ncep_aigfs025",
@@ -209,6 +238,7 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 384,
     homeRegion: null,
     description: "0.25° AI-enhanced GFS forecast product.",
+    singleRunAvailability: "partial",
   },
   {
     id: "ncep_hgefs025_ensemble_mean",
@@ -218,6 +248,7 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 384,
     homeRegion: null,
     description: "0.25° ensemble-mean forecast product.",
+    singleRunAvailability: "partial",
   },
 ];
 
