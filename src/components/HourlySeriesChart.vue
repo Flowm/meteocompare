@@ -6,10 +6,10 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import VChart from "vue-echarts";
 
 import type { DataVarId, HourlySeries } from "@/composables/hourlySeries";
-import { useUnits } from "@/composables/useUnits";
+import { convertVar, useUnits } from "@/composables/useUnits";
 import { MODELS, type ModelDef } from "@/domain/models";
 
-import { CHART_VIEWS, convertVar, isVarActive as isVarActiveFor, nextCombinableView, type ChartViewId, type UnitPrefs } from "./chartHelpers";
+import { CHART_VIEWS, isVarActive as isVarActiveFor, nextCombinableView, type ChartViewId } from "./chartHelpers";
 import { AGG_COLOR, BAND_SWATCH, buildHourlyChartOption, paletteFor, TRUTH_COLOR, visibilityPatches } from "./chartOption";
 import ModelControlRail from "./ModelControlRail.vue";
 
@@ -39,8 +39,7 @@ const props = withDefaults(
  *  selectView() can also clear the overlay when switching to a composite view. */
 const showModels = defineModel<boolean>("showModels", { default: false });
 
-const { temp, precip, wind, formatTemp, formatPrecip, formatWind } = useUnits();
-const units = computed<UnitPrefs>(() => ({ temp: temp.value, precip: precip.value, wind: wind.value }));
+const { prefs, formatTemp, formatPrecip, formatWind } = useUnits();
 
 // Colours, the model palette, and paletteFor() now live in ./chartOption
 // alongside the option builder; the component imports only the few it needs
@@ -292,7 +291,7 @@ const built = computed(() =>
     data: props.data,
     view: view.value,
     hoursWindow: hoursWindow.value,
-    units: units.value,
+    units: prefs.value,
     solar: props.solar,
     currentTime: props.currentTime,
     models: allModels.value,
@@ -345,7 +344,7 @@ const option = computed<EChartsOption>(() => {
       if (cv != null) {
         let best = Infinity;
         for (const m of shown) {
-          const display = convertVar(props.data.perModel[dv]![m.id]![idx], dv, units.value);
+          const display = convertVar(props.data.perModel[dv]![m.id]![idx], dv, prefs.value);
           if (display == null) continue;
           const d = Math.abs(display - cv);
           if (d < best) {

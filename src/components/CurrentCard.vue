@@ -4,7 +4,7 @@ import { computed } from "vue";
 import type { ForecastResponse } from "@/api/omForecast";
 import type { DailyAggregate } from "@/composables/useForecast";
 import { useLocation } from "@/composables/useLocation";
-import { useUnits } from "@/composables/useUnits";
+import { convertVar, useUnits } from "@/composables/useUnits";
 import { overallConfidence } from "@/domain/confidence";
 import { weatherLabel } from "@/domain/weatherCodes";
 
@@ -21,15 +21,11 @@ const props = defineProps<{
 const { current, isFavourite, toggleFavourite } = useLocation();
 const starred = computed(() => isFavourite(current.value));
 
-const { temp, formatPercent } = useUnits();
+const { temp, prefs, formatPercent } = useUnits();
 
 const tempUnitLetter = computed(() => (temp.value === "f" ? "F" : "C"));
 
-const currentTemp = computed(() => {
-  const t = props.raw.current.temperature_2m;
-  if (t == null) return null;
-  return temp.value === "f" ? (t * 9) / 5 + 32 : t;
-});
+const currentTemp = computed(() => convertVar(props.raw.current.temperature_2m, "temperature_2m", prefs.value));
 const currentCode = computed(() => Number(props.raw.current.weather_code ?? 0));
 const currentIsDay = computed(() => (props.raw.current.is_day ?? 1) === 1);
 const todayPrecipProb = computed(() => props.daily.series.precipitation_probability_max[0]?.value ?? null);
