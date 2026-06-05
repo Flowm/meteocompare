@@ -14,9 +14,6 @@ import type { DataVarId } from "@/composables/hourlySeries";
  *  (line + band) and precipitation (bars) together on a dual axis. */
 export type ChartViewId = "temp_precip" | DataVarId;
 
-/** Which y-axis a data variable belongs to. */
-export type AxisKind = "temp" | "precip" | "pct" | "wind";
-
 export interface ChartViewMeta {
   label: string;
   /** Underlying data variables this view renders. */
@@ -33,21 +30,6 @@ export const CHART_VIEWS: Record<ChartViewId, ChartViewMeta> = {
   precipitation_probability: { label: "Precip. prob.", vars: ["precipitation_probability"], overlayVar: "precipitation_probability" },
   wind_speed_10m: { label: "Wind speed", vars: ["wind_speed_10m"], overlayVar: "wind_speed_10m" },
   cloud_cover: { label: "Cloud cover", vars: ["cloud_cover"], overlayVar: "cloud_cover" },
-};
-
-interface DataVarMeta {
-  axis: AxisKind;
-  /** How the aggregate is drawn. Only `precipitation` is bars (and thus never
-   *  gets a confidence band). */
-  render: "line" | "bars";
-}
-
-export const DATA_VAR_META: Record<DataVarId, DataVarMeta> = {
-  temperature_2m: { axis: "temp", render: "line" },
-  precipitation: { axis: "precip", render: "bars" },
-  precipitation_probability: { axis: "pct", render: "line" },
-  wind_speed_10m: { axis: "wind", render: "line" },
-  cloud_cover: { axis: "pct", render: "line" },
 };
 
 // ---------------------------------------------------------------------------

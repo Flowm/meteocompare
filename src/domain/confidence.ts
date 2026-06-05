@@ -60,11 +60,6 @@ function weatherCodeConfidence(point: AggregatePoint): number {
   return clamp01(agreementW);
 }
 
-export function bandWidth(point: AggregatePoint, variable: Variable): number {
-  if (variable === "weather_code") return 0;
-  return point.stdDev;
-}
-
 /** UI-side "overall confidence": the unweighted mean of the finite per-variable
  *  parts (non-finite parts — e.g. a variable with no data — are skipped, not
  *  counted as zero). Returns 0 when nothing is finite. This is the single

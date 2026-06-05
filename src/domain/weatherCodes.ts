@@ -75,22 +75,10 @@ export function iconFor(code: number): WeatherIconClasses {
   return CODE_TABLE[code]?.icon ?? FALLBACK_ICON;
 }
 
-const SEVERITY_ORDER: SeveritySlug[] = ["clear", "mostly_clear", "cloudy", "fog", "drizzle", "rain", "snow", "storm"];
-
 export function severitySlug(code: number): SeveritySlug {
   return CODE_TABLE[code]?.slug ?? "cloudy";
-}
-
-export function severityRank(slug: SeveritySlug): number {
-  return SEVERITY_ORDER.indexOf(slug);
 }
 
 export function weatherLabel(code: number): string {
   return CODE_TABLE[code]?.label ?? "Unknown";
 }
-
-export function isKnownCode(code: number): boolean {
-  return code in CODE_TABLE;
-}
-
-export const ALL_KNOWN_CODES = Object.keys(CODE_TABLE).map(Number);
