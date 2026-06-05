@@ -376,11 +376,6 @@ watch(option, () => {
     applyVisibility();
   });
 });
-
-// ---- Chip visibility --------------------------------------------------------
-// The ±1σ spread is drawn for every view — a shaded band on line views, and
-// error-bar whiskers on the precipitation bars — so the chip always applies.
-const hasBand = computed(() => true);
 </script>
 
 <template>
@@ -488,8 +483,10 @@ const hasBand = computed(() => true);
           >
             <span class="inline-block size-2" :style="{ backgroundColor: AGG_COLOR }" />Aggregate
           </button>
+          <!-- The ±1σ spread is drawn for every view — a shaded band on line
+               views, error-bar whiskers on the precipitation bars — so the
+               toggle always applies. -->
           <button
-            v-if="hasBand"
             type="button"
             class="flex items-center gap-1.5 border px-2 py-1 transition-colors"
             :class="showBand ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
