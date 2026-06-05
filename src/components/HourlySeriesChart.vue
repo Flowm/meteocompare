@@ -1,16 +1,19 @@
 <script setup lang="ts">
-import { onClickOutside, useResizeObserver } from "@vueuse/core";
+import { onClickOutside } from "@vueuse/core";
 import type { EChartsOption } from "echarts";
 import type { ECharts } from "echarts/core";
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import VChart from "vue-echarts";
 
 import type { DataVarId, HourlySeries } from "@/composables/hourlySeries";
-import { convertVar, useUnits } from "@/composables/useUnits";
+import { useChartCursor } from "@/composables/useChartCursor";
+import { useFittingRail } from "@/composables/useFittingRail";
+import { useUnits } from "@/composables/useUnits";
 import { MODELS, type ModelDef } from "@/domain/models";
 
 import { CHART_VIEWS, isVarActive as isVarActiveFor, nextCombinableView, type ChartViewId } from "./chartHelpers";
-import { AGG_COLOR, BAND_SWATCH, buildHourlyChartOption, paletteFor, TRUTH_COLOR, visibilityPatches } from "./chartOption";
+import { AGG_COLOR, BAND_SWATCH, buildHourlyChartOption, TRUTH_COLOR, visibilityPatches } from "./chartOption";
+import { buildTooltipFormatter } from "./chartTooltip";
 import ModelControlRail from "./ModelControlRail.vue";
 
 const props = withDefaults(
@@ -90,31 +93,21 @@ function selectView(v: ChartViewId): void {
 }
 
 // Variable picker: keep the expanded rail while it fits beside the window
-// selector; collapse only when the two controls would wrap.
+// selector; collapse to a dropdown only when the two controls would wrap. The
+// off-layout probe measures the rail's natural width.
 const variableControlsRoot = ref<HTMLElement | null>(null);
 const variableRailProbe = ref<HTMLElement | null>(null);
 const windowSelector = ref<HTMLElement | null>(null);
-const showExpandedVariableRail = ref(true);
+const showExpandedVariableRail = useFittingRail(variableControlsRoot, variableRailProbe, windowSelector, () => props.variables.join(","));
+
+// Dropdown open state (collapsed mode only) — forced shut whenever the rail
+// expands back to fitting on one line.
 const varOpen = ref(false);
 const varRoot = ref<HTMLElement | null>(null);
 onClickOutside(varRoot, () => (varOpen.value = false));
-
-function updateVariableRailMode(): void {
-  void nextTick(() => {
-    const root = variableControlsRoot.value;
-    const rail = variableRailProbe.value;
-    const window = windowSelector.value;
-    if (!root || !rail || !window) return;
-    const rowGap = 12; // gap-3
-    showExpandedVariableRail.value = rail.offsetWidth + window.offsetWidth + rowGap <= root.clientWidth;
-    if (showExpandedVariableRail.value) varOpen.value = false;
-  });
-}
-
-useResizeObserver(variableControlsRoot, updateVariableRailMode);
-useResizeObserver(windowSelector, updateVariableRailMode);
-onMounted(updateVariableRailMode);
-watch(() => props.variables.map((v) => v).join(","), updateVariableRailMode);
+watch(showExpandedVariableRail, (expanded) => {
+  if (expanded) varOpen.value = false;
+});
 
 /** Whether a picker entry reads as "active". Temperature and precipitation are
  *  a combinable pair on the forecast page: either is active in the composite. */
@@ -236,43 +229,9 @@ function toggleAllModels(): void {
 }
 
 // ---- Cursor tracking (tooltip highlight) ------------------------------------
-// With many model lines enabled the tooltip lists them all, and it's hard to
-// tell which row is which line. We track the cursor's value on the overlay
-// axis (the formatter gets no pointer position) so the nearest model entry can
-// be highlighted. Stored in the active unit, to match the converted line data.
-const cursorValue = ref<number | null>(null);
 /** Axis the per-model lines live on — right (1) for precip, left (0) otherwise. */
 const overlayAxis = computed(() => (activeVar.value === "precipitation" ? 1 : 0));
-
-let detachCursor: (() => void) | null = null;
-watch(
-  () => chartRef.value?.chart,
-  (chart) => {
-    detachCursor?.();
-    detachCursor = null;
-    if (!chart) return;
-    const zr = chart.getZr();
-    const onMove = (e: { offsetX: number; offsetY: number }): void => {
-      if (!chart.containPixel("grid", [e.offsetX, e.offsetY])) {
-        cursorValue.value = null;
-        return;
-      }
-      const v = chart.convertFromPixel({ yAxisIndex: overlayAxis.value }, e.offsetY);
-      cursorValue.value = typeof v === "number" ? v : null;
-    };
-    const onOut = (): void => {
-      cursorValue.value = null;
-    };
-    zr.on("mousemove", onMove);
-    zr.on("globalout", onOut);
-    detachCursor = (): void => {
-      zr.off("mousemove", onMove);
-      zr.off("globalout", onOut);
-    };
-  },
-  { immediate: true },
-);
-onBeforeUnmount(() => detachCursor?.());
+const { cursorValue } = useChartCursor(() => chartRef.value?.chart, overlayAxis);
 
 // ---- Tooltip formatting -----------------------------------------------------
 function fmtVar(dv: DataVarId, base: number | null | undefined): string {
@@ -301,69 +260,30 @@ const built = computed(() =>
 const toggles = computed(() => built.value.toggles);
 
 const option = computed<EChartsOption>(() => {
-  const v = view.value;
   const n = Math.min(hoursWindow.value, props.data.times.length);
-  const times = props.data.times.slice(0, n);
-  const overlay = showModels.value;
-
   const o = built.value.option;
 
-  // The tooltip formatter reads live toggle state (showAggregate / showBand /
-  // showTruth / enabledModels) at hover time, not during option compute, so
-  // those toggles never become reactive deps of `option` — the no-redraw trick.
-  // It therefore stays here in the component rather than in the pure builder.
-  (o.tooltip as { formatter?: (params: unknown) => string }).formatter = (params: unknown) => {
-    const arr = params as Array<{ dataIndex: number }>;
-    const idx = arr[0]?.dataIndex ?? -1;
-    const timeStr = times[idx];
-    if (idx < 0 || timeStr === undefined) return "";
-    const header = new Date(timeStr).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" });
-    const lines: string[] = [];
-    const vars: DataVarId[] = CHART_VIEWS[v].vars;
-    for (const dv of vars) {
-      const aggPt = props.data.aggregate[dv]?.[idx];
-      if (showAggregate.value && aggPt && !Number.isNaN(aggPt.value)) {
-        // ±1σ shown whenever the spread is on — bars carry it as error-bar
-        // whiskers, line views as the shaded band, but the tooltip reads alike.
-        const std = showBand.value && Number.isFinite(aggPt.stdDev) ? ` <span style="color:#94a3b8">± ${fmtVar(dv, aggPt.stdDev).replace(/[°a-zA-Z%/ ]+$/, "")}</span>` : "";
-        const label = vars.length > 1 ? `${dv === "temperature_2m" ? "Temp" : "Precip"} ` : "Forecast ";
-        const color = dv === "precipitation" ? "#7dd3fc" : AGG_COLOR;
-        lines.push(`<span style="color:${color}">${label}</span>${fmtVar(dv, aggPt.value)}${std}`);
-      }
-      const truthVal = props.data.truth?.[dv]?.[idx];
-      if (showTruth.value && truthVal != null) lines.push(`<span style="color:${TRUTH_COLOR}">Truth</span> ${fmtVar(dv, truthVal)}`);
-    }
-    // Per-model values when the overlay is on (enabled models only). The model
-    // whose value sits closest to the cursor is highlighted, so a busy fan of
-    // lines can be read off against the tooltip.
-    if (overlay) {
-      const dv = activeVar.value;
-      const cv = cursorValue.value;
-      const shown = allModels.value.filter((m) => enabledModels.value.has(m.id) && props.data.perModel[dv]?.[m.id]?.[idx] != null);
-      let nearestId: string | null = null;
-      if (cv != null) {
-        let best = Infinity;
-        for (const m of shown) {
-          const display = convertVar(props.data.perModel[dv]![m.id]![idx], dv, prefs.value);
-          if (display == null) continue;
-          const d = Math.abs(display - cv);
-          if (d < best) {
-            best = d;
-            nearestId = m.id;
-          }
-        }
-      }
-      for (const m of shown) {
-        const val = props.data.perModel[dv]![m.id]![idx];
-        const near = m.id === nearestId;
-        const marker = near ? "▸ " : "&nbsp;&nbsp;";
-        const label = `<span style="color:${paletteFor(m.id)}${near ? ";font-weight:700" : ""}">${marker}${m.label}</span>`;
-        const value = near ? `<span style="color:#f4ecd8;font-weight:700">${fmtVar(dv, val)}</span>` : fmtVar(dv, val);
-        lines.push(`${label} ${value}`);
-      }
-    }
-    return `<div style="font-weight:600;margin-bottom:4px">${header}</div>${lines.join("<br/>")}`;
-  };
+  // The formatter reads live toggle state (showAggregate / showBand / showTruth
+  // / enabledModels / cursor) at hover time via `liveState()`, never during this
+  // compute — so those toggles stay out of `option`'s reactive deps (the
+  // no-redraw trick). view / window / data / overlay ARE deps and are captured
+  // here; see chartTooltip.buildTooltipFormatter.
+  (o.tooltip as { formatter?: (params: unknown) => string }).formatter = buildTooltipFormatter({
+    view: view.value,
+    times: props.data.times.slice(0, n),
+    data: props.data,
+    units: prefs.value,
+    models: allModels.value,
+    overlay: showModels.value,
+    fmtVar,
+    liveState: () => ({
+      showAggregate: showAggregate.value,
+      showBand: showBand.value,
+      showTruth: showTruth.value,
+      enabledModels: enabledModels.value,
+      cursorValue: cursorValue.value,
+    }),
+  });
 
   return o;
 });
