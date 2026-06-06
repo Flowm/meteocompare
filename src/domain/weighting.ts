@@ -3,6 +3,13 @@ import { regionBonus } from "./models";
 
 export type Variable = "temperature_2m" | "precipitation" | "precipitation_probability" | "weather_code" | "wind_speed_10m" | "wind_direction_10m" | "cloud_cover";
 
+/** Gentle decay past 3 days: full weight ≤72 h, easing to a 0.4 floor by 240 h,
+ *  so the weight system stays the single source of lead-time authority. Shared
+ *  by global NWP and the AI / ensemble-mean products. */
+function longRangeDecay(leadHours: number): number {
+  return leadHours <= 72 ? 1.0 : Math.max(0.4, 1 - ((leadHours - 72) / 168) * 0.6);
+}
+
 /** Per-model lead-time decay, returning a multiplier in [0, 1]. */
 function leadFactor(model: ModelDef, leadHours: number): number {
   if (leadHours < 0) return 0;
@@ -18,21 +25,15 @@ function leadFactor(model: ModelDef, leadHours: number): number {
       if (leadHours <= 48) return 1;
       if (leadHours >= 120) return 0.3;
       return 1 - ((leadHours - 48) / 72) * 0.7;
-    case "global": {
-      // Decay gently past 3 days (1.0 → 0.4 by 240 h) so the weight
-      // system is the single source of lead-time authority.
-      const longRangeDecay = leadHours <= 72 ? 1.0 : Math.max(0.4, 1 - ((leadHours - 72) / 168) * 0.6);
-      return longRangeDecay;
-    }
+    case "global":
+      return longRangeDecay(leadHours);
     case "ai":
-    case "ensemble-mean": {
+    case "ensemble-mean":
       // AI and ensemble-mean products are useful independent signals, but they
       // should not overwhelm the deterministic NWP aggregate with a full vote.
       // Keep the two product classes equally weighted until verification evidence
       // supports tuning their weights independently.
-      const longRangeDecay = leadHours <= 72 ? 1.0 : Math.max(0.4, 1 - ((leadHours - 72) / 168) * 0.6);
-      return 0.75 * longRangeDecay;
-    }
+      return 0.75 * longRangeDecay(leadHours);
   }
 }
 
