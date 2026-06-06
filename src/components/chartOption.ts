@@ -8,10 +8,11 @@
 import type { EChartsOption, YAXisComponentOption } from "echarts";
 
 import type { DataVarId, HourlySeries } from "@/composables/hourlySeries";
+import { convertDelta, convertVar, unitLabel, type UnitPrefs } from "@/composables/useUnits";
 import { MODELS } from "@/domain/models";
 import type { ModelDef } from "@/domain/models";
 
-import { buildNightRanges, convertDelta, convertVar, findNowIndex, unitLabel, type ChartViewId, type UnitPrefs } from "./chartHelpers";
+import { buildNightRanges, findNowIndex, type ChartViewId } from "./chartHelpers";
 
 // ---- Colours ----------------------------------------------------------------
 // "Observatory" palette: coral = aggregate forecast, sodium amber = truth

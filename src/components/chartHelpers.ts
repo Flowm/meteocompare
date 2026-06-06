@@ -14,9 +14,6 @@ import type { DataVarId } from "@/composables/hourlySeries";
  *  (line + band) and precipitation (bars) together on a dual axis. */
 export type ChartViewId = "temp_precip" | DataVarId;
 
-/** Which y-axis a data variable belongs to. */
-export type AxisKind = "temp" | "precip" | "pct" | "wind";
-
 export interface ChartViewMeta {
   label: string;
   /** Underlying data variables this view renders. */
@@ -33,21 +30,6 @@ export const CHART_VIEWS: Record<ChartViewId, ChartViewMeta> = {
   precipitation_probability: { label: "Precip. prob.", vars: ["precipitation_probability"], overlayVar: "precipitation_probability" },
   wind_speed_10m: { label: "Wind speed", vars: ["wind_speed_10m"], overlayVar: "wind_speed_10m" },
   cloud_cover: { label: "Cloud cover", vars: ["cloud_cover"], overlayVar: "cloud_cover" },
-};
-
-interface DataVarMeta {
-  axis: AxisKind;
-  /** How the aggregate is drawn. Only `precipitation` is bars (and thus never
-   *  gets a confidence band). */
-  render: "line" | "bars";
-}
-
-export const DATA_VAR_META: Record<DataVarId, DataVarMeta> = {
-  temperature_2m: { axis: "temp", render: "line" },
-  precipitation: { axis: "precip", render: "bars" },
-  precipitation_probability: { axis: "pct", render: "line" },
-  wind_speed_10m: { axis: "wind", render: "line" },
-  cloud_cover: { axis: "pct", render: "line" },
 };
 
 // ---------------------------------------------------------------------------
@@ -102,59 +84,6 @@ export function nextCombinableView(view: ChartViewId, clicked: DataVarId): Chart
   }
   if (active.size === 0) active.add(clicked); // never leave the pair empty
   return combinableView(active);
-}
-
-// ---------------------------------------------------------------------------
-// Unit conversion / formatting
-// ---------------------------------------------------------------------------
-
-export interface UnitPrefs {
-  temp: "c" | "f";
-  precip: "mm" | "in";
-  wind: "kmh" | "mph";
-}
-
-/** Convert a base-unit value (°C, mm, km/h, %) into the user's chosen unit. */
-export function convertVar(v: number | null | undefined, varId: DataVarId, u: UnitPrefs): number | null {
-  if (v == null || Number.isNaN(v)) return null;
-  switch (varId) {
-    case "temperature_2m":
-      return u.temp === "f" ? (v * 9) / 5 + 32 : v;
-    case "precipitation":
-      return u.precip === "in" ? v / 25.4 : v;
-    case "wind_speed_10m":
-      return u.wind === "mph" ? v / 1.609344 : v;
-    default:
-      return v; // precipitation_probability, cloud_cover — already %
-  }
-}
-
-/** Convert a ±stdDev *delta* (base units) into the user's unit. Linear scale
- *  factor only — no offset (a delta of 2 °C is 3.6 °F, not 35.6). */
-export function convertDelta(delta: number, varId: DataVarId, u: UnitPrefs): number {
-  switch (varId) {
-    case "temperature_2m":
-      return u.temp === "f" ? (delta * 9) / 5 : delta;
-    case "precipitation":
-      return u.precip === "in" ? delta / 25.4 : delta;
-    case "wind_speed_10m":
-      return u.wind === "mph" ? delta / 1.609344 : delta;
-    default:
-      return delta;
-  }
-}
-
-export function unitLabel(varId: DataVarId, u: UnitPrefs): string {
-  switch (varId) {
-    case "temperature_2m":
-      return u.temp === "f" ? "°F" : "°C";
-    case "precipitation":
-      return u.precip === "in" ? "in" : "mm";
-    case "wind_speed_10m":
-      return u.wind === "mph" ? "mph" : "km/h";
-    default:
-      return "%";
-  }
 }
 
 // ---------------------------------------------------------------------------

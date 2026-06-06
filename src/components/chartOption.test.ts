@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
 
 import type { HourlySeries } from "@/composables/hourlySeries";
+import type { UnitPrefs } from "@/composables/useUnits";
 import type { AggregatePoint } from "@/domain/aggregate";
 import { getModel } from "@/domain/models";
 
-import type { UnitPrefs } from "./chartHelpers";
 import { buildHourlyChartOption, visibilityPatches, type HourlyChartOptionArgs, type VisibilityState, type VisibilityToggle } from "./chartOption";
 
 type Series = { id?: string; type?: string; data?: unknown[]; yAxisIndex?: number; stack?: string; markLine?: unknown; markArea?: unknown };

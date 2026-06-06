@@ -1,5 +1,5 @@
 import type { ModelDef } from "./models";
-import { ALL_KNOWN_CODES, severitySlug, type SeveritySlug } from "./weatherCodes";
+import { severitySlug, type SeveritySlug } from "./weatherCodes";
 import { normalizedWeights, type Variable } from "./weighting";
 
 /** A single (model → value) sample at one timestep. Null = model has no value here. */
@@ -188,5 +188,3 @@ export function aggregateSeries(times: string[], series: Record<string, (number 
   }
   return result;
 }
-
-export { ALL_KNOWN_CODES };
