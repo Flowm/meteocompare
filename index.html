@@ -2,7 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Lock the viewport: no pinch-, double-tap-, or input-focus auto-zoom, so
+         the app behaves like a fixed instrument panel on mobile. iOS Safari
+         ignores user-scalable=no for manual pinch — see the gesture guard in
+         src/main.ts. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>MeteoCompare — multi-model weather forecast</title>
     <meta name="description" content="Multi-model weather forecast comparison with a weighted aggregate and confidence score. Powered by open-meteo.com." />
 

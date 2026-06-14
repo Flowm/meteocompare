@@ -200,7 +200,7 @@ function geolocate(): void {
           v-model="query"
           type="search"
           placeholder="Search station, city, coordinates…"
-          class="border-ink-700 bg-ink-900/70 text-paper-50 placeholder:text-paper-400/70 focus:border-sodium-300/70 focus:bg-ink-900 h-9 w-full min-w-0 border pr-10 pl-9 text-sm outline-none"
+          class="border-ink-700 bg-ink-900/70 text-paper-50 placeholder:text-paper-400/70 focus:border-sodium-300/70 focus:bg-ink-900 h-9 w-full min-w-0 border pr-10 pl-9 text-base outline-none sm:text-sm"
           @focus="isOpen = true"
         />
         <button
