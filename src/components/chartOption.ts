@@ -184,7 +184,7 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
             color: "#050810",
             fontSize: 9,
             fontWeight: 700 as const,
-            fontFamily: "JetBrains Mono, ui-monospace, monospace",
+            fontFamily: "JetBrains Mono Variable, ui-monospace, monospace",
             position: "end" as const,
             backgroundColor: "#f5b942",
             borderRadius: 0,
@@ -426,7 +426,7 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
 
   const option: EChartsOption = {
     backgroundColor: "transparent",
-    textStyle: { color: "#c9bea4", fontFamily: "JetBrains Mono, ui-monospace, monospace" },
+    textStyle: { color: "#c9bea4", fontFamily: "JetBrains Mono Variable, ui-monospace, monospace" },
     // Trimmed left/right gutters (was 52) so the plot spans more of the card;
     // 36 still clears the 2-digit axis labels and the unit names on top.
     // bottom kept tight (26) so the x-axis labels sit just under the plot
@@ -438,7 +438,7 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
       backgroundColor: "rgba(10, 16, 24, 0.96)",
       borderColor: "#1a2638",
       borderWidth: 1,
-      textStyle: { color: "#f4ecd8", fontFamily: "JetBrains Mono, ui-monospace, monospace", fontSize: 11 },
+      textStyle: { color: "#f4ecd8", fontFamily: "JetBrains Mono Variable, ui-monospace, monospace", fontSize: 11 },
       extraCssText: "border-radius: 0; backdrop-filter: blur(6px); box-shadow: 0 8px 32px rgba(0,0,0,0.6);",
       // formatter is attached by the component (reads live toggle state at hover).
     },

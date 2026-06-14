@@ -301,9 +301,9 @@ watch(option, () => {
 <template>
   <h2 v-if="showTitle" class="eyebrow mb-3">{{ title }}</h2>
 
-  <div class="border-ink-700 bg-ink-900/60 relative border p-4 sm:p-6">
+  <div class="border-ink-700 bg-ink-900/60 relative border p-3 sm:p-6">
     <!-- Variable picker (left) + window selector (right) share a line -->
-    <div ref="variableControlsRoot" class="relative mb-4 flex items-center gap-3">
+    <div ref="variableControlsRoot" class="relative mb-3 flex items-center gap-3 sm:mb-4">
       <!-- Off-layout probe used only to measure the rail's natural width. The
            zero-size, overflow-hidden wrapper keeps the w-max child from
            expanding the page (it would otherwise leak horizontal scroll on

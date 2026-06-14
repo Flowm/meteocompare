@@ -33,7 +33,7 @@ function toggle(): void {
 
 <template>
   <section>
-    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+    <div class="mb-1.5 flex flex-wrap items-center justify-between gap-2 sm:mb-3">
       <button type="button" class="group flex items-center gap-2 text-left" :aria-expanded="open" :aria-controls="panelId" @click="toggle">
         <span
           class="border-ink-700 bg-ink-900/60 text-paper-300 group-hover:border-sodium-300/60 group-hover:text-sodium-200 flex size-5 items-center justify-center border transition-colors"
