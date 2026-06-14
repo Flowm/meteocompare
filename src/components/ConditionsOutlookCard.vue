@@ -14,7 +14,7 @@ const props = defineProps<{
 </script>
 
 <template>
-  <div class="flex snap-x gap-2 overflow-x-auto pt-1 pb-3">
+  <div class="no-scrollbar flex snap-x gap-2 overflow-x-auto pt-0 pb-1 sm:pt-1 sm:pb-3">
     <CurrentCard class="snap-start" :raw="props.raw" :daily="props.daily" :solar="props.solar" :location-name="props.locationName" />
     <DailyStrip :daily="props.daily" />
   </div>

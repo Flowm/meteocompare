@@ -30,7 +30,7 @@ const locationLabel = computed(() => {
   <div class="flex min-h-screen flex-col">
     <LocationBar />
 
-    <main class="mx-auto w-full max-w-5xl flex-1 space-y-8 px-4 py-8 sm:px-6">
+    <main class="mx-auto w-full max-w-5xl flex-1 space-y-3 px-4 py-3 sm:space-y-8 sm:px-6 sm:py-8">
       <div v-if="error" class="border-heat-500/40 bg-heat-500/5 text-heat-300 border p-4 font-mono text-xs tracking-wide"><span class="text-heat-400">[err]</span> {{ error }}</div>
 
       <div v-if="loading && !raw" class="grid place-items-center gap-4 py-32">

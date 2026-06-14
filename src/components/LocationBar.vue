@@ -129,7 +129,7 @@ function geolocate(): void {
     <!-- One row at every width. The search keeps a usable width via a compact
          view-switcher label and tighter gaps on mobile; `relative` anchors the
          full-bleed results panel, which spans the whole bar via grid placement. -->
-    <div class="relative mx-auto grid max-w-5xl grid-cols-[auto_1fr_auto] items-center gap-2 px-4 py-3.5 sm:gap-6 sm:px-6">
+    <div class="relative mx-auto grid max-w-5xl grid-cols-[auto_1fr_auto] items-center gap-2 px-4 py-2 sm:gap-6 sm:px-6 sm:py-3.5">
       <!-- Wordmark + view switcher ------------------------------------ -->
       <div class="flex items-center gap-2 sm:gap-5">
         <a href="/" class="group flex items-center gap-1.5 leading-none">

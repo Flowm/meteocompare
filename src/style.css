@@ -152,6 +152,20 @@ body::after {
   background: var(--color-ink-600);
 }
 
+/* Opt out of the thin overflow scrollbar where it would steal vertical space
+ * (e.g. the conditions card rail). Scoped to mobile only: there the cards snap
+ * and swipe, so the bar is redundant and its 6px steals from a tight viewport.
+ * On wider screens the rail still overflows (10+ day cards), so the scrollbar
+ * stays as a useful affordance. */
+@media (width < 640px) {
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* ---------------------------------------------------------------------------
  * Reusable typographic primitives.
  * ------------------------------------------------------------------------- */
