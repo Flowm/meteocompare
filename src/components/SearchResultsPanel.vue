@@ -18,9 +18,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div
-    class="panel-in border-ink-700 bg-ink-900 absolute top-full left-1/2 z-40 mt-1 w-[calc(100vw-2rem)] -translate-x-1/2 overflow-hidden border shadow-2xl shadow-black/60 sm:left-0 sm:w-full sm:translate-x-0"
-  >
+  <div class="panel-in border-ink-700 bg-ink-900 absolute top-full right-0 left-0 z-40 col-span-full mt-1 overflow-hidden border shadow-2xl shadow-black/60 sm:col-[2/3]">
     <div v-if="isSearching" class="text-paper-400 flex items-center gap-2 px-3 py-2 font-mono text-[11px] tracking-wide">
       <span class="bg-sodium-300 size-1 animate-pulse rounded-full" /> Searching…
     </div>

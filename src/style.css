@@ -76,6 +76,11 @@ html {
   /* Modest viewport-relative scaling so the masthead breathes at large widths
    * without ballooning on small ones. */
   font-feature-settings: "ss01", "cv11";
+
+  /* Treat the page as an app surface on touch devices: no double-tap-to-zoom
+   * and no 300ms tap delay. Pinch- and input-focus-zoom are handled by the
+   * viewport meta (index.html) and the iOS gesture guard (main.ts). */
+  touch-action: manipulation;
 }
 
 body {
