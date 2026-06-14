@@ -28,7 +28,10 @@ const viewRoot = ref<HTMLElement | null>(null);
 onClickOutside(viewRoot, () => (viewOpen.value = false));
 
 const VIEW_LABEL: Record<string, string> = { forecast: "Forecast", verify: "Verify" };
+// Compact labels for the tight mobile header; the dropdown items keep full names.
+const VIEW_LABEL_SHORT: Record<string, string> = { forecast: "Fcst", verify: "Verify" };
 const currentView = computed(() => VIEW_LABEL[String(route.name ?? "")] ?? "Forecast");
+const currentViewShort = computed(() => VIEW_LABEL_SHORT[String(route.name ?? "")] ?? "Fcst");
 
 // Keep the full query string when navigating between views so a runDate
 // chosen on /verify survives a quick detour through /forecast and back.
@@ -123,10 +126,13 @@ function geolocate(): void {
 
 <template>
   <header ref="root" class="border-ink-700 bg-ink-950/85 sticky top-0 z-30 border-b backdrop-blur">
-    <div class="mx-auto grid max-w-5xl grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-3.5 sm:gap-6 sm:px-6">
+    <!-- One row at every width. The search keeps a usable width via a compact
+         view-switcher label and tighter gaps on mobile; `relative` anchors the
+         full-bleed results panel, which spans the whole bar via grid placement. -->
+    <div class="relative mx-auto grid max-w-5xl grid-cols-[auto_1fr_auto] items-center gap-2 px-4 py-3.5 sm:gap-6 sm:px-6">
       <!-- Wordmark + view switcher ------------------------------------ -->
-      <div class="flex items-center gap-2.5 sm:gap-5">
-        <a href="/" class="group flex items-center gap-2 leading-none">
+      <div class="flex items-center gap-2 sm:gap-5">
+        <a href="/" class="group flex items-center gap-1.5 leading-none">
           <!-- The mark: the stylised barometer dial, shared with the
                favicon / PWA icons via the single source in public/logo.svg. -->
           <img src="/logo.svg" alt="" aria-hidden="true" class="size-5 shrink-0" />
@@ -148,7 +154,8 @@ function geolocate(): void {
             @click="viewOpen = !viewOpen"
           >
             <span class="bg-sodium-300 size-1 rounded-full" aria-hidden="true" />
-            {{ currentView }}
+            <span class="sm:hidden">{{ currentViewShort }}</span>
+            <span class="hidden sm:inline">{{ currentView }}</span>
             <svg class="text-paper-300 size-3 transition-transform" :class="{ 'rotate-180': viewOpen }" viewBox="0 0 12 12" fill="none" aria-hidden="true">
               <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
@@ -232,24 +239,26 @@ function geolocate(): void {
           <span v-else class="border-ink-600 border-t-sodium-300 size-4 animate-spin rounded-full border" aria-hidden="true" />
           <span class="sr-only">Use my location</span>
         </button>
-
-        <SearchResultsPanel
-          v-if="isOpen && (results.length || favourites.length || recent.length || isSearching || searchError)"
-          :query="query"
-          :results="results"
-          :favourites="favourites"
-          :recent="recent"
-          :is-searching="isSearching"
-          :search-error="searchError"
-          @pick-result="pick"
-          @pick-saved="pickSaved"
-        />
       </div>
 
       <!-- Settings ---------------------------------------------------- -->
       <div class="flex justify-self-end">
         <SettingsMenu />
       </div>
+
+      <!-- Results panel: its own grid placement makes it full-bleed on mobile
+           (spans the whole bar) yet aligned under the input on sm+. -->
+      <SearchResultsPanel
+        v-if="isOpen && (results.length || favourites.length || recent.length || isSearching || searchError)"
+        :query="query"
+        :results="results"
+        :favourites="favourites"
+        :recent="recent"
+        :is-searching="isSearching"
+        :search-error="searchError"
+        @pick-result="pick"
+        @pick-saved="pickSaved"
+      />
     </div>
   </header>
 </template>
