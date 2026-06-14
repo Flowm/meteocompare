@@ -1,6 +1,13 @@
 @import "tailwindcss";
 @import "weather-icons/css/weather-icons.min.css";
 
+/* Self-hosted type system — bundled so the app makes no third-party request on
+ * load and renders fully offline. Instrument Sans (body) and JetBrains Mono
+ * (data) are weight-only variable fonts; Fontsource exposes them under "<Name>
+ * Variable" family names — see @theme below. */
+@import "@fontsource-variable/instrument-sans/index.css";
+@import "@fontsource-variable/jetbrains-mono/index.css";
+
 /* ---------------------------------------------------------------------------
  * MeteoCompare — "Observatory" design tokens.
  *
@@ -9,9 +16,6 @@
  * display face paired with mono for data, hairline rules, and a faint paper
  * grain across the whole page so flat fills don't read as plastic.
  * ------------------------------------------------------------------------- */
-
-/* Fonts are loaded via the Google Fonts CSS API in index.html, which always
- * returns the correct hashed asset URLs for the current font version. */
 
 @theme {
   /* — Surface palette — */
@@ -61,9 +65,8 @@
   --color-confidence-low: #e8826b; /* coral */
 
   /* — Type families — */
-  --font-display: "Fraunces", "Times New Roman", "Georgia", serif;
-  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --font-sans: "Instrument Sans Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
 
 html,
@@ -192,12 +195,6 @@ body::after {
   font-family: var(--font-mono);
   font-feature-settings: "tnum", "zero";
   font-variant-numeric: tabular-nums slashed-zero;
-}
-
-.display-serif {
-  font-family: var(--font-display);
-  font-feature-settings: "ss01", "ss02";
-  font-optical-sizing: auto;
 }
 
 /* Hairline rule. We use a 1-pixel pseudo border with the warm-amber faintly

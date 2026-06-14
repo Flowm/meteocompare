@@ -10,15 +10,10 @@
     <title>MeteoCompare — multi-model weather forecast</title>
     <meta name="description" content="Multi-model weather forecast comparison with a weighted aggregate and confidence score. Powered by open-meteo.com." />
 
-    <!-- Type system: a variable serif for display, a humanist sans for body,
-         and a mono with slashed-zero for all data. Loaded via the Google Fonts
-         CSS API so the hashed asset URLs are always current. -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,200..900,30..100&family=Instrument+Sans:wght@400..700&family=JetBrains+Mono:wght@300..700&display=swap"
-    />
+    <!-- Type system: a humanist sans for body (Instrument Sans) and a mono with
+         slashed-zero for all data (JetBrains Mono). Self-hosted via
+         @fontsource-variable and imported in src/style.css, so the app makes no
+         third-party request on load and renders fully offline. -->
   </head>
   <body>
     <div id="app"></div>
