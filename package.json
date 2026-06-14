@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "type-check": "vue-tsc --noEmit",
     "lint": "oxlint && oxfmt --check && vue-tsc",
     "lint:fix": "oxlint --fix && oxfmt --write",
     "deploy": "npm run build && wrangler deploy"
