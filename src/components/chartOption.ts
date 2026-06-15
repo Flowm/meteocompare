@@ -41,11 +41,26 @@ const AUTO = null as unknown as undefined;
  *  bare `number`. */
 type AxisBound = YAXisComponentOption["max"];
 
+/** Round a positive axis ceiling up to a "nice" value — a 1/2/5 × 10ⁿ multiple
+ *  — so a data-driven maximum like 11.37 mm/h reads as a clean 12 instead of a
+ *  long float in the axis label. Targets ~5 intervals, mirroring how ECharts
+ *  picks bounds when it auto-scales an axis itself. */
+function niceCeil(v: number): number {
+  if (!(v > 0)) return 0;
+  const mag = 10 ** Math.floor(Math.log10(v / 5));
+  const norm = v / 5 / mag; // the ~5-division interval, normalised to [1, 10)
+  const step = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
+  // toFixed(10) strips binary-float dust (e.g. 0.15000000000000002) that the
+  // step multiply can introduce for sub-unit ceilings like the inch axis.
+  return Number((Math.ceil(v / step) * step).toFixed(10));
+}
+
 /** A precipitation-axis ceiling that tracks the data but never drops below
  *  `floor`, so a few tenths of a mm/h don't fill the panel and read as heavy
- *  rain. Returned as the callback form ECharts evaluates per layout. */
+ *  rain. The ceiling is rounded to a nice value so a data-driven max reads as a
+ *  clean label. Returned as the callback form ECharts evaluates per layout. */
 function precipAxisCeiling(floor: number): AxisBound {
-  return (extent: { max: number }) => Math.max(floor, extent.max);
+  return (extent: { max: number }) => niceCeil(Math.max(floor, extent.max));
 }
 
 /** Stable colour for a model, keyed by its index in the registry so the same
@@ -418,10 +433,10 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
   const precipUnit = `${unitLabel("precipitation", units)}/h`;
   const interval = args.hoursWindow <= 24 ? 2 : args.hoursWindow <= 72 ? 11 : 23;
 
-  // Floor the precipitation axis at 8 mm/h (converted to the active unit) so a
+  // Floor the precipitation axis at 6 mm/h (converted to the active unit) so a
   // few tenths of a millimetre don't fill the panel and read as heavy rain.
   // The axis still grows past the floor when the data genuinely exceeds it.
-  const precipFloor = convertVar(8, "precipitation", units) ?? 8;
+  const precipFloor = convertVar(6, "precipitation", units) ?? 6;
   const precipMax = precipAxisCeiling(precipFloor);
 
   const option: EChartsOption = {

@@ -84,6 +84,15 @@ describe("buildHourlyChartOption — axis pinning", () => {
     expect(temp.min).toBeNull();
     expect(temp.max).toBeNull();
   });
+
+  it("floors the precip axis at 6 mm/h but rounds a data-driven ceiling to a nice value", () => {
+    // The right-axis max is the callback ECharts evaluates against the data
+    // extent each layout pass — invoke it directly with a fake extent.
+    const ceiling = yAxis({ ...base, view: "precipitation" })[1]!.max as (e: { min: number; max: number }) => number;
+    expect(ceiling({ min: 0, max: 2 })).toBe(6); // light rain → held at the floor
+    expect(ceiling({ min: 0, max: 11.373864392973317 })).toBe(12); // heavy rain → nice 12, not a long float
+    expect(ceiling({ min: 0, max: 23 })).toBe(25); // larger extent rounds up on a 5-step
+  });
 });
 
 describe("buildHourlyChartOption — per-model overlay", () => {
