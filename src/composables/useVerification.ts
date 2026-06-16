@@ -5,6 +5,7 @@ import { extractHourly as extractTruthHourly, fetchHistoricalWeather, type Histo
 import { extractDailyByModel, extractHourlyByModel, fetchSingleRuns, type SingleRunsResponse } from "@/api/omSingleRuns";
 import { aggregateVariables } from "@/domain/aggregateVariables";
 import { MODEL_IDS, MODELS, type ModelDef } from "@/domain/models";
+import { buildModelScorecard, type ScorecardRow } from "@/domain/scorecard";
 import { buildDailyVerification, type DailyVerification } from "@/domain/verification";
 import { addDaysIso } from "@/utils/date";
 
@@ -26,6 +27,10 @@ export interface UseVerificationReturn {
   error: Ref<string | null>;
   hourly: Ref<VerificationHourly | null>;
   daily: Ref<DailyVerification[] | null>;
+  /** Per-model (+ aggregate) full-window scores, sorted by Overall composite.
+   *  The per-model lens of the verification page — see CONTEXT.md "Per-model
+   *  scorecard". Distinct from `daily`, which scores only the aggregate per day. */
+  scorecard: Ref<ScorecardRow[] | null>;
   /** Per-day aggregate WMO weather codes, indexed by dayIndex. Used purely for
    *  the forecast-row icon on each card; never scored against truth (CONTEXT.md
    *  flags this — ERA5-Seamless has no weather_code). */
@@ -156,6 +161,22 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
     });
   });
 
+  const scorecard = computed<ScorecardRow[] | null>(() => {
+    const h = hourly.value;
+    if (!h) return null;
+    // Same hourly arrays the daily breakdown is fed — the scorecard just scores
+    // the full window (with lead-time bands) instead of per 24 h.
+    return buildModelScorecard({
+      times: h.times,
+      aggregateTemp: h.aggregate.temperature_2m ?? [],
+      aggregatePrecip: h.aggregate.precipitation ?? [],
+      perModelTemp: h.perModel.temperature_2m ?? {},
+      perModelPrecip: h.perModel.precipitation ?? {},
+      truthTemp: h.truth?.temperature_2m ?? [],
+      truthPrecip: h.truth?.precipitation ?? [],
+    });
+  });
+
   const solar = computed(() => {
     const runs = runsResp.value;
     if (!runs) return null;
@@ -202,5 +223,5 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
     return MODELS.filter((m) => ids.has(m.id));
   });
 
-  return { loading, error, hourly, daily, weatherCodes, availableModels, solar, refresh };
+  return { loading, error, hourly, daily, scorecard, weatherCodes, availableModels, solar, refresh };
 }

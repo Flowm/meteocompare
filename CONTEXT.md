@@ -98,11 +98,30 @@ Per-hour categorical outcomes for precipitation, with a ±1 h timing tolerance:
 **Weather code on truth**:
 Not provided. ERA5-Seamless has no WMO weather code, so the verification page shows the forecast aggregate's weather icon but no truth-side icon. Deliberately not derived from precipitation + cloud + temperature — that would score the forecast against our own derivation rule, not against truth.
 
-**Timing hit rate**:
-Fraction of truth's wet hours classified as hits. The "did rain fall at roughly the right time?" score per day.
+**Timing score**:
+The "did rain fall at roughly the right time, without crying wolf?" score, as the **Critical Success Index** (threat score) `hits / (hits + misses + false_alarms)` — so it penalises both missed rain and false alarms, not just misses. `NaN` only when nothing happened on either side (all correct-dry). Supersedes the earlier "timing hit rate" (a bare hit rate / POD that ignored false alarms — see ADR 0002).
+_Avoid_: timing hit rate, POD (the metric it replaced).
 
 **Amount error** _(precipitation only)_:
-Signed daily-sum forecast minus daily-sum truth, in mm. The "was the total roughly right?" score per day. Distinct from MAE; coexists with timing hit rate.
+Signed daily-sum forecast minus daily-sum truth, in mm. The "was the total roughly right?" score per day. Distinct from MAE; coexists with the timing score.
+
+### Per-model scoring
+
+**Daily breakdown**:
+The per-day cards on the verification page. Scores the **aggregate** against truth and pairs each day's measured error with that day's per-variable **confidence** — the calibration lens, and the page's core purpose. Aggregate-only: per-model detail lives in the scorecard, not here.
+
+**Per-model scorecard**:
+The table scoring each **Model** (and the **Aggregate**, ranked inline) over the full run window, sorted by composite score. The per-model lens, as opposed to the aggregate-per-day daily breakdown. Carries no confidence — confidence is defined only over the aggregate (see "Confidence").
+
+**Composite score**:
+A single 0–100 number blending a model's temperature MAE, precip amount error and precip timing score over a scope — each mapped to a 0..1 goodness against a _fixed per-variable reference scale_ (cf. typical spread) and averaged with equal per-metric weight, so precipitation carries ~⅔. Computed per model over the full window and per lead-time band. A deliberate collapse, kin to the under-review _overall confidence_; see ADR 0004.
+_Avoid_: skill (a skill score is improvement over a reference like climatology — this is not that), accuracy (too vague).
+
+**Lead-time band**:
+A coarse lead-hour bucket (0–48 h / 48–96 h / 96–168 h) the scorecard scores separately, exposing how a model's composite decays with lead time. Empty bands read as coverage gaps.
+
+**Coverage**:
+The hours a model actually returned data for within the window — a runtime fact (retention varies per model and run date). Sub-full-coverage models are flagged `*` and still ranked; their empty lead bands show the gap. Distinct from **Available models**, which is the binary did-it-return-anything set.
 
 ## Flagged ambiguities
 
@@ -132,6 +151,6 @@ Three unrelated things have worn this word; keep them apart. **Bias correction**
 >
 > **Domain:** Yes — high agreement, low spread. Which is honest: the models _did_ agree, they were just all wrong in the same direction. Confidence measures agreement, not correctness. The verification page exists to make that distinction visible.
 >
-> **Dev:** What about the timing hit rate? It says 40% — that's bad, right?
+> **Dev:** What about the timing score? It says 40% — that's bad, right?
 >
-> **Domain:** Within ±1 h tolerance, yes. Look at the per-hour strip — if you see a lot of false alarms clustered around noon, the models all predicted a midday shower that arrived three hours later. The amount error might still be near zero in that case. That's why timing and amount are separate scores.
+> **Domain:** Within ±1 h tolerance, yes. Look at the per-hour strip — if you see a lot of false alarms clustered around noon, the models all predicted a midday shower that never arrived (or arrived three hours later). Those false alarms drag the score down now, not just the misses. The amount error might still be near zero in that case. That's why timing and amount are separate scores.

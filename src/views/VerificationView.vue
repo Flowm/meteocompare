@@ -3,8 +3,11 @@ import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { type ChartViewId } from "@/components/chartHelpers";
+import CollapsibleSection from "@/components/CollapsibleSection.vue";
 import HourlySeriesChart from "@/components/HourlySeriesChart.vue";
 import LocationBar from "@/components/LocationBar.vue";
+import ModelScorecard from "@/components/ModelScorecard.vue";
+import ModelTimingMatrix from "@/components/ModelTimingMatrix.vue";
 import VerificationDayCard from "@/components/VerificationDayCard.vue";
 import { useLocation } from "@/composables/useLocation";
 import { useVerification } from "@/composables/useVerification";
@@ -45,7 +48,7 @@ function setRunDate(newDate: string): void {
 
 const showModels = ref(false);
 
-const { loading, error, hourly, daily, weatherCodes, availableModels, solar } = useVerification(current, runDate);
+const { loading, error, hourly, daily, scorecard, weatherCodes, availableModels, solar } = useVerification(current, runDate);
 
 const locationLabel = computed(() => {
   const loc = current.value;
@@ -84,7 +87,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
               :min="RETENTION_FLOOR"
               :max="maxRunDate"
               class="border-ink-700 bg-ink-950 text-paper-50 focus:border-sodium-300/60 border px-2 py-1 font-mono text-base tracking-normal outline-none sm:text-xs"
-              @input="setRunDate(($event.target as HTMLInputElement).value)"
+              @change="setRunDate(($event.target as HTMLInputElement).value)"
             />
           </label>
         </div>
@@ -108,24 +111,38 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
         <p class="text-paper-400 font-mono text-[11px] tracking-wide">Loading historical runs + ERA5…</p>
       </div>
 
-      <!-- Chart -->
-      <HourlySeriesChart
-        v-if="hourly"
-        v-model:showModels="showModels"
-        title="Hourly verification"
-        :data="hourly"
-        :variables="VERIFY_VARIABLES"
-        :solar="solar"
-        :default-window="168"
-      />
+      <!-- Chart (CollapsibleSection supplies the heading, so the chart's own is off). -->
+      <CollapsibleSection v-if="hourly" title="Hourly verification">
+        <HourlySeriesChart
+          v-model:showModels="showModels"
+          title="Hourly verification"
+          :show-title="false"
+          :data="hourly"
+          :variables="VERIFY_VARIABLES"
+          :solar="solar"
+          :default-window="168"
+        />
+      </CollapsibleSection>
 
-      <!-- Daily strip -->
-      <section v-if="daily && daily.length">
-        <h2 class="eyebrow mb-3">Daily breakdown</h2>
-        <div class="-mx-2 flex snap-x gap-2 overflow-x-auto px-2 pt-1 pb-3">
-          <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" :show-models="showModels" :weather-code="weatherCodes[d.dayIndex]" />
+      <!-- Per-model scorecard — each model (and the aggregate, ranked inline)
+           scored over the full window, with lead-time bands + a timing matrix. -->
+      <CollapsibleSection v-if="scorecard && scorecard.length" title="Per-model scorecard">
+        <div class="space-y-3">
+          <p class="text-paper-500 font-mono text-[11px] tracking-wide">
+            Full-window skill · 0–100 overall (higher = better) · <span class="text-aggregate-400">aggregate</span> ranked inline
+          </p>
+          <ModelScorecard :rows="scorecard" />
+          <ModelTimingMatrix :rows="scorecard" />
         </div>
-      </section>
+      </CollapsibleSection>
+
+      <!-- Daily breakdown — the aggregate's per-day calibration lens (confidence
+           beside measured error). The per-model lens lives in the scorecard above. -->
+      <CollapsibleSection v-if="daily && daily.length" title="Daily breakdown">
+        <div class="-mx-2 flex snap-x gap-2 overflow-x-auto px-2 pt-1 pb-3">
+          <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" :weather-code="weatherCodes[d.dayIndex]" />
+        </div>
+      </CollapsibleSection>
     </main>
 
     <footer class="border-ink-700/60 border-t px-6 py-6 text-center">

@@ -35,9 +35,11 @@ export interface TemperatureScores {
 export interface PrecipitationScores {
   /** Signed daily-sum error (forecast minus truth), mm. */
   amountError: number;
-  /** Fraction of truth-wet hours classified as `hit`, in `[0, 1]`.
-   *  `NaN` when the day has no truth-wet hours (no meaningful timing score). */
-  timingHitRate: number;
+  /** Timing skill as the Critical Success Index `hits / (hits + misses +
+   *  false_alarms)`, in `[0, 1]`. Penalises missed rain AND false alarms, so
+   *  over-predicting rain no longer scores well. `NaN` only when nothing
+   *  happened on either side (all correct-dry) — timing is then undefined. */
+  timingScore: number;
   /** Aggregate per-variable confidence averaged over the day. `NaN` for per-model rows. */
   confidence: number;
   forecastSum: number;
@@ -187,20 +189,22 @@ export function classifyHours(
   return result;
 }
 
-/** `hits / (hits + misses)` — i.e. the fraction of truth's wet hours the
- *  forecast captured within tolerance. Returns `NaN` for a dry day. */
-export function timingHitRate(classifications: readonly HourClassification[]): number {
+/** Critical Success Index (a.k.a. threat score): `hits / (hits + misses +
+ *  false_alarms)`. Unlike a bare hit rate (POD), this penalises false alarms,
+ *  so a forecast that cries wolf — predicting rain that never falls — scores
+ *  low instead of being ignored. Returns `NaN` only when nothing happened on
+ *  either side (no hits, misses, or false alarms), where timing is undefined. */
+export function timingScore(classifications: readonly HourClassification[]): number {
   let hits = 0;
-  let truthWetTotal = 0;
+  let misses = 0;
+  let falseAlarms = 0;
   for (const c of classifications) {
-    if (c === "hit") {
-      hits += 1;
-      truthWetTotal += 1;
-    } else if (c === "miss") {
-      truthWetTotal += 1;
-    }
+    if (c === "hit") hits += 1;
+    else if (c === "miss") misses += 1;
+    else if (c === "false_alarm") falseAlarms += 1;
   }
-  return truthWetTotal === 0 ? NaN : hits / truthWetTotal;
+  const events = hits + misses + falseAlarms;
+  return events === 0 ? NaN : hits / events;
 }
 
 // ---------------------------------------------------------------------------
@@ -234,7 +238,7 @@ function scorePrecipitation(forecast: readonly (number | null)[], truth: readonl
   const classification = classifyHours(forecast, truth);
   return {
     amountError: sumNonNull(forecast) - sumNonNull(truth),
-    timingHitRate: timingHitRate(classification),
+    timingScore: timingScore(classification),
     confidence,
     forecastSum: sumNonNull(forecast),
     truthSum: sumNonNull(truth),

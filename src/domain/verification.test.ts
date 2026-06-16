@@ -11,7 +11,7 @@ import {
   meanFinite,
   minNonNull,
   sumNonNull,
-  timingHitRate,
+  timingScore,
   WET_THRESHOLD_MM_PER_H,
 } from "./verification";
 
@@ -125,20 +125,24 @@ describe("classifyHours", () => {
   });
 });
 
-describe("timingHitRate", () => {
-  it("returns hits / (hits + misses)", () => {
-    expect(timingHitRate(["hit", "hit", "miss", "correct_dry"])).toBeCloseTo(2 / 3);
-    expect(timingHitRate(["hit", "hit"])).toBeCloseTo(1);
-    expect(timingHitRate(["miss", "miss"])).toBeCloseTo(0);
+describe("timingScore (Critical Success Index)", () => {
+  it("returns hits / (hits + misses + false_alarms)", () => {
+    expect(timingScore(["hit", "hit", "miss", "correct_dry"])).toBeCloseTo(2 / 3);
+    expect(timingScore(["hit", "hit"])).toBeCloseTo(1);
+    expect(timingScore(["miss", "miss"])).toBeCloseTo(0);
+    expect(timingScore(["hit", "miss", "false_alarm"])).toBeCloseTo(1 / 3);
   });
 
-  it("ignores false alarms and correct_dry in the denominator", () => {
-    expect(timingHitRate(["hit", "false_alarm", "correct_dry"])).toBeCloseTo(1);
+  it("penalises false alarms — a bare hit rate would have ignored them", () => {
+    // One hit, one false alarm → CSI 0.5 (POD would say 1.0).
+    expect(timingScore(["hit", "false_alarm", "correct_dry"])).toBeCloseTo(0.5);
+    // Pure false alarms, no truth-wet hours → 0, NOT NaN: crying wolf is scored.
+    expect(timingScore(["correct_dry", "correct_dry", "false_alarm"])).toBeCloseTo(0);
   });
 
-  it("returns NaN on a dry day", () => {
-    expect(timingHitRate(["correct_dry", "correct_dry", "false_alarm"])).toBeNaN();
-    expect(timingHitRate([])).toBeNaN();
+  it("returns NaN only when nothing happened (all correct-dry / empty)", () => {
+    expect(timingScore(["correct_dry", "correct_dry"])).toBeNaN();
+    expect(timingScore([])).toBeNaN();
   });
 });
 
@@ -224,7 +228,7 @@ describe("buildDailyVerification", () => {
     });
     const p = result[0]?.aggregate.precipitation;
     expect(p?.amountError).toBeCloseTo(0);
-    expect(p?.timingHitRate).toBeCloseTo(1); // all 3 wet truth hours within ±1 of forecast
+    expect(p?.timingScore).toBeCloseTo(1); // 3 hits, no misses or false alarms → CSI 1
     expect(p?.forecastSum).toBeCloseTo(3);
     expect(p?.truthSum).toBeCloseTo(3);
     expect(p?.hourlyClassification).toHaveLength(HOURS_PER_DAY);

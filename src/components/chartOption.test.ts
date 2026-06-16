@@ -84,6 +84,15 @@ describe("buildHourlyChartOption — axis pinning", () => {
     expect(temp.min).toBeNull();
     expect(temp.max).toBeNull();
   });
+
+  it("floors the precip axis at 6 mm/h but rounds a data-driven ceiling to a nice value", () => {
+    // The right-axis max is the callback ECharts evaluates against the data
+    // extent each layout pass — invoke it directly with a fake extent.
+    const ceiling = yAxis({ ...base, view: "precipitation" })[1]!.max as (e: { min: number; max: number }) => number;
+    expect(ceiling({ min: 0, max: 2 })).toBe(6); // light rain → held at the floor
+    expect(ceiling({ min: 0, max: 11.373864392973317 })).toBe(12); // heavy rain → nice 12, not a long float
+    expect(ceiling({ min: 0, max: 23 })).toBe(25); // larger extent rounds up on a 5-step
+  });
 });
 
 describe("buildHourlyChartOption — per-model overlay", () => {
@@ -105,6 +114,40 @@ describe("buildHourlyChartOption — truth", () => {
     expect(byId(base, "tr")).toBeUndefined();
     const withTruth: HourlySeries = { ...DATA, truth: { temperature_2m: [9, 10, 11, 12, 13] } };
     expect(byId({ ...base, data: withTruth }, "tr")).toBeDefined();
+  });
+});
+
+describe("buildHourlyChartOption — x-axis day labels", () => {
+  // Build local-wall-clock ISO strings (no Z) so getHours() is deterministic
+  // across the test runner's timezone — matching how the open-meteo APIs return
+  // times. Starting at 19:00 puts the first local midnight at index 5 (mimics a
+  // verification axis anchored to the 00Z run cycle in a UTC−5 location).
+  const localTimes = (n: number, y: number, mo: number, d: number, h: number): string[] => {
+    const start = new Date(y, mo, d, h, 0, 0);
+    const p = (x: number) => String(x).padStart(2, "0");
+    return Array.from({ length: n }, (_, i) => {
+      const t = new Date(start.getTime() + i * 3_600_000);
+      return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}T${p(t.getHours())}:00`;
+    });
+  };
+  const xAxisOf = (args: HourlyChartOptionArgs) => buildHourlyChartOption(args).option.xAxis as { data: string[]; axisLabel: { interval: (i: number) => boolean } };
+  const isClock = (label: string) => /^\d{2}:00$/.test(label);
+
+  it("anchors daily ticks to local midnight so an off-midnight (00Z-run) axis still shows weekday labels", () => {
+    const times = localTimes(30, 2026, 4, 20, 19); // starts 19:00 → midnight at index 5
+    const x = xAxisOf({ ...base, data: { ...DATA, times }, hoursWindow: 168 });
+    const shown = x.data.map((_, i) => i).filter((i) => x.axisLabel.interval(i));
+    // Every shown tick lands on a local midnight (weekday label, never "HH:00").
+    expect(shown).toContain(5);
+    expect(shown).toContain(29);
+    expect(shown.every((i) => !isClock(x.data[i]!))).toBe(true);
+  });
+
+  it("is a no-op for a midnight-anchored (forecast) axis: ticks every 24h from index 0", () => {
+    const times = localTimes(72, 2026, 4, 20, 0); // starts at local midnight
+    const x = xAxisOf({ ...base, data: { ...DATA, times }, hoursWindow: 168 });
+    const shown = x.data.map((_, i) => i).filter((i) => x.axisLabel.interval(i));
+    expect(shown).toEqual([0, 24, 48]);
   });
 });
 
