@@ -61,7 +61,7 @@ describe("aggregateVariables — key vs family", () => {
     });
     // Result slot is the fetched key…
     expect(out.aggregate.temperature_2m_max).toBeDefined();
-    expect(out.aggregate.temperature_2m).toBeUndefined();
+    expect("temperature_2m" in out.aggregate).toBe(false);
     // …but the value matches weighting under the temperature_2m family.
     const direct = aggregateSeries(times, byModel, { variable: "temperature_2m", models: subset, lat: PARIS.lat, lon: PARIS.lon, baseTime });
     expect(out.aggregate.temperature_2m_max![0]!.value).toBeCloseTo(direct[0]!.value, 10);
