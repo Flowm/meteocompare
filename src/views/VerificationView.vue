@@ -8,6 +8,7 @@ import HourlySeriesChart from "@/components/HourlySeriesChart.vue";
 import LocationBar from "@/components/LocationBar.vue";
 import ModelScorecard from "@/components/ModelScorecard.vue";
 import ModelTimingMatrix from "@/components/ModelTimingMatrix.vue";
+import RadarSpinner from "@/components/RadarSpinner.vue";
 import VerificationDayCard from "@/components/VerificationDayCard.vue";
 import { useLocation } from "@/composables/useLocation";
 import { useVerification } from "@/composables/useVerification";
@@ -100,15 +101,11 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
       <!-- Error state -->
       <div v-if="error" class="border-heat-500/40 bg-heat-500/5 text-heat-300 border p-4 font-mono text-xs tracking-wide"><span class="text-heat-400">[err]</span> {{ error }}</div>
 
-      <!-- Loading state -->
+      <!-- Cold-load state (no data yet). Same spinner as the refetch indicator,
+           just centered and larger. -->
       <div v-if="loading && !hourly" class="grid place-items-center gap-4 py-32">
-        <div class="relative size-12">
-          <div class="border-ink-700 absolute inset-0 rounded-full border" />
-          <div class="border-ink-600 absolute inset-1 rounded-full border" />
-          <div class="border-ink-500 absolute inset-2 rounded-full border" />
-          <div class="border-t-sodium-300 absolute inset-0 animate-spin rounded-full border border-transparent" style="animation-duration: 1.6s" />
-        </div>
-        <p class="text-paper-400 font-mono text-[11px] tracking-wide">Loading historical runs + ERA5…</p>
+        <RadarSpinner />
+        <p class="text-paper-400 font-mono text-[11px] tracking-wide">Loading run…</p>
       </div>
 
       <!-- Content — once a run has loaded. On a date/location change the stale
@@ -121,10 +118,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
           role="status"
           aria-live="polite"
         >
-          <span class="relative inline-block size-4" aria-hidden="true">
-            <span class="border-ink-600 absolute inset-0 rounded-full border" />
-            <span class="border-t-sodium-300 absolute inset-0 animate-spin rounded-full border border-transparent" style="animation-duration: 1.2s" />
-          </span>
+          <RadarSpinner size="size-4" />
           Updating…
         </div>
 
