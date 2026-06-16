@@ -5,6 +5,7 @@ import { useRoute, useRouter } from "vue-router";
 import { type ChartViewId } from "@/components/chartHelpers";
 import CollapsibleSection from "@/components/CollapsibleSection.vue";
 import HourlySeriesChart from "@/components/HourlySeriesChart.vue";
+import LoadingVeil from "@/components/LoadingVeil.vue";
 import LocationBar from "@/components/LocationBar.vue";
 import ModelScorecard from "@/components/ModelScorecard.vue";
 import ModelTimingMatrix from "@/components/ModelTimingMatrix.vue";
@@ -108,21 +109,11 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
         <p class="text-paper-400 font-mono text-[11px] tracking-wide">Loading run…</p>
       </div>
 
-      <!-- Content — once a run has loaded. On a date/location change the stale
-           data is dimmed and a floating indicator makes the refetch obvious,
-           rather than silently leaving the previous run on screen. -->
-      <div v-if="hourly">
-        <div
-          v-if="loading"
-          class="border-ink-700 bg-ink-900/95 text-paper-200 pointer-events-none fixed top-16 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2.5 border px-3.5 py-2 font-mono text-[11px] tracking-wide shadow-2xl shadow-black/50 backdrop-blur"
-          role="status"
-          aria-live="polite"
-        >
-          <RadarSpinner size="size-4" />
-          Updating…
-        </div>
-
-        <div class="space-y-8 transition-opacity duration-200" :class="{ 'pointer-events-none opacity-40': loading }">
+      <!-- Content — once a run has loaded. LoadingVeil dims it and shows an
+           "Updating…" indicator below the header while a date/location change
+           re-fetches, instead of silently leaving the previous run on screen. -->
+      <LoadingVeil v-if="hourly" :loading="loading">
+        <div class="space-y-8">
           <!-- Chart (CollapsibleSection supplies the heading, so the chart's own is off). -->
           <CollapsibleSection title="Hourly verification">
             <HourlySeriesChart
@@ -156,7 +147,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
             </div>
           </CollapsibleSection>
         </div>
-      </div>
+      </LoadingVeil>
     </main>
 
     <footer class="border-ink-700/60 border-t px-6 py-6 text-center">
