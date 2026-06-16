@@ -68,6 +68,12 @@ export function unitLabel(varId: DataVarId, u: UnitPrefs): string {
   }
 }
 
+/** Format a number with an explicit leading `+` for non-negatives (the `-` is
+ *  intrinsic). Used for signed error / bias readouts. Stateless. */
+export function signed(n: number, digits = 1): string {
+  return `${n >= 0 ? "+" : ""}${n.toFixed(digits)}`;
+}
+
 /** Format a percentage. Stateless — hoisted out of the composable. */
 export function formatPercent(v: number | null | undefined): string {
   if (v == null || Number.isNaN(v)) return "–";

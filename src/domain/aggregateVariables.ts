@@ -12,21 +12,21 @@ import { confidenceFor } from "./confidence";
 import type { ModelDef } from "./models";
 import type { Variable } from "./weighting";
 
-export interface VarSpec {
+export interface VarSpec<K extends string = string> {
   /** Result + perModel key — what the output is keyed by. For daily variables
    *  this is the fetched id (e.g. "temperature_2m_max"). */
-  key: string;
+  key: K;
   /** Weighting + confidence family the key rolls up to (e.g. a daily max is
    *  weighted/scored as "temperature_2m"). For hourly variables key === family. */
   family: Variable;
 }
 
-export interface AggregateVariablesOptions {
+export interface AggregateVariablesOptions<K extends string = string> {
   /** Shared time axis (location-local ISO strings). */
   times: string[];
   /** Pre-extracted per-model series, keyed by VarSpec.key → model id → values. */
-  perModel: Record<string, Record<string, (number | null)[]>>;
-  vars: readonly VarSpec[];
+  perModel: Record<K, Record<string, (number | null)[]>>;
+  vars: readonly VarSpec<K>[];
   models: ModelDef[];
   lat: number;
   lon: number;
@@ -38,19 +38,22 @@ export interface AggregateVariablesOptions {
   cadence: "hourly" | "daily";
 }
 
-export interface AggregatedVariables {
+export interface AggregatedVariables<K extends string = string> {
   /** Variable key → weighted-ensemble aggregate points. */
-  aggregate: Record<string, AggregatePoint[]>;
+  aggregate: Record<K, AggregatePoint[]>;
   /** Variable key → per-timestep confidence (0..1). */
-  confidence: Record<string, number[]>;
+  confidence: Record<K, number[]>;
   /** Echoed input, so the result is a drop-in view-model. */
-  perModel: Record<string, Record<string, (number | null)[]>>;
+  perModel: Record<K, Record<string, (number | null)[]>>;
 }
 
-export function aggregateVariables(opts: AggregateVariablesOptions): AggregatedVariables {
+/** Generic over the variable-key set `K`, so the narrowly-keyed input records
+ *  (e.g. `Record<HourlyVar, …>`) flow straight through to the result — callers
+ *  no longer cast the output back to their view-model shape. */
+export function aggregateVariables<K extends string>(opts: AggregateVariablesOptions<K>): AggregatedVariables<K> {
   const leadAt = (i: number): number => (opts.cadence === "daily" ? i * 24 + 12 : i);
-  const aggregate: Record<string, AggregatePoint[]> = {};
-  const confidence: Record<string, number[]> = {};
+  const aggregate = {} as Record<K, AggregatePoint[]>;
+  const confidence = {} as Record<K, number[]>;
   for (const { key, family } of opts.vars) {
     const byModel = opts.perModel[key] ?? {};
     const agg = aggregateSeries(opts.times, byModel, {

@@ -29,6 +29,13 @@ export interface AggregatePoint {
   perModel: ModelSamples;
 }
 
+/** Map an AggregatePoint to a nullable cell value, turning the `NaN`
+ *  "no contributing models" sentinel back into `null`. The single home of that
+ *  convention — both verification and the scorecard consume it. */
+export function aggregateValue(p: AggregatePoint): number | null {
+  return Number.isNaN(p.value) ? null : p.value;
+}
+
 export interface AggregateOptions {
   variable: Variable;
   models: ModelDef[];

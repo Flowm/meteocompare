@@ -8,7 +8,7 @@
 // per-metric weights, coverage-fair normalisation — is documented in
 // docs/adr/0004-per-model-composite-score.md.
 
-import type { AggregatePoint } from "./aggregate";
+import { aggregateValue, type AggregatePoint } from "./aggregate";
 import { bias, classifyHours, mae, sumNonNull, timingScore, type HourClassification } from "./verification";
 
 // ---------------------------------------------------------------------------
@@ -111,8 +111,6 @@ export interface ScorecardInput {
 // Scoring
 // ---------------------------------------------------------------------------
 
-const toNullable = (p: AggregatePoint): number | null => (Number.isNaN(p.value) ? null : p.value);
-
 /** Score one scope (full window or a band slice) into metrics + composite.
  *  Each metric maps to a 0..1 goodness; the composite blends only the metrics
  *  that are scorable in the scope, renormalising the weights accordingly:
@@ -208,8 +206,8 @@ export function buildModelScorecard(input: ScorecardInput): ScorecardRow[] {
     rows.push(buildRow(id, false, fTemp, fPrecip, truthTemp, truthPrecip, n));
   }
 
-  const aggTemp = input.aggregateTemp.slice(0, n).map(toNullable);
-  const aggPrecip = input.aggregatePrecip.slice(0, n).map(toNullable);
+  const aggTemp = input.aggregateTemp.slice(0, n).map(aggregateValue);
+  const aggPrecip = input.aggregatePrecip.slice(0, n).map(aggregateValue);
   rows.push(buildRow(AGGREGATE_ROW_ID, true, aggTemp, aggPrecip, truthTemp, truthPrecip, n));
 
   rows.sort((a, b) => rankKey(b.overall.composite) - rankKey(a.overall.composite));

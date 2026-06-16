@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import { useUnits } from "@/composables/useUnits";
+import { signed, useUnits } from "@/composables/useUnits";
 import type { DailyVerification } from "@/domain/verification";
 
 import ConfidenceBadge from "./ConfidenceBadge.vue";
@@ -29,11 +29,6 @@ const dayLabel = computed(() => {
 // hours, where Day 0 covers 0–24 h lead). Avoids the "Day 1 means tomorrow,
 // or the run day?" ambiguity from the previous 1-indexed labelling.
 const leadLabel = computed(() => `Day ${props.day.dayIndex} · ${props.day.leadHoursStart}-${props.day.leadHoursEnd}h`);
-
-function signed(n: number, digits = 1): string {
-  const sign = n >= 0 ? "+" : "";
-  return `${sign}${n.toFixed(digits)}`;
-}
 </script>
 
 <template>

@@ -5,7 +5,7 @@
 // bias + MAE for temperature — is documented in
 // docs/adr/0002-two-part-precipitation-score.md.
 
-import type { AggregatePoint } from "./aggregate";
+import { aggregateValue, type AggregatePoint } from "./aggregate";
 
 /** Threshold above which a precipitation reading counts as "wet" (mm/h). */
 export const WET_THRESHOLD_MM_PER_H = 0.1;
@@ -279,8 +279,8 @@ export function buildDailyVerification(opts: BuildDailyOptions): DailyVerificati
     const start = day * HOURS_PER_DAY;
     const end = start + HOURS_PER_DAY;
 
-    const aggT = opts.aggregateTemp.slice(start, end).map(toNullableNumber);
-    const aggP = opts.aggregatePrecip.slice(start, end).map(toNullableNumber);
+    const aggT = opts.aggregateTemp.slice(start, end).map(aggregateValue);
+    const aggP = opts.aggregatePrecip.slice(start, end).map(aggregateValue);
     const truthT = opts.truthTemp.slice(start, end);
     const truthP = opts.truthPrecip.slice(start, end);
 
@@ -313,10 +313,4 @@ export function buildDailyVerification(opts: BuildDailyOptions): DailyVerificati
     });
   }
   return out;
-}
-
-/** Turn an AggregatePoint into a hour-cell value, mapping the `NaN` sentinel
- *  used by `aggregateSeries` for "no contributing models" back to `null`. */
-function toNullableNumber(p: AggregatePoint): number | null {
-  return Number.isNaN(p.value) ? null : p.value;
 }

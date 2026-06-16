@@ -1,11 +1,13 @@
-import { computed, onScopeDispose, ref, shallowRef, watch, type Ref } from "vue";
+import { computed, onScopeDispose, ref, type Ref } from "vue";
 
-import { fetchForecast, extractHourlyByModel, extractDailyByModel, extractDailySolar, type ForecastResponse, type HourlyVar, type DailyVar } from "@/api/omForecast";
+import { fetchForecast, extractHourlyByModel, extractDailyByModel, solarFrom, type ForecastResponse, type HourlyVar, type DailyVar } from "@/api/omForecast";
 import type { AggregatePoint } from "@/domain/aggregate";
 import { aggregateVariables } from "@/domain/aggregateVariables";
+import { overallConfidence } from "@/domain/confidence";
 import { MODELS, MODEL_IDS } from "@/domain/models";
 import type { Variable } from "@/domain/weighting";
 
+import { useAbortableResource } from "./useAbortableResource";
 import type { Location } from "./useLocation";
 
 const HOURLY: HourlyVar[] = ["temperature_2m", "precipitation", "precipitation_probability", "weather_code", "wind_speed_10m", "wind_direction_10m", "cloud_cover"];
@@ -56,6 +58,15 @@ export interface DailyAggregate {
   perModel: Record<DailyVar, Record<string, (number | null)[]>>;
 }
 
+/** The forecast view's per-day "overall confidence" collapse: the unweighted
+ *  mean of the day's temperature, precipitation, and weather-code confidences.
+ *  The single definition of *which* variables compose it — CONTEXT.md flags this
+ *  collapse as "overall confidence (under review)", so it lives in one place
+ *  rather than inlined in each card. */
+export function dailyOverallConfidence(daily: DailyAggregate, i: number): number {
+  return overallConfidence([daily.confidence.temperature_2m_max[i], daily.confidence.precipitation_sum[i], daily.confidence.weather_code[i]]);
+}
+
 export interface UseForecastReturn {
   loading: Ref<boolean>;
   error: Ref<string | null>;
@@ -68,39 +79,23 @@ export interface UseForecastReturn {
 }
 
 export function useForecast(location: Ref<Location>): UseForecastReturn {
-  const loading = ref(false);
-  const error = ref<string | null>(null);
   const lastUpdated = ref<Date | null>(null);
-  const raw = shallowRef<ForecastResponse | null>(null);
 
-  let inflight: AbortController | null = null;
-
-  async function refresh(): Promise<void> {
-    inflight?.abort();
-    inflight = new AbortController();
-    const signal = inflight.signal;
-    loading.value = true;
-    error.value = null;
-    try {
+  // Re-fetches on location change; the superseded-request guard lives in the
+  // helper. `lastUpdated` is stamped here, inside the fetcher, so it only moves
+  // on a non-aborted success.
+  const {
+    data: raw,
+    loading,
+    error,
+    refresh,
+  } = useAbortableResource<ForecastResponse>(
+    async (signal) => {
       const data = await fetchForecast({ lat: location.value.latitude, lon: location.value.longitude }, signal);
-      raw.value = data;
       lastUpdated.value = new Date();
-    } catch (e: unknown) {
-      if (e instanceof DOMException && e.name === "AbortError") return;
-      error.value = e instanceof Error ? e.message : String(e);
-      raw.value = null;
-    } finally {
-      // Only the latest request clears `loading`. A location change and the SW
-      // revalidation channel can both fire refresh(); a superseded one is
-      // aborted and must not flip the flag off while its replacement is in flight.
-      if (inflight?.signal === signal) loading.value = false;
-    }
-  }
-
-  watch(
-    () => [location.value.latitude, location.value.longitude] as const,
-    () => void refresh(),
-    { immediate: true },
+      return data;
+    },
+    () => [location.value.latitude, location.value.longitude],
   );
 
   // The forecast SW cache uses StaleWhileRevalidate: the initial fetch resolves with
@@ -138,7 +133,7 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
       baseTime,
       cadence: "hourly",
     });
-    return { times, aggregate, confidence, perModel } as HourlyAggregate;
+    return { times, aggregate, confidence, perModel };
   });
 
   const daily = computed<DailyAggregate | null>(() => {
@@ -162,14 +157,10 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
       baseTime,
       cadence: "daily",
     });
-    return { times, series, confidence, perModel } as DailyAggregate;
+    return { times, series, confidence, perModel };
   });
 
-  const solar = computed(() => {
-    const data = raw.value;
-    if (!data) return null;
-    return extractDailySolar(data, MODEL_IDS);
-  });
+  const solar = computed(() => solarFrom(raw.value));
 
   return { loading, error, lastUpdated, raw, hourly, daily, solar, refresh };
 }

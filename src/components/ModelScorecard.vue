@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import { convertDelta, convertVar, unitLabel, useUnits } from "@/composables/useUnits";
+import { convertDelta, convertVar, signed, unitLabel, useUnits } from "@/composables/useUnits";
 import { getModel } from "@/domain/models";
 import { AGGREGATE_ROW_ID, LEAD_BANDS, type ScorecardRow } from "@/domain/scorecard";
 
@@ -32,8 +32,6 @@ const scoreTone = (c: number): string => {
   if (c >= 40) return "text-sodium-200";
   return "text-heat-300";
 };
-
-const signed = (n: number, digits = 1): string => `${n >= 0 ? "+" : ""}${n.toFixed(digits)}`;
 
 // Temperature MAE/bias are *deltas* (magnitudes/differences), so convert with
 // convertDelta — never convertVar, which would add the °F offset.
