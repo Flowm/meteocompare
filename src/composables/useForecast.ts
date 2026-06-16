@@ -78,10 +78,11 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
   async function refresh(): Promise<void> {
     inflight?.abort();
     inflight = new AbortController();
+    const signal = inflight.signal;
     loading.value = true;
     error.value = null;
     try {
-      const data = await fetchForecast({ lat: location.value.latitude, lon: location.value.longitude }, inflight.signal);
+      const data = await fetchForecast({ lat: location.value.latitude, lon: location.value.longitude }, signal);
       raw.value = data;
       lastUpdated.value = new Date();
     } catch (e: unknown) {
@@ -89,7 +90,10 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
       error.value = e instanceof Error ? e.message : String(e);
       raw.value = null;
     } finally {
-      loading.value = false;
+      // Only the latest request clears `loading`. A location change and the SW
+      // revalidation channel can both fire refresh(); a superseded one is
+      // aborted and must not flip the flag off while its replacement is in flight.
+      if (inflight?.signal === signal) loading.value = false;
     }
   }
 
