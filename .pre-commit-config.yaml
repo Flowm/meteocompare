@@ -1,0 +1,35 @@
+default_install_hook_types: [pre-commit]
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-added-large-files
+  - repo: local
+    hooks:
+      - id: oxlint
+        name: oxlint
+        entry: npx oxlint --fix
+        language: system
+        types_or: [ts, javascript, vue]
+        pass_filenames: false
+      - id: oxfmt
+        name: oxfmt
+        entry: npx oxfmt --write
+        language: system
+        types_or: [ts, javascript, vue, json, css]
+        pass_filenames: false
+      - id: type-check
+        name: vue-tsc type-check
+        entry: npm run type-check
+        language: system
+        types_or: [ts, vue]
+        pass_filenames: false
+      - id: test
+        name: vitest
+        entry: npm test
+        language: system
+        types_or: [ts, vue]
+        pass_filenames: false
