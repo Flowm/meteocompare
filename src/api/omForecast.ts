@@ -136,4 +136,11 @@ export function extractDailySolar(resp: ForecastResponse, modelIds: string[]): {
   return null;
 }
 
+/** Solar series for the registry models from a (possibly absent) response.
+ *  Null until the response lands — the shape both data composables expose for
+ *  the chart's day/night shading, so the registry-ids + null-guard live once. */
+export function solarFrom(resp: ForecastResponse | null): { sunrise: string[]; sunset: string[] } | null {
+  return resp ? extractDailySolar(resp, MODEL_IDS) : null;
+}
+
 export { HOURLY_VARS, DAILY_VARS, CURRENT_VARS };

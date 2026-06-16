@@ -2,10 +2,9 @@
 import { computed } from "vue";
 
 import type { ForecastResponse } from "@/api/omForecast";
-import type { DailyAggregate } from "@/composables/useForecast";
+import { dailyOverallConfidence, type DailyAggregate } from "@/composables/useForecast";
 import { useLocation } from "@/composables/useLocation";
 import { convertVar, useUnits } from "@/composables/useUnits";
-import { overallConfidence } from "@/domain/confidence";
 import { weatherLabel } from "@/domain/weatherCodes";
 
 import ConfidenceBadge from "./ConfidenceBadge.vue";
@@ -29,9 +28,7 @@ const currentTemp = computed(() => convertVar(props.raw.current.temperature_2m, 
 const currentCode = computed(() => Number(props.raw.current.weather_code ?? 0));
 const currentIsDay = computed(() => (props.raw.current.is_day ?? 1) === 1);
 const todayPrecipProb = computed(() => props.daily.series.precipitation_probability_max[0]?.value ?? null);
-const todayConfidence = computed(() =>
-  overallConfidence([props.daily.confidence.temperature_2m_max[0], props.daily.confidence.precipitation_sum[0], props.daily.confidence.weather_code[0]]),
-);
+const todayConfidence = computed(() => dailyOverallConfidence(props.daily, 0));
 const lastUpdated = computed(() => new Date(props.raw.current.time));
 
 const sunrise = computed(() => props.solar?.sunrise[0] ?? null);

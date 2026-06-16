@@ -1,8 +1,8 @@
-import { computed, ref, shallowRef, watch, type Ref } from "vue";
+import { computed, type Ref } from "vue";
 
-import { extractDailySolar } from "@/api/omForecast";
-import { extractHourly as extractTruthHourly, fetchHistoricalWeather, type HistoricalWeatherResponse } from "@/api/omHistoricalWeather";
-import { extractDailyByModel, extractHourlyByModel, fetchSingleRuns, type SingleRunsResponse } from "@/api/omSingleRuns";
+import { solarFrom } from "@/api/omForecast";
+import { extractHourly as extractTruthHourly, fetchHistoricalWeather } from "@/api/omHistoricalWeather";
+import { extractDailyByModel, extractHourlyByModel, fetchSingleRuns } from "@/api/omSingleRuns";
 import { aggregateVariables } from "@/domain/aggregateVariables";
 import { MODEL_IDS, MODELS, type ModelDef } from "@/domain/models";
 import { buildModelScorecard, type ScorecardRow } from "@/domain/scorecard";
@@ -10,6 +10,7 @@ import { buildDailyVerification, type DailyVerification } from "@/domain/verific
 import { addDaysIso } from "@/utils/date";
 
 import type { DataVarId, HourlySeries } from "./hourlySeries";
+import { useAbortableResource } from "./useAbortableResource";
 import type { Location } from "./useLocation";
 
 /** Conforms to the unified chart contract (HourlySeries) — temperature and
@@ -44,20 +45,10 @@ export interface UseVerificationReturn {
 }
 
 export function useVerification(location: Ref<Location>, runDate: Ref<string>): UseVerificationReturn {
-  const loading = ref(false);
-  const error = ref<string | null>(null);
-  const runsResp = shallowRef<SingleRunsResponse | null>(null);
-  const truthResp = shallowRef<HistoricalWeatherResponse | null>(null);
-
-  let inflight: AbortController | null = null;
-
-  async function refresh(): Promise<void> {
-    inflight?.abort();
-    inflight = new AbortController();
-    const signal = inflight.signal;
-    loading.value = true;
-    error.value = null;
-    try {
+  // The runs + truth pair is fetched together (so a superseded date/location
+  // change aborts both); the helper owns the abort + superseded-loading guard.
+  const { data, loading, error, refresh } = useAbortableResource(
+    async (signal) => {
       // Fetch truth with a 1-day-wider window than the forecast's 7 days so the
       // TZ-shifted forecast window is fully covered regardless of UTC offset.
       const truthEndDate = addDaysIso(runDate.value, 7);
@@ -65,30 +56,14 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
         fetchSingleRuns({ lat: location.value.latitude, lon: location.value.longitude, runDate: runDate.value }, signal),
         fetchHistoricalWeather({ lat: location.value.latitude, lon: location.value.longitude, startDate: runDate.value, endDate: truthEndDate }, signal),
       ]);
-      runsResp.value = runs;
-      truthResp.value = truth;
-    } catch (e: unknown) {
-      if (e instanceof DOMException && e.name === "AbortError") return;
-      error.value = e instanceof Error ? e.message : String(e);
-      runsResp.value = null;
-      truthResp.value = null;
-    } finally {
-      // Only the latest request clears `loading`. A request superseded by a
-      // rapid date/location change is aborted; it must not flip the flag off
-      // while its replacement is still in flight (which would hide the indicator).
-      if (inflight?.signal === signal) loading.value = false;
-    }
-  }
-
-  watch(
-    () => [location.value.latitude, location.value.longitude, runDate.value] as const,
-    () => void refresh(),
-    { immediate: true },
+      return { runs, truth };
+    },
+    () => [location.value.latitude, location.value.longitude, runDate.value],
   );
 
   const hourly = computed<VerificationHourly | null>(() => {
-    const runs = runsResp.value;
-    const truth = truthResp.value;
+    const runs = data.value?.runs;
+    const truth = data.value?.truth;
     if (!runs || !truth) return null;
     const times = runs.hourly.time;
     const firstTime = times[0];
@@ -142,7 +117,7 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
       perModel,
       truth: { temperature_2m: truthTemp, precipitation: truthPrecip },
       confidence,
-    } as VerificationHourly;
+    };
   });
 
   const daily = computed<DailyVerification[] | null>(() => {
@@ -180,14 +155,10 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
     });
   });
 
-  const solar = computed(() => {
-    const runs = runsResp.value;
-    if (!runs) return null;
-    return extractDailySolar(runs, MODEL_IDS);
-  });
+  const solar = computed(() => solarFrom(data.value?.runs ?? null));
 
   const weatherCodes = computed<number[]>(() => {
-    const runs = runsResp.value;
+    const runs = data.value?.runs;
     if (!runs) return [];
     const dailyTimes = runs.daily.time;
     const firstDailyTime = dailyTimes[0];
@@ -210,7 +181,7 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
   });
 
   const availableModels = computed<ModelDef[]>(() => {
-    const runs = runsResp.value;
+    const runs = data.value?.runs;
     if (!runs) return [];
     const ids = new Set<string>();
     for (const id of MODEL_IDS) {
