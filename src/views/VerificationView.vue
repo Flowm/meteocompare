@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { type ChartViewId } from "@/components/chartHelpers";
+import CollapsibleSection from "@/components/CollapsibleSection.vue";
 import HourlySeriesChart from "@/components/HourlySeriesChart.vue";
 import LocationBar from "@/components/LocationBar.vue";
 import ModelScorecard from "@/components/ModelScorecard.vue";
@@ -110,38 +111,38 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
         <p class="text-paper-400 font-mono text-[11px] tracking-wide">Loading historical runs + ERA5…</p>
       </div>
 
-      <!-- Chart -->
-      <HourlySeriesChart
-        v-if="hourly"
-        v-model:showModels="showModels"
-        title="Hourly verification"
-        :data="hourly"
-        :variables="VERIFY_VARIABLES"
-        :solar="solar"
-        :default-window="168"
-      />
+      <!-- Chart (CollapsibleSection supplies the heading, so the chart's own is off). -->
+      <CollapsibleSection v-if="hourly" title="Hourly verification">
+        <HourlySeriesChart
+          v-model:showModels="showModels"
+          title="Hourly verification"
+          :show-title="false"
+          :data="hourly"
+          :variables="VERIFY_VARIABLES"
+          :solar="solar"
+          :default-window="168"
+        />
+      </CollapsibleSection>
 
       <!-- Per-model scorecard — each model (and the aggregate, ranked inline)
            scored over the full window, with lead-time bands + a timing matrix. -->
-      <section v-if="scorecard && scorecard.length" class="space-y-3">
-        <div>
-          <h2 class="eyebrow mb-1">Per-model scorecard</h2>
+      <CollapsibleSection v-if="scorecard && scorecard.length" title="Per-model scorecard">
+        <div class="space-y-3">
           <p class="text-paper-500 font-mono text-[11px] tracking-wide">
             Full-window skill · 0–100 overall (higher = better) · <span class="text-aggregate-400">aggregate</span> ranked inline
           </p>
+          <ModelScorecard :rows="scorecard" />
+          <ModelTimingMatrix :rows="scorecard" />
         </div>
-        <ModelScorecard :rows="scorecard" />
-        <ModelTimingMatrix :rows="scorecard" />
-      </section>
+      </CollapsibleSection>
 
-      <!-- Daily strip — the aggregate's per-day calibration lens (confidence
+      <!-- Daily breakdown — the aggregate's per-day calibration lens (confidence
            beside measured error). The per-model lens lives in the scorecard above. -->
-      <section v-if="daily && daily.length">
-        <h2 class="eyebrow mb-3">Daily breakdown</h2>
+      <CollapsibleSection v-if="daily && daily.length" title="Daily breakdown">
         <div class="-mx-2 flex snap-x gap-2 overflow-x-auto px-2 pt-1 pb-3">
           <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" :weather-code="weatherCodes[d.dayIndex]" />
         </div>
-      </section>
+      </CollapsibleSection>
     </main>
 
     <footer class="border-ink-700/60 border-t px-6 py-6 text-center">
