@@ -125,9 +125,17 @@ localStorage holds units, favourites, and recent searches.
 ## Develop
 
 ```bash
+mise install         # provision Node + prek (see mise.toml); or use your own Node 24
+mise run setup       # install the git hooks (one-time; runs `prek install`)
+
 npm install
 npm run dev          # http://localhost:5173
 ```
+
+[mise](https://mise.jdx.dev) pins the toolchain (Node 24, matching CI). Git hooks are run by
+[prek](https://prek.j178.dev), a pre-commit-compatible runner — on every **commit**,
+`.pre-commit-config.yaml` auto-fixes with oxlint/oxfmt and runs the type-check + tests, the same gate
+as CI. mise is optional: any Node 24 works, but you'll then install prek yourself to get the hooks.
 
 ### Scripts
 

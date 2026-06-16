@@ -1,0 +1,7 @@
+[tools]
+node = "24"
+prek = "0.3.10"
+
+[tasks.setup]
+description = "Install the git hooks"
+run = "prek install"
