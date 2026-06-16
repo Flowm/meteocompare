@@ -80,7 +80,10 @@ const fmtCoverage = (row: ScorecardRow): string => `${row.coveredHours}h`;
           </th>
           <td class="border-ink-700/40 border-b px-2 py-1.5 text-right">
             <span class="text-sm font-semibold" :class="scoreTone(row.overall.composite)">{{ fmtComposite(row.overall.composite) }}</span
-            ><span v-if="row.partial" class="text-sodium-300" title="Partial coverage — scored over fewer hours">*</span>
+            ><!-- Fixed-width flag slot so the partial-coverage * never shifts the digits out of column.
+            --><span class="text-sodium-300 inline-block w-2 text-left" :title="row.partial ? 'Partial coverage — scored over fewer hours' : undefined">{{
+              row.partial ? "*" : ""
+            }}</span>
           </td>
           <td v-for="(b, i) in row.bandComposites" :key="i" class="border-ink-700/40 border-b px-2 py-1.5 text-right">
             <span :class="b == null ? 'text-paper-500' : scoreTone(b)">{{ b == null ? "—" : Math.round(b) }}</span>
