@@ -8,10 +8,14 @@
 export type ModelKind = "global" | "regional-cam" | "regional-mid" | "ai" | "ensemble-mean";
 
 /** Whether this model's runs are in open-meteo's single-runs archive (used for
- *  verification). Empirical — may change as the archive backfills.
- *  - `core`: consistently archived, always safe to batch.
- *  - `partial`: patchy archive, may 4xx a batch on dates it's missing (tried, then dropped).
- *  - `never`: not archived, excluded entirely.
+ *  verification). Empirical, and only `never` gates behaviour: the single-runs
+ *  client attempts every non-`never` model and prunes whichever runs the API
+ *  reports missing for the chosen date (see omSingleRuns.fetchSingleRuns). The
+ *  core/partial split is informational — retention is a drifting per-model
+ *  window, so any model can age out if you scroll back far enough.
+ *  - `core`: archived deep and reliably (ECMWF goes back ~1 year).
+ *  - `partial`: shallower or patchier retention, drops out of older batches.
+ *  - `never`: not archived at all, excluded entirely.
  */
 export type SingleRunAvailability = "core" | "partial" | "never";
 
@@ -118,7 +122,8 @@ export const MODELS: ModelDef[] = [
     maxLeadHours: 264,
     homeRegion: { lat: [24, 46], lon: [122, 146] },
     description: "GSM + MSM, strongest over Japan & nearby seas.",
-    singleRunAvailability: "core",
+    // jma_gsm ages out of the single-runs archive within a few weeks.
+    singleRunAvailability: "partial",
   },
   {
     id: "kma_seamless",

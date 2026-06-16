@@ -13,12 +13,34 @@ import { extractDailyByModel, extractHourlyByModel } from "./omForecast";
 
 const SINGLE_RUNS_URL = "https://single-runs-api.open-meteo.com/v1/forecast";
 
-// Two model sets, derived from each model's `singleRunAvailability` (see the
-// registry). CORE = consistently archived, the reliable fallback. FULL also
-// includes `partial` models for max coverage; one of them missing for the chosen
-// date 4xx's the whole batch, so we fall back to CORE. `never` models are dropped.
-const CORE_MODEL_IDS: string[] = MODELS.filter((m) => m.singleRunAvailability === "core").map((m) => m.id);
-const FULL_MODEL_IDS: string[] = MODELS.filter((m) => m.singleRunAvailability !== "never").map((m) => m.id);
+// Every model worth attempting: anything not flagged `never` in the registry.
+// We send them all in one batch and prune misses at runtime (see fetchSingleRuns)
+// rather than pre-filtering on the static core/partial split — retention is a
+// moving window, so a model that's archived this far back today may not be next
+// week, and only the API knows for a given run date.
+const ARCHIVED_MODEL_IDS: string[] = MODELS.filter((m) => m.singleRunAvailability !== "never").map((m) => m.id);
+
+// open-meteo's single-runs API expands several of our registry ids into a
+// differently-named *internal* component, and a "model run is not available"
+// 4xx names that component, not the id we sent (e.g. we request `jma_seamless`,
+// the error says `jma_gsm`). This maps each known component back to its registry
+// id so the retry below can drop the right model. Values are the limiting
+// component — the one that ages out of the archive first — captured empirically
+// against the live API. Models whose component already equals their registry id
+// (ecmwf_ifs, cma_grapes_global, the Harmonie pair, …) need no entry; the
+// direct-id check in resolveMissingId handles them.
+const COMPONENT_TO_REGISTRY_ID: Readonly<Record<string, string>> = {
+  ncep_gfs025: "gfs_seamless",
+  ukmo_global_deterministic_10km: "ukmo_seamless",
+  meteofrance_arpege_world025: "meteofrance_seamless",
+  jma_gsm: "jma_seamless",
+  kma_gdps: "kma_seamless",
+  dwd_icon: "icon_global",
+  dwd_icon_eu: "icon_eu",
+  dwd_icon_d2: "icon_d2",
+  meteoswiss_icon_ch2: "meteoswiss_icon_seamless",
+  ncep_gfs_graphcast025: "gfs_graphcast025",
+};
 
 const HOURLY_VARS = ["temperature_2m", "precipitation"] as const;
 
@@ -67,23 +89,64 @@ function buildUrl(models: string[], req: SingleRunsRequest): string {
 
 async function fetchModels(models: string[], req: SingleRunsRequest, signal?: AbortSignal): Promise<SingleRunsResponse> {
   const res = await fetch(buildUrl(models, req), { signal });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`open-meteo single-runs ${res.status}: ${text || res.statusText}`);
+  const text = await res.text().catch(() => "");
+  if (res.ok) {
+    try {
+      return JSON.parse(text) as SingleRunsResponse;
+    } catch {
+      // A 200 with an unparseable body is the *streamed* failure shape: a large
+      // batch sends its status before the body, so a missing run surfaces as a
+      // plain-text "...modelRunUnavailable(model: …)" mid-stream rather than a
+      // clean JSON 4xx. Fall through and raise it so the retry can act on it.
+    }
   }
-  return (await res.json()) as SingleRunsResponse;
+  // Both shapes carry the offending model id; cap the body so a partial-JSON
+  // prefix can't bloat the message while still keeping the marker in range.
+  throw new Error(`open-meteo single-runs ${res.status}: ${(text || res.statusText).slice(0, 500)}`);
 }
 
-// Try the full set; if the chosen date is missing any of its patchy models (a
-// 4xx, or a 200 whose body aborts mid-stream into invalid JSON), retry with the
-// reliable core. A caller-supplied subset is taken as-is, no fallback.
+// Pull the offending model id out of an error. open-meteo reports a missing run
+// two ways: a clean JSON 4xx ("...Model: jma_gsm, run: …") and a streamed 200
+// abort ("...modelRunUnavailable(model: App.DomainRegistry.jma_gsm, …)"). Match
+// `model:` either case, skip any dotted namespace prefix, take the trailing id.
+// Returns null for errors that name no model — a network failure, or a
+// location-coverage miss ("No data is available for this location"), which the
+// batch silently drops rather than failing on.
+function parseMissingModel(message: string): string | null {
+  return /model:\s*(?:[A-Za-z0-9_]+\.)*([a-z0-9_]+)/i.exec(message)?.[1] ?? null;
+}
+
+// Resolve the component id named in an error to the requested registry id to
+// drop. Most models report their own id (direct hit); the seamless/product
+// ones report an internal component we translate via the map.
+function resolveMissingId(named: string, requested: readonly string[]): string | null {
+  if (requested.includes(named)) return named;
+  const mapped = COMPONENT_TO_REGISTRY_ID[named];
+  return mapped && requested.includes(mapped) ? mapped : null;
+}
+
+// A single missing run fails the *entire* batch — and the archive's per-model
+// retention is a drifting window, so scrolling back far enough is guaranteed to
+// hit a model that's aged out. Instead of betting on a static "core" subset, we
+// attempt the full set and, when the API reports a missing run (clean JSON 4xx
+// or a streamed 200 abort — fetchModels normalises both), parse the offending
+// model, drop it, and retry. Each retry removes at least one id so the loop is
+// bounded by the request size; we keep at least one model in the batch. Errors
+// that name no model (network failure, unexpected body) propagate unchanged.
+// A caller-supplied subset gets the same treatment.
 export async function fetchSingleRuns(req: SingleRunsRequest, signal?: AbortSignal): Promise<SingleRunsResponse> {
-  if (req.models) return fetchModels(req.models, req, signal);
-  try {
-    return await fetchModels(FULL_MODEL_IDS, req, signal);
-  } catch (e) {
-    if (e instanceof DOMException && e.name === "AbortError") throw e;
-    return fetchModels(CORE_MODEL_IDS, req, signal);
+  let ids = req.models ?? ARCHIVED_MODEL_IDS;
+  for (;;) {
+    try {
+      // eslint-disable-next-line no-await-in-loop -- retries are inherently sequential: each one drops the model the previous attempt reported missing.
+      return await fetchModels(ids, req, signal);
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") throw e;
+      const named = e instanceof Error ? parseMissingModel(e.message) : null;
+      const drop = named ? resolveMissingId(named, ids) : null;
+      if (!drop || ids.length <= 1) throw e;
+      ids = ids.filter((id) => id !== drop);
+    }
   }
 }
 
