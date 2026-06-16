@@ -121,15 +121,6 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
         :default-window="168"
       />
 
-      <!-- Daily strip — the aggregate's per-day calibration lens (confidence
-           beside measured error). The per-model lens lives in the scorecard. -->
-      <section v-if="daily && daily.length">
-        <h2 class="eyebrow mb-3">Daily breakdown</h2>
-        <div class="-mx-2 flex snap-x gap-2 overflow-x-auto px-2 pt-1 pb-3">
-          <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" :weather-code="weatherCodes[d.dayIndex]" />
-        </div>
-      </section>
-
       <!-- Per-model scorecard — each model (and the aggregate, ranked inline)
            scored over the full window, with lead-time bands + a timing matrix. -->
       <section v-if="scorecard && scorecard.length" class="space-y-3">
@@ -141,6 +132,15 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
         </div>
         <ModelScorecard :rows="scorecard" />
         <ModelTimingMatrix :rows="scorecard" />
+      </section>
+
+      <!-- Daily strip — the aggregate's per-day calibration lens (confidence
+           beside measured error). The per-model lens lives in the scorecard above. -->
+      <section v-if="daily && daily.length">
+        <h2 class="eyebrow mb-3">Daily breakdown</h2>
+        <div class="-mx-2 flex snap-x gap-2 overflow-x-auto px-2 pt-1 pb-3">
+          <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" :weather-code="weatherCodes[d.dayIndex]" />
+        </div>
       </section>
     </main>
 
