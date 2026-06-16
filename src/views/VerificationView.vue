@@ -87,7 +87,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
               :min="RETENTION_FLOOR"
               :max="maxRunDate"
               class="border-ink-700 bg-ink-950 text-paper-50 focus:border-sodium-300/60 border px-2 py-1 font-mono text-base tracking-normal outline-none sm:text-xs"
-              @input="setRunDate(($event.target as HTMLInputElement).value)"
+              @change="setRunDate(($event.target as HTMLInputElement).value)"
             />
           </label>
         </div>
