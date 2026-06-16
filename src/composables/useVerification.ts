@@ -73,7 +73,10 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
       runsResp.value = null;
       truthResp.value = null;
     } finally {
-      loading.value = false;
+      // Only the latest request clears `loading`. A request superseded by a
+      // rapid date/location change is aborted; it must not flip the flag off
+      // while its replacement is still in flight (which would hide the indicator).
+      if (inflight?.signal === signal) loading.value = false;
     }
   }
 

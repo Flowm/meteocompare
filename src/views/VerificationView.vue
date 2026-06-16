@@ -111,38 +111,58 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
         <p class="text-paper-400 font-mono text-[11px] tracking-wide">Loading historical runs + ERA5…</p>
       </div>
 
-      <!-- Chart (CollapsibleSection supplies the heading, so the chart's own is off). -->
-      <CollapsibleSection v-if="hourly" title="Hourly verification">
-        <HourlySeriesChart
-          v-model:showModels="showModels"
-          title="Hourly verification"
-          :show-title="false"
-          :data="hourly"
-          :variables="VERIFY_VARIABLES"
-          :solar="solar"
-          :default-window="168"
-        />
-      </CollapsibleSection>
-
-      <!-- Per-model scorecard — each model (and the aggregate, ranked inline)
-           scored over the full window, with lead-time bands + a timing matrix. -->
-      <CollapsibleSection v-if="scorecard && scorecard.length" title="Per-model scorecard">
-        <div class="space-y-3">
-          <p class="text-paper-500 font-mono text-[11px] tracking-wide">
-            Full-window skill · 0–100 overall (higher = better) · <span class="text-aggregate-400">aggregate</span> ranked inline
-          </p>
-          <ModelScorecard :rows="scorecard" />
-          <ModelTimingMatrix :rows="scorecard" />
+      <!-- Content — once a run has loaded. On a date/location change the stale
+           data is dimmed and a floating indicator makes the refetch obvious,
+           rather than silently leaving the previous run on screen. -->
+      <div v-if="hourly">
+        <div
+          v-if="loading"
+          class="border-ink-700 bg-ink-900/95 text-paper-200 pointer-events-none fixed top-16 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2.5 border px-3.5 py-2 font-mono text-[11px] tracking-wide shadow-2xl shadow-black/50 backdrop-blur"
+          role="status"
+          aria-live="polite"
+        >
+          <span class="relative inline-block size-4" aria-hidden="true">
+            <span class="border-ink-600 absolute inset-0 rounded-full border" />
+            <span class="border-t-sodium-300 absolute inset-0 animate-spin rounded-full border border-transparent" style="animation-duration: 1.2s" />
+          </span>
+          Updating…
         </div>
-      </CollapsibleSection>
 
-      <!-- Daily breakdown — the aggregate's per-day calibration lens (confidence
-           beside measured error). The per-model lens lives in the scorecard above. -->
-      <CollapsibleSection v-if="daily && daily.length" title="Daily breakdown">
-        <div class="-mx-2 flex snap-x gap-2 overflow-x-auto px-2 pt-1 pb-3">
-          <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" :weather-code="weatherCodes[d.dayIndex]" />
+        <div class="space-y-8 transition-opacity duration-200" :class="{ 'pointer-events-none opacity-40': loading }">
+          <!-- Chart (CollapsibleSection supplies the heading, so the chart's own is off). -->
+          <CollapsibleSection title="Hourly verification">
+            <HourlySeriesChart
+              v-model:showModels="showModels"
+              title="Hourly verification"
+              :show-title="false"
+              :data="hourly"
+              :variables="VERIFY_VARIABLES"
+              :solar="solar"
+              :default-window="168"
+            />
+          </CollapsibleSection>
+
+          <!-- Per-model scorecard — each model (and the aggregate, ranked inline)
+               scored over the full window, with lead-time bands + a timing matrix. -->
+          <CollapsibleSection v-if="scorecard && scorecard.length" title="Per-model scorecard">
+            <div class="space-y-3">
+              <p class="text-paper-500 font-mono text-[11px] tracking-wide">
+                Full-window skill · 0–100 overall (higher = better) · <span class="text-aggregate-400">aggregate</span> ranked inline
+              </p>
+              <ModelScorecard :rows="scorecard" />
+              <ModelTimingMatrix :rows="scorecard" />
+            </div>
+          </CollapsibleSection>
+
+          <!-- Daily breakdown — the aggregate's per-day calibration lens (confidence
+               beside measured error). The per-model lens lives in the scorecard above. -->
+          <CollapsibleSection v-if="daily && daily.length" title="Daily breakdown">
+            <div class="-mx-2 flex snap-x gap-2 overflow-x-auto px-2 pt-1 pb-3">
+              <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" :weather-code="weatherCodes[d.dayIndex]" />
+            </div>
+          </CollapsibleSection>
         </div>
-      </CollapsibleSection>
+      </div>
     </main>
 
     <footer class="border-ink-700/60 border-t px-6 py-6 text-center">
