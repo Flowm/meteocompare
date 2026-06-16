@@ -1,0 +1,137 @@
+import { describe, expect, it } from "vitest";
+
+import type { AggregatePoint } from "./aggregate";
+import { AGGREGATE_ROW_ID, AMOUNT_REF_BAD_PER_DAY, buildModelScorecard, LEAD_BANDS, TEMP_MAE_REF_BAD, type ScorecardInput } from "./scorecard";
+
+const N = 168; // a full 7-day window
+
+function array<T>(n: number, fn: (i: number) => T): T[] {
+  return Array.from({ length: n }, (_, i) => fn(i));
+}
+const aggPt = (value: number): AggregatePoint => ({ time: "", value, stdDev: 0, weights: {}, perModel: {} });
+
+/** A baseline input: dry truth, flat 20 °C truth, no models — caller overrides. */
+function makeInput(over: Partial<ScorecardInput> = {}): ScorecardInput {
+  return {
+    times: array(N, (i) => `t${i}`),
+    aggregateTemp: array(N, () => aggPt(20)),
+    aggregatePrecip: array(N, () => aggPt(0)),
+    perModelTemp: {},
+    perModelPrecip: {},
+    truthTemp: array(N, () => 20),
+    truthPrecip: array(N, () => 0),
+    ...over,
+  };
+}
+
+const rowFor = (input: ScorecardInput, id: string) => buildModelScorecard(input).find((r) => r.id === id);
+
+describe("buildModelScorecard — composite math + dry renormalisation", () => {
+  it("blends temp + amount and drops timing on a dry window (renormalising weights)", () => {
+    // Model: temp = truth + 2 (MAE 2 → goodness 1 − 2/5 = 0.6); precip all dry
+    // matching dry truth (amount error 0 → goodness 1); timing undefined → dropped.
+    // Composite = mean(0.6, 1) × 100 = 80.
+    const input = makeInput({
+      perModelTemp: { m: array(N, () => 22) },
+      perModelPrecip: { m: array(N, () => 0) },
+    });
+    const row = rowFor(input, "m")!;
+    expect(row.overall.tempMae).toBeCloseTo(2);
+    expect(row.overall.tempBias).toBeCloseTo(2);
+    expect(row.overall.amountError).toBeCloseTo(0);
+    expect(row.overall.timingHitRate).toBeNaN();
+    expect(row.overall.composite).toBeCloseTo(80);
+  });
+
+  it("includes timing when the window is wet (all three metrics blended)", () => {
+    // Wet every hour, forecast matches → all hits → timing 1; amount error 0 →
+    // goodness 1; temp MAE 2 → 0.6. Composite = mean(0.6,1,1)×100 = 86.667.
+    const input = makeInput({
+      truthPrecip: array(N, () => 1),
+      perModelTemp: { m: array(N, () => 22) },
+      perModelPrecip: { m: array(N, () => 1) },
+    });
+    const row = rowFor(input, "m")!;
+    expect(row.overall.timingHitRate).toBeCloseTo(1);
+    expect(row.overall.composite).toBeCloseTo(((0.6 + 1 + 1) / 3) * 100);
+  });
+
+  it("a perfect forecast scores 100", () => {
+    const input = makeInput({
+      truthPrecip: array(N, () => 1),
+      perModelTemp: { m: array(N, () => 20) },
+      perModelPrecip: { m: array(N, () => 1) },
+    });
+    expect(rowFor(input, "m")!.overall.composite).toBeCloseTo(100);
+  });
+});
+
+describe("buildModelScorecard — amount normalised per covered day", () => {
+  it("scores amount by |error| / covered-days, not by raw sum", () => {
+    // 10 mm of false precip spread over 2 covered days (48 h) → 5 mm/day →
+    // amount goodness 1 − 5/5 = 0. Temp perfect → 1. Timing: forecast wet but
+    // truth dry everywhere → all false alarms, no truth-wet hours → NaN, dropped.
+    // Composite = mean(temp 1, amount 0) × 100 = 50.
+    const fPrecip = array(N, (i) => (i < 48 ? (i < 2 ? 5 : 0) : null)); // 48 covered hours, sum 10
+    const input = makeInput({
+      perModelTemp: { m: array(N, (i) => (i < 48 ? 20 : null)) },
+      perModelPrecip: { m: fPrecip },
+    });
+    const row = rowFor(input, "m")!;
+    expect(row.overall.amountError).toBeCloseTo(10);
+    expect(AMOUNT_REF_BAD_PER_DAY).toBe(5); // guards the arithmetic above
+    expect(row.overall.composite).toBeCloseTo(50);
+  });
+});
+
+describe("buildModelScorecard — lead-time bands + coverage", () => {
+  it("fills only the bands a partial-coverage model has data for", () => {
+    // Temp data only for the first 48 h (band 0). No precip data anywhere.
+    const input = makeInput({
+      perModelTemp: { m: array(N, (i) => (i < 48 ? 21 : null)) },
+      perModelPrecip: { m: array(N, () => null) },
+    });
+    const row = rowFor(input, "m")!;
+    expect(LEAD_BANDS).toHaveLength(3);
+    expect(row.bandComposites[0]).not.toBeNull(); // 0–2d has data
+    expect(row.bandComposites[1]).toBeNull(); // 2–4d empty
+    expect(row.bandComposites[2]).toBeNull(); // 4–7d empty
+    expect(row.coveredHours).toBe(48);
+    expect(row.totalHours).toBe(N);
+    expect(row.partial).toBe(true);
+  });
+
+  it("marks a full-window model as not partial", () => {
+    const input = makeInput({ perModelTemp: { m: array(N, () => 21) }, perModelPrecip: { m: array(N, () => 0) } });
+    const row = rowFor(input, "m")!;
+    expect(row.partial).toBe(false);
+    expect(row.coveredHours).toBe(N);
+  });
+});
+
+describe("buildModelScorecard — aggregate ranked inline", () => {
+  it("includes the aggregate as a distinct, ranked row and sorts by composite desc", () => {
+    // Good model (temp perfect), worse model (temp off by 4), aggregate in between.
+    const input = makeInput({
+      perModelTemp: { good: array(N, () => 20), bad: array(N, () => 24) },
+      perModelPrecip: { good: array(N, () => 0), bad: array(N, () => 0) },
+      aggregateTemp: array(N, () => aggPt(22)),
+    });
+    const rows = buildModelScorecard(input);
+    const agg = rows.find((r) => r.id === AGGREGATE_ROW_ID)!;
+    expect(agg.isAggregate).toBe(true);
+    // Sorted best-first by Overall composite.
+    const composites = rows.map((r) => r.overall.composite);
+    for (let i = 1; i < composites.length; i++) expect(composites[i - 1]).toBeGreaterThanOrEqual(composites[i]!);
+    // The better model outranks the aggregate, which outranks the worse model.
+    const ids = rows.map((r) => r.id);
+    expect(ids.indexOf("good")).toBeLessThan(ids.indexOf(AGGREGATE_ROW_ID));
+    expect(ids.indexOf(AGGREGATE_ROW_ID)).toBeLessThan(ids.indexOf("bad"));
+  });
+
+  it("exposes the full-window per-hour classification for the timing matrix", () => {
+    const input = makeInput({ perModelTemp: { m: array(N, () => 20) }, perModelPrecip: { m: array(N, () => 0) } });
+    expect(rowFor(input, "m")!.hourlyClassification).toHaveLength(N);
+    expect(TEMP_MAE_REF_BAD).toBe(5); // guards the composite arithmetic in other tests
+  });
+});

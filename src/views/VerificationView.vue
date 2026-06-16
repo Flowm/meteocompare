@@ -5,6 +5,8 @@ import { useRoute, useRouter } from "vue-router";
 import { type ChartViewId } from "@/components/chartHelpers";
 import HourlySeriesChart from "@/components/HourlySeriesChart.vue";
 import LocationBar from "@/components/LocationBar.vue";
+import ModelScorecard from "@/components/ModelScorecard.vue";
+import ModelTimingMatrix from "@/components/ModelTimingMatrix.vue";
 import VerificationDayCard from "@/components/VerificationDayCard.vue";
 import { useLocation } from "@/composables/useLocation";
 import { useVerification } from "@/composables/useVerification";
@@ -45,7 +47,7 @@ function setRunDate(newDate: string): void {
 
 const showModels = ref(false);
 
-const { loading, error, hourly, daily, weatherCodes, availableModels, solar } = useVerification(current, runDate);
+const { loading, error, hourly, daily, scorecard, weatherCodes, availableModels, solar } = useVerification(current, runDate);
 
 const locationLabel = computed(() => {
   const loc = current.value;
@@ -119,12 +121,26 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
         :default-window="168"
       />
 
-      <!-- Daily strip -->
+      <!-- Daily strip — the aggregate's per-day calibration lens (confidence
+           beside measured error). The per-model lens lives in the scorecard. -->
       <section v-if="daily && daily.length">
         <h2 class="eyebrow mb-3">Daily breakdown</h2>
         <div class="-mx-2 flex snap-x gap-2 overflow-x-auto px-2 pt-1 pb-3">
-          <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" :show-models="showModels" :weather-code="weatherCodes[d.dayIndex]" />
+          <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" :weather-code="weatherCodes[d.dayIndex]" />
         </div>
+      </section>
+
+      <!-- Per-model scorecard — each model (and the aggregate, ranked inline)
+           scored over the full window, with lead-time bands + a timing matrix. -->
+      <section v-if="scorecard && scorecard.length" class="space-y-3">
+        <div>
+          <h2 class="eyebrow mb-1">Per-model scorecard</h2>
+          <p class="text-paper-500 font-mono text-[11px] tracking-wide">
+            Full-window skill · 0–100 overall (higher = better) · <span class="text-aggregate-400">aggregate</span> ranked inline
+          </p>
+        </div>
+        <ModelScorecard :rows="scorecard" />
+        <ModelTimingMatrix :rows="scorecard" />
       </section>
     </main>
 

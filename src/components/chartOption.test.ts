@@ -117,6 +117,40 @@ describe("buildHourlyChartOption — truth", () => {
   });
 });
 
+describe("buildHourlyChartOption — x-axis day labels", () => {
+  // Build local-wall-clock ISO strings (no Z) so getHours() is deterministic
+  // across the test runner's timezone — matching how the open-meteo APIs return
+  // times. Starting at 19:00 puts the first local midnight at index 5 (mimics a
+  // verification axis anchored to the 00Z run cycle in a UTC−5 location).
+  const localTimes = (n: number, y: number, mo: number, d: number, h: number): string[] => {
+    const start = new Date(y, mo, d, h, 0, 0);
+    const p = (x: number) => String(x).padStart(2, "0");
+    return Array.from({ length: n }, (_, i) => {
+      const t = new Date(start.getTime() + i * 3_600_000);
+      return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}T${p(t.getHours())}:00`;
+    });
+  };
+  const xAxisOf = (args: HourlyChartOptionArgs) => buildHourlyChartOption(args).option.xAxis as { data: string[]; axisLabel: { interval: (i: number) => boolean } };
+  const isClock = (label: string) => /^\d{2}:00$/.test(label);
+
+  it("anchors daily ticks to local midnight so an off-midnight (00Z-run) axis still shows weekday labels", () => {
+    const times = localTimes(30, 2026, 4, 20, 19); // starts 19:00 → midnight at index 5
+    const x = xAxisOf({ ...base, data: { ...DATA, times }, hoursWindow: 168 });
+    const shown = x.data.map((_, i) => i).filter((i) => x.axisLabel.interval(i));
+    // Every shown tick lands on a local midnight (weekday label, never "HH:00").
+    expect(shown).toContain(5);
+    expect(shown).toContain(29);
+    expect(shown.every((i) => !isClock(x.data[i]!))).toBe(true);
+  });
+
+  it("is a no-op for a midnight-anchored (forecast) axis: ticks every 24h from index 0", () => {
+    const times = localTimes(72, 2026, 4, 20, 0); // starts at local midnight
+    const x = xAxisOf({ ...base, data: { ...DATA, times }, hoursWindow: 168 });
+    const shown = x.data.map((_, i) => i).filter((i) => x.axisLabel.interval(i));
+    expect(shown).toEqual([0, 24, 48]);
+  });
+});
+
 describe("buildHourlyChartOption — window slicing", () => {
   it("clamps every series to the visible window", () => {
     const agg = byId({ ...base, hoursWindow: 2 }, "agg");

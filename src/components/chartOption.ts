@@ -431,7 +431,17 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
   // Hourly precip is the sum over the preceding hour — a rate — so the chart
   // axis reads "mm/h" (vs. the bare "mm" used for daily totals elsewhere).
   const precipUnit = `${unitLabel("precipitation", units)}/h`;
-  const interval = args.hoursWindow <= 24 ? 2 : args.hoursWindow <= 72 ? 11 : 23;
+  // Show one x-axis label every `labelStep` hours, anchored to the first local
+  // midnight in the window so the daily ticks land on day boundaries — where the
+  // weekday-label branch above fires. The forecast axis already starts at local
+  // midnight (firstMidnight === 0), so this is identical to the old fixed
+  // interval there. The verification axis starts at the 00Z run cycle (e.g.
+  // 19:00 local), so without anchoring the fixed interval lands on "19:00" every
+  // 24th tick and never on the midnight where the weekday shows. (ECharts'
+  // numeric `interval: n` renders every (n+1)-th category, so labelStep = n+1.)
+  const labelStep = args.hoursWindow <= 24 ? 3 : args.hoursWindow <= 72 ? 12 : 24;
+  const firstMidnight = times.findIndex((t) => new Date(t).getHours() === 0);
+  const labelInterval = (i: number): boolean => (firstMidnight < 0 ? i % labelStep === 0 : i >= firstMidnight && (i - firstMidnight) % labelStep === 0);
 
   // Floor the precipitation axis at 6 mm/h (converted to the active unit) so a
   // few tenths of a millimetre don't fill the panel and read as heavy rain.
@@ -461,7 +471,7 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
       type: "category",
       data: labels,
       axisLine: { lineStyle: { color: "#243349" } },
-      axisLabel: { color: "#93896f", interval, hideOverlap: true, fontSize: 10 },
+      axisLabel: { color: "#93896f", interval: labelInterval, hideOverlap: true, fontSize: 10 },
       axisTick: { show: false },
     },
     yAxis: [

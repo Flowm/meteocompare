@@ -2,7 +2,6 @@
 import { computed } from "vue";
 
 import { useUnits } from "@/composables/useUnits";
-import { MODELS } from "@/domain/models";
 import type { DailyVerification } from "@/domain/verification";
 
 import ConfidenceBadge from "./ConfidenceBadge.vue";
@@ -11,8 +10,6 @@ import WeatherIcon from "./WeatherIcon.vue";
 
 const props = defineProps<{
   day: DailyVerification;
-  /** When true, per-model rows are revealed (page-level toggle). */
-  showModels: boolean;
   /** Aggregate weather_code for this day (icon only, no scoring — see CONTEXT.md
    *  "Weather code on truth"). Optional: omit to skip the icon entirely. */
   weatherCode?: number;
@@ -32,18 +29,6 @@ const dayLabel = computed(() => {
 // hours, where Day 0 covers 0–24 h lead). Avoids the "Day 1 means tomorrow,
 // or the run day?" ambiguity from the previous 1-indexed labelling.
 const leadLabel = computed(() => `Day ${props.day.dayIndex} · ${props.day.leadHoursStart}-${props.day.leadHoursEnd}h`);
-
-// Look up labels in the full MODELS registry, not the subset that contributed
-// to the aggregate's temperature axis — a model can return precip-only data
-// for a given run date, in which case it's absent from `availableModels` but
-// still present in `day.perModel`.
-const modelLabel = (id: string): string => MODELS.find((m) => m.id === id)?.label ?? id;
-
-const perModelEntries = computed(() =>
-  Object.entries(props.day.perModel)
-    .filter(([, scores]) => scores.temperature !== null || scores.precipitation !== null)
-    .sort(([a], [b]) => modelLabel(a).localeCompare(modelLabel(b))),
-);
 
 function signed(n: number, digits = 1): string {
   const sign = n >= 0 ? "+" : "";
@@ -113,35 +98,5 @@ function signed(n: number, digits = 1): string {
         <HitMissStrip :classification="day.aggregate.precipitation.hourlyClassification" :hour-label="(i) => `${i.toString().padStart(2, '0')}:00`" />
       </div>
     </div>
-
-    <!-- Per-model rows (revealed by page-level toggle) -->
-    <Transition
-      enter-active-class="overflow-hidden transition-all duration-200 ease-out"
-      leave-active-class="overflow-hidden transition-all duration-150 ease-in"
-      enter-from-class="max-h-0 opacity-0"
-      enter-to-class="max-h-[36rem] opacity-100"
-      leave-from-class="max-h-[36rem] opacity-100"
-      leave-to-class="max-h-0 opacity-0"
-    >
-      <div v-if="showModels && perModelEntries.length" class="border-ink-700 bg-ink-950/40 space-y-0.5 border-t px-4 py-3 font-mono text-[10px] tabular-nums">
-        <div class="text-paper-400 mb-1.5 text-[10px] tracking-wide">Per-model</div>
-        <div v-for="[modelId, scores] in perModelEntries" :key="modelId" class="grid grid-cols-[7rem_1fr_1fr] items-baseline gap-2">
-          <span class="text-paper-400 truncate">{{ modelLabel(modelId) }}</span>
-          <span class="text-paper-300">
-            <template v-if="scores.temperature"
-              ><span class="text-paper-500">T</span> {{ signed(scores.temperature.bias) }}/{{ scores.temperature.mae.toFixed(1) }}<span class="text-paper-500">°C</span></template
-            >
-            <span v-else class="text-paper-500">T —</span>
-          </span>
-          <span class="text-paper-300">
-            <template v-if="scores.precipitation">
-              <span class="text-paper-500">P</span> {{ signed(scores.precipitation.amountError) }}<span class="text-paper-500">mm</span>
-              <span v-if="Number.isFinite(scores.precipitation.timingHitRate)" class="text-paper-500"> · {{ Math.round(scores.precipitation.timingHitRate * 100) }}% </span>
-            </template>
-            <span v-else class="text-paper-500">P —</span>
-          </span>
-        </div>
-      </div>
-    </Transition>
   </article>
 </template>

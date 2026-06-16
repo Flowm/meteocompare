@@ -104,6 +104,24 @@ Fraction of truth's wet hours classified as hits. The "did rain fall at roughly 
 **Amount error** _(precipitation only)_:
 Signed daily-sum forecast minus daily-sum truth, in mm. The "was the total roughly right?" score per day. Distinct from MAE; coexists with timing hit rate.
 
+### Per-model scoring
+
+**Daily breakdown**:
+The per-day cards on the verification page. Scores the **aggregate** against truth and pairs each day's measured error with that day's per-variable **confidence** — the calibration lens, and the page's core purpose. Aggregate-only: per-model detail lives in the scorecard, not here.
+
+**Per-model scorecard**:
+The table scoring each **Model** (and the **Aggregate**, ranked inline) over the full run window, sorted by composite score. The per-model lens, as opposed to the aggregate-per-day daily breakdown. Carries no confidence — confidence is defined only over the aggregate (see "Confidence").
+
+**Composite score**:
+A single 0–100 number blending a model's temperature MAE, precip amount error and precip timing hit rate over a scope — each mapped to a 0..1 goodness against a _fixed per-variable reference scale_ (cf. typical spread) and averaged with equal per-metric weight, so precipitation carries ~⅔. Computed per model over the full window and per lead-time band. A deliberate collapse, kin to the under-review _overall confidence_; see ADR 0004.
+_Avoid_: skill (a skill score is improvement over a reference like climatology — this is not that), accuracy (too vague).
+
+**Lead-time band**:
+A coarse lead-hour bucket (0–48 h / 48–96 h / 96–168 h) the scorecard scores separately, exposing how a model's composite decays with lead time. Empty bands read as coverage gaps.
+
+**Coverage**:
+The hours a model actually returned data for within the window — a runtime fact (retention varies per model and run date). Sub-full-coverage models are flagged `*` and still ranked; their empty lead bands show the gap. Distinct from **Available models**, which is the binary did-it-return-anything set.
+
 ## Flagged ambiguities
 
 **"Confidence", unqualified.**
