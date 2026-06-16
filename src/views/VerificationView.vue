@@ -5,9 +5,11 @@ import { useRoute, useRouter } from "vue-router";
 import { type ChartViewId } from "@/components/chartHelpers";
 import CollapsibleSection from "@/components/CollapsibleSection.vue";
 import HourlySeriesChart from "@/components/HourlySeriesChart.vue";
+import LoadingVeil from "@/components/LoadingVeil.vue";
 import LocationBar from "@/components/LocationBar.vue";
 import ModelScorecard from "@/components/ModelScorecard.vue";
 import ModelTimingMatrix from "@/components/ModelTimingMatrix.vue";
+import RadarSpinner from "@/components/RadarSpinner.vue";
 import VerificationDayCard from "@/components/VerificationDayCard.vue";
 import { useLocation } from "@/composables/useLocation";
 import { useVerification } from "@/composables/useVerification";
@@ -100,49 +102,52 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
       <!-- Error state -->
       <div v-if="error" class="border-heat-500/40 bg-heat-500/5 text-heat-300 border p-4 font-mono text-xs tracking-wide"><span class="text-heat-400">[err]</span> {{ error }}</div>
 
-      <!-- Loading state -->
+      <!-- Cold-load state (no data yet). Same spinner as the refetch indicator,
+           just centered and larger. -->
       <div v-if="loading && !hourly" class="grid place-items-center gap-4 py-32">
-        <div class="relative size-12">
-          <div class="border-ink-700 absolute inset-0 rounded-full border" />
-          <div class="border-ink-600 absolute inset-1 rounded-full border" />
-          <div class="border-ink-500 absolute inset-2 rounded-full border" />
-          <div class="border-t-sodium-300 absolute inset-0 animate-spin rounded-full border border-transparent" style="animation-duration: 1.6s" />
-        </div>
-        <p class="text-paper-400 font-mono text-[11px] tracking-wide">Loading historical runs + ERA5…</p>
+        <RadarSpinner />
+        <p class="text-paper-400 font-mono text-[11px] tracking-wide">Loading run…</p>
       </div>
 
-      <!-- Chart (CollapsibleSection supplies the heading, so the chart's own is off). -->
-      <CollapsibleSection v-if="hourly" title="Hourly verification">
-        <HourlySeriesChart
-          v-model:showModels="showModels"
-          title="Hourly verification"
-          :show-title="false"
-          :data="hourly"
-          :variables="VERIFY_VARIABLES"
-          :solar="solar"
-          :default-window="168"
-        />
-      </CollapsibleSection>
+      <!-- Content — once a run has loaded. LoadingVeil dims it and shows an
+           "Updating…" indicator below the header while a date/location change
+           re-fetches, instead of silently leaving the previous run on screen. -->
+      <LoadingVeil v-if="hourly" :loading="loading">
+        <div class="space-y-8">
+          <!-- Chart (CollapsibleSection supplies the heading, so the chart's own is off). -->
+          <CollapsibleSection title="Hourly verification">
+            <HourlySeriesChart
+              v-model:showModels="showModels"
+              title="Hourly verification"
+              :show-title="false"
+              :data="hourly"
+              :variables="VERIFY_VARIABLES"
+              :solar="solar"
+              :default-window="168"
+            />
+          </CollapsibleSection>
 
-      <!-- Per-model scorecard — each model (and the aggregate, ranked inline)
-           scored over the full window, with lead-time bands + a timing matrix. -->
-      <CollapsibleSection v-if="scorecard && scorecard.length" title="Per-model scorecard">
-        <div class="space-y-3">
-          <p class="text-paper-500 font-mono text-[11px] tracking-wide">
-            Full-window skill · 0–100 overall (higher = better) · <span class="text-aggregate-400">aggregate</span> ranked inline
-          </p>
-          <ModelScorecard :rows="scorecard" />
-          <ModelTimingMatrix :rows="scorecard" />
-        </div>
-      </CollapsibleSection>
+          <!-- Per-model scorecard — each model (and the aggregate, ranked inline)
+               scored over the full window, with lead-time bands + a timing matrix. -->
+          <CollapsibleSection v-if="scorecard && scorecard.length" title="Per-model scorecard">
+            <div class="space-y-3">
+              <p class="text-paper-500 font-mono text-[11px] tracking-wide">
+                Full-window skill · 0–100 overall (higher = better) · <span class="text-aggregate-400">aggregate</span> ranked inline
+              </p>
+              <ModelScorecard :rows="scorecard" />
+              <ModelTimingMatrix :rows="scorecard" />
+            </div>
+          </CollapsibleSection>
 
-      <!-- Daily breakdown — the aggregate's per-day calibration lens (confidence
-           beside measured error). The per-model lens lives in the scorecard above. -->
-      <CollapsibleSection v-if="daily && daily.length" title="Daily breakdown">
-        <div class="-mx-2 flex snap-x gap-2 overflow-x-auto px-2 pt-1 pb-3">
-          <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" :weather-code="weatherCodes[d.dayIndex]" />
+          <!-- Daily breakdown — the aggregate's per-day calibration lens (confidence
+               beside measured error). The per-model lens lives in the scorecard above. -->
+          <CollapsibleSection v-if="daily && daily.length" title="Daily breakdown">
+            <div class="-mx-2 flex snap-x gap-2 overflow-x-auto px-2 pt-1 pb-3">
+              <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" :weather-code="weatherCodes[d.dayIndex]" />
+            </div>
+          </CollapsibleSection>
         </div>
-      </CollapsibleSection>
+      </LoadingVeil>
     </main>
 
     <footer class="border-ink-700/60 border-t px-6 py-6 text-center">

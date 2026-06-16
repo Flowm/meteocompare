@@ -5,7 +5,9 @@ import { type ChartViewId } from "@/components/chartHelpers";
 import CollapsibleSection from "@/components/CollapsibleSection.vue";
 import ConditionsOutlookCard from "@/components/ConditionsOutlookCard.vue";
 import HourlySeriesChart from "@/components/HourlySeriesChart.vue";
+import LoadingVeil from "@/components/LoadingVeil.vue";
 import LocationBar from "@/components/LocationBar.vue";
+import RadarSpinner from "@/components/RadarSpinner.vue";
 import WindyMap from "@/components/WindyMap.vue";
 import { useForecast } from "@/composables/useForecast";
 import { useLocation } from "@/composables/useLocation";
@@ -34,37 +36,35 @@ const locationLabel = computed(() => {
       <div v-if="error" class="border-heat-500/40 bg-heat-500/5 text-heat-300 border p-4 font-mono text-xs tracking-wide"><span class="text-heat-400">[err]</span> {{ error }}</div>
 
       <div v-if="loading && !raw" class="grid place-items-center gap-4 py-32">
-        <!-- Concentric ring loader that reads as a radar sweep -->
-        <div class="relative size-12">
-          <div class="border-ink-700 absolute inset-0 rounded-full border" />
-          <div class="border-ink-600 absolute inset-1 rounded-full border" />
-          <div class="border-ink-500 absolute inset-2 rounded-full border" />
-          <div class="border-t-sodium-300 absolute inset-0 animate-spin rounded-full border border-transparent" style="animation-duration: 1.6s" />
-        </div>
+        <RadarSpinner />
         <p class="text-paper-400 font-mono text-[11px] tracking-wide">Fetching observations…</p>
       </div>
 
-      <template v-if="raw && hourly && daily">
-        <CollapsibleSection title="Conditions &amp; outlook">
-          <ConditionsOutlookCard :daily="daily" :raw="raw" :solar="solar" :location-name="locationLabel" />
-        </CollapsibleSection>
+      <!-- LoadingVeil dims the forecast and shows an "Updating…" indicator while
+           a location change re-fetches, instead of leaving stale data on screen. -->
+      <LoadingVeil v-if="raw && hourly && daily" :loading="loading">
+        <div class="space-y-3 sm:space-y-8">
+          <CollapsibleSection title="Conditions &amp; outlook">
+            <ConditionsOutlookCard :daily="daily" :raw="raw" :solar="solar" :location-name="locationLabel" />
+          </CollapsibleSection>
 
-        <CollapsibleSection title="Hourly forecast">
-          <HourlySeriesChart
-            title="Hourly forecast"
-            :show-title="false"
-            :data="hourly"
-            :variables="FORECAST_VARIABLES"
-            :solar="solar"
-            :current-time="raw.current.time"
-            :default-window="72"
-          />
-        </CollapsibleSection>
+          <CollapsibleSection title="Hourly forecast">
+            <HourlySeriesChart
+              title="Hourly forecast"
+              :show-title="false"
+              :data="hourly"
+              :variables="FORECAST_VARIABLES"
+              :solar="solar"
+              :current-time="raw.current.time"
+              :default-window="72"
+            />
+          </CollapsibleSection>
 
-        <CollapsibleSection title="Windy weather radar" :default-open="false" lazy>
-          <WindyMap :latitude="current.latitude" :longitude="current.longitude" :location-name="locationLabel" />
-        </CollapsibleSection>
-      </template>
+          <CollapsibleSection title="Windy weather radar" :default-open="false" lazy>
+            <WindyMap :latitude="current.latitude" :longitude="current.longitude" :location-name="locationLabel" />
+          </CollapsibleSection>
+        </div>
+      </LoadingVeil>
     </main>
 
     <footer class="border-ink-700/60 border-t px-6 py-6 text-center">
