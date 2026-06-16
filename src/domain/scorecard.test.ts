@@ -39,7 +39,7 @@ describe("buildModelScorecard — composite math + dry renormalisation", () => {
     expect(row.overall.tempMae).toBeCloseTo(2);
     expect(row.overall.tempBias).toBeCloseTo(2);
     expect(row.overall.amountError).toBeCloseTo(0);
-    expect(row.overall.timingHitRate).toBeNaN();
+    expect(row.overall.timingScore).toBeNaN();
     expect(row.overall.composite).toBeCloseTo(80);
   });
 
@@ -52,7 +52,7 @@ describe("buildModelScorecard — composite math + dry renormalisation", () => {
       perModelPrecip: { m: array(N, () => 1) },
     });
     const row = rowFor(input, "m")!;
-    expect(row.overall.timingHitRate).toBeCloseTo(1);
+    expect(row.overall.timingScore).toBeCloseTo(1);
     expect(row.overall.composite).toBeCloseTo(((0.6 + 1 + 1) / 3) * 100);
   });
 
@@ -68,19 +68,38 @@ describe("buildModelScorecard — composite math + dry renormalisation", () => {
 
 describe("buildModelScorecard — amount normalised per covered day", () => {
   it("scores amount by |error| / covered-days, not by raw sum", () => {
-    // 10 mm of false precip spread over 2 covered days (48 h) → 5 mm/day →
-    // amount goodness 1 − 5/5 = 0. Temp perfect → 1. Timing: forecast wet but
-    // truth dry everywhere → all false alarms, no truth-wet hours → NaN, dropped.
-    // Composite = mean(temp 1, amount 0) × 100 = 50.
-    const fPrecip = array(N, (i) => (i < 48 ? (i < 2 ? 5 : 0) : null)); // 48 covered hours, sum 10
+    // +10 mm amount error over 2 covered days (48 h) → 5 mm/day → amount
+    // goodness 1 − 5/5 = 0. Truth + forecast both wet at hour 0 so timing is a
+    // clean hit (goodness 1) and doesn't muddy the amount assertion; temp perfect.
+    // Composite = mean(temp 1, amount 0, timing 1) × 100 = 66.67.
+    const fPrecip = array(N, (i) => (i < 48 ? (i === 0 ? 15 : 0) : null)); // 48 covered h, sum 15
     const input = makeInput({
+      truthPrecip: array(N, (i) => (i === 0 ? 5 : 0)), // sum 5 → amount error 10
       perModelTemp: { m: array(N, (i) => (i < 48 ? 20 : null)) },
       perModelPrecip: { m: fPrecip },
     });
     const row = rowFor(input, "m")!;
     expect(row.overall.amountError).toBeCloseTo(10);
+    expect(row.overall.timingScore).toBeCloseTo(1); // hour-0 hit, no false alarms
     expect(AMOUNT_REF_BAD_PER_DAY).toBe(5); // guards the arithmetic above
-    expect(row.overall.composite).toBeCloseTo(50);
+    expect(row.overall.composite).toBeCloseTo((2 / 3) * 100);
+  });
+});
+
+describe("buildModelScorecard — false alarms are penalised", () => {
+  it("a model predicting rain across a dry week does NOT get a full score", () => {
+    // Truth dry all week; model cries wolf with 1 mm every hour, temp perfect.
+    // Timing = CSI 0 (all false alarms — NOT dropped as it was under POD), and
+    // amount = 168 mm over 7 covered days = 24 mm/day → goodness 0.
+    // Composite = mean(temp 1, amount 0, timing 0) × 100 ≈ 33, not a full score.
+    const input = makeInput({
+      perModelTemp: { m: array(N, () => 20) },
+      perModelPrecip: { m: array(N, () => 1) },
+    });
+    const row = rowFor(input, "m")!;
+    expect(row.overall.timingScore).toBeCloseTo(0); // scored, not NaN
+    expect(row.overall.composite).toBeCloseTo((1 / 3) * 100);
+    expect(row.overall.composite).toBeLessThan(50);
   });
 });
 

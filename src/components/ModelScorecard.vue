@@ -88,7 +88,7 @@ const fmtCoverage = (row: ScorecardRow): string => `${row.coveredHours}h`;
           <td class="text-paper-300 border-ink-700/40 border-b px-2 py-1.5 text-right">{{ fmtTempBias(row.overall.tempBias) }}</td>
           <td class="text-paper-300 border-ink-700/40 border-b px-2 py-1.5 text-right">{{ fmtTempMae(row.overall.tempMae) }}</td>
           <td class="text-paper-300 border-ink-700/40 border-b px-2 py-1.5 text-right">{{ fmtAmount(row.overall.amountError) }}</td>
-          <td class="text-paper-300 border-ink-700/40 border-b px-2 py-1.5 text-right">{{ fmtTiming(row.overall.timingHitRate) }}</td>
+          <td class="text-paper-300 border-ink-700/40 border-b px-2 py-1.5 text-right">{{ fmtTiming(row.overall.timingScore) }}</td>
           <td class="border-ink-700/40 border-b px-2 py-1.5 text-right" :class="row.partial ? 'text-sodium-300' : 'text-paper-500'">{{ fmtCoverage(row) }}</td>
         </tr>
       </tbody>

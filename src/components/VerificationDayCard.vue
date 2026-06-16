@@ -81,9 +81,9 @@ function signed(n: number, digits = 1): string {
           <span class="text-paper-400"
             >amt <span class="text-paper-100">{{ signed(day.aggregate.precipitation.amountError) }}<span class="text-paper-500">mm</span></span></span
           >
-          <template v-if="Number.isFinite(day.aggregate.precipitation.timingHitRate)">
+          <template v-if="Number.isFinite(day.aggregate.precipitation.timingScore)">
             <span class="text-paper-400">
-              timing <span class="text-paper-100">{{ Math.round(day.aggregate.precipitation.timingHitRate * 100) }}<span class="text-paper-500">%</span></span>
+              timing <span class="text-paper-100">{{ Math.round(day.aggregate.precipitation.timingScore * 100) }}<span class="text-paper-500">%</span></span>
             </span>
           </template>
           <template v-else>

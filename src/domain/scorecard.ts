@@ -9,7 +9,7 @@
 // docs/adr/0004-per-model-composite-score.md.
 
 import type { AggregatePoint } from "./aggregate";
-import { bias, classifyHours, mae, sumNonNull, timingHitRate, type HourClassification } from "./verification";
+import { bias, classifyHours, mae, sumNonNull, timingScore, type HourClassification } from "./verification";
 
 // ---------------------------------------------------------------------------
 // Fixed reference scales + weights (tunable — see ADR 0004)
@@ -27,7 +27,7 @@ export const AMOUNT_REF_BAD_PER_DAY = 5;
  *  so the composite leans ~⅔ precip — a deliberate, documented choice. The
  *  blend renormalises over whichever metrics are scorable in a given scope, so
  *  the absolute magnitudes only matter relative to each other. */
-export const COMPOSITE_WEIGHTS = { tempMae: 1 / 3, amountError: 1 / 3, timingHitRate: 1 / 3 } as const;
+export const COMPOSITE_WEIGHTS = { tempMae: 1 / 3, amountError: 1 / 3, timingScore: 1 / 3 } as const;
 
 const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
 
@@ -67,8 +67,9 @@ export interface ScorecardMetrics {
   /** Signed precip amount error (forecast − truth sum, mm); `NaN` when the
    *  forecast carried no precipitation data in scope. */
   amountError: number;
-  /** Fraction of truth-wet hours hit within tolerance; `NaN` on a dry scope. */
-  timingHitRate: number;
+  /** Timing skill, Critical Success Index hits/(hits+misses+false_alarms);
+   *  `NaN` only when nothing happened on either side (all correct-dry). */
+  timingScore: number;
   /** 0..100 blend of the scorable goodness terms; `NaN` when none are scorable. */
   composite: number;
 }
@@ -130,7 +131,7 @@ function scoreScope(
 
   const anyPrecip = fPrecip.some((v) => v != null);
   const amountError = anyPrecip ? sumNonNull(fPrecip) - sumNonNull(tPrecip) : NaN;
-  const thr = anyPrecip ? timingHitRate(classifyHours(fPrecip, tPrecip)) : NaN;
+  const thr = anyPrecip ? timingScore(classifyHours(fPrecip, tPrecip)) : NaN;
 
   const terms: Array<{ w: number; g: number }> = [];
   if (Number.isFinite(tempMae)) {
@@ -145,13 +146,13 @@ function scoreScope(
     terms.push({ w: COMPOSITE_WEIGHTS.amountError, g: clamp01(1 - perDay / AMOUNT_REF_BAD_PER_DAY) });
   }
   if (Number.isFinite(thr)) {
-    terms.push({ w: COMPOSITE_WEIGHTS.timingHitRate, g: thr });
+    terms.push({ w: COMPOSITE_WEIGHTS.timingScore, g: thr });
   }
 
   const wsum = terms.reduce((s, t) => s + t.w, 0);
   const composite = wsum === 0 ? NaN : (terms.reduce((s, t) => s + t.w * t.g, 0) / wsum) * 100;
 
-  return { tempBias, tempMae, amountError, timingHitRate: thr, composite };
+  return { tempBias, tempMae, amountError, timingScore: thr, composite };
 }
 
 function buildRow(
