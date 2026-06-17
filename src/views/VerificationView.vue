@@ -133,7 +133,8 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
           <CollapsibleSection v-if="scorecard && scorecard.length" title="Per-model scorecard">
             <div class="space-y-3">
               <p class="text-paper-500 font-mono text-[11px] tracking-wide">
-                Full-window skill · 0–100 overall (higher = better) · <span class="text-aggregate-400">aggregate</span> ranked inline
+                Each model scored over the full run window · 0–100 overall (higher = better) · <span class="text-aggregate-400">Aggregate</span> is the weighted combination of
+                models
               </p>
               <ModelScorecard :rows="scorecard" />
               <ModelTimingMatrix :rows="scorecard" />
