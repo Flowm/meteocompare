@@ -151,6 +151,7 @@ npm run lint         # oxlint + oxfmt --check + vue-tsc (CI gate)
 npm run lint:fix     # oxlint --fix + oxfmt --write (local autofix)
 
 npm run deploy       # build + wrangler deploy (Cloudflare Workers)
+npm run deploy:preview  # build + upload a preview version aliased to the current commit
 ```
 
 The lint script is the single quality gate — it runs the linter, asserts formatting, and type-checks in one command.
@@ -166,6 +167,19 @@ The app is shipped as static assets via Cloudflare Workers. Configuration lives 
 npx wrangler login   # one-time
 npm run deploy
 ```
+
+Pushes to `main` deploy to production automatically via the `deploy` job in CI.
+
+### PR previews
+
+Every pull request gets its own preview deployment. The `preview` job in CI uploads a new Worker version with `wrangler versions upload` (without promoting it to production), aliased to the first 8 chars of the head commit, and posts a sticky comment with the URL — `<sha>-meteocompare.<subdomain>.workers.dev`. The alias is derived from the commit, so `npm run deploy:preview` mints the same URL from your machine.
+
+Requirements (one-time):
+
+- A **workers.dev subdomain** registered on the Cloudflare account — preview URLs resolve under it (`preview_urls: true` in `wrangler.jsonc` enables them). Production stays on the custom domain.
+- The `CLOUDFLARE_API_TOKEN` repo secret needs **Workers Scripts: Edit** (the same token used by the deploy job).
+
+Previews are skipped for PRs from forks, which can't access the deploy secrets.
 
 ## Limitations
 
