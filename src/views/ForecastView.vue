@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
+import AppFooter from "@/components/AppFooter.vue";
 import { type ChartViewId } from "@/components/chartHelpers";
 import CollapsibleSection from "@/components/CollapsibleSection.vue";
 import DailyStrip from "@/components/DailyStrip.vue";
@@ -72,15 +73,6 @@ const locationLabel = computed(() => {
       </LoadingVeil>
     </main>
 
-    <footer class="border-ink-700/60 border-t px-6 py-6 text-center">
-      <p class="text-paper-400 font-mono text-[11px] tracking-wide">
-        Data <span class="text-sodium-300">·</span>
-        <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer" class="text-paper-200 hover:text-sodium-200 underline-offset-4 hover:underline"
-          >open-meteo.com</a
-        >
-        <span class="text-paper-500"> // </span>
-        Multi-model aggregate, informational only
-      </p>
-    </footer>
+    <AppFooter>Multi-model aggregate, informational only</AppFooter>
   </div>
 </template>

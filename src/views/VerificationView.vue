@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
+import AppFooter from "@/components/AppFooter.vue";
 import { type ChartViewId } from "@/components/chartHelpers";
 import CollapsibleSection from "@/components/CollapsibleSection.vue";
 import HourlySeriesChart from "@/components/HourlySeriesChart.vue";
@@ -152,15 +153,6 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
       </LoadingVeil>
     </main>
 
-    <footer class="border-ink-700/60 border-t px-6 py-6 text-center">
-      <p class="text-paper-400 font-mono text-[11px] tracking-wide">
-        Truth <span class="text-sodium-300">·</span> ERA5-Seamless
-        <span class="text-paper-500"> // </span>
-        Forecasts <span class="text-sodium-300">·</span>
-        <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer" class="text-paper-200 hover:text-sodium-200 underline-offset-4 hover:underline"
-          >open-meteo.com</a
-        >
-      </p>
-    </footer>
+    <AppFooter>Truth <span class="text-sodium-300">·</span> ERA5-Seamless</AppFooter>
   </div>
 </template>
