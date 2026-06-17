@@ -20,7 +20,7 @@ const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"] as const;
 // ---------------------------------------------------------------------------
 // Unit conversion — the single source of truth for the °C/°F, mm/in, km/h/mph
 // arithmetic. Both the chart (chartOption) and the cards (useUnits formatters,
-// CurrentCard) route through these so the factors can never drift apart.
+// LocationBanner) route through these so the factors can never drift apart.
 // ---------------------------------------------------------------------------
 
 /** Convert a base-unit value (°C, mm, km/h, %) into the user's chosen unit.

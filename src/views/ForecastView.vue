@@ -3,9 +3,10 @@ import { computed } from "vue";
 
 import { type ChartViewId } from "@/components/chartHelpers";
 import CollapsibleSection from "@/components/CollapsibleSection.vue";
-import ConditionsOutlookCard from "@/components/ConditionsOutlookCard.vue";
+import DailyStrip from "@/components/DailyStrip.vue";
 import HourlySeriesChart from "@/components/HourlySeriesChart.vue";
 import LoadingVeil from "@/components/LoadingVeil.vue";
+import LocationBanner from "@/components/LocationBanner.vue";
 import LocationBar from "@/components/LocationBar.vue";
 import RadarSpinner from "@/components/RadarSpinner.vue";
 import WindyMap from "@/components/WindyMap.vue";
@@ -44,8 +45,12 @@ const locationLabel = computed(() => {
            a location change re-fetches, instead of leaving stale data on screen. -->
       <LoadingVeil v-if="raw && hourly && daily" :loading="loading">
         <div class="space-y-3 sm:space-y-8">
-          <CollapsibleSection title="Conditions &amp; outlook">
-            <ConditionsOutlookCard :daily="daily" :raw="raw" :solar="solar" :location-name="locationLabel" />
+          <CollapsibleSection title="Location" :summary="locationLabel">
+            <LocationBanner :daily="daily" :raw="raw" :solar="solar" :location-name="locationLabel" />
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Daily outlook">
+            <DailyStrip :daily="daily" />
           </CollapsibleSection>
 
           <CollapsibleSection title="Hourly forecast">
