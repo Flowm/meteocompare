@@ -3,6 +3,7 @@
   "name": "meteocompare",
   "compatibility_date": "2026-03-10",
   "send_metrics": false,
+  "preview_urls": true,
   "routes": [
     {
       "pattern": "meteocompare.frcy.org",
