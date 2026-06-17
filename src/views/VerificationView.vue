@@ -7,6 +7,7 @@ import CollapsibleSection from "@/components/CollapsibleSection.vue";
 import HourlySeriesChart from "@/components/HourlySeriesChart.vue";
 import LoadingVeil from "@/components/LoadingVeil.vue";
 import LocationBar from "@/components/LocationBar.vue";
+import LocationLabel from "@/components/LocationLabel.vue";
 import ModelScorecard from "@/components/ModelScorecard.vue";
 import ModelTimingMatrix from "@/components/ModelTimingMatrix.vue";
 import RadarSpinner from "@/components/RadarSpinner.vue";
@@ -65,39 +66,39 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
     <LocationBar />
 
     <main class="mx-auto w-full max-w-5xl flex-1 space-y-8 px-4 py-8 sm:px-6">
-      <!-- Header / controls -->
-      <section class="registration border-ink-700 bg-ink-900/60 relative border p-5 sm:p-6">
-        <div class="border-ink-700 flex flex-wrap items-baseline justify-between gap-3 border-b pb-3">
-          <div>
-            <h1 class="eyebrow-sodium">Verification</h1>
-            <p class="text-paper-50 mt-1 font-mono text-sm tracking-[0.05em]">
-              {{ locationLabel }}
-            </p>
+      <!-- Header / controls. Collapsible like the forecast Location section —
+           the location surfaces in the title bar (summary) while collapsed. -->
+      <CollapsibleSection title="Verification" :summary="locationLabel">
+        <section class="registration border-ink-700 bg-ink-900/60 relative border p-5 sm:p-6">
+          <!-- Location (same formatting as the forecast banner) on the left, with
+               the run-date control taking the right where the forecast shows the
+               live conditions. -->
+          <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+            <LocationLabel :name="locationLabel" />
+            <div class="flex flex-col items-end gap-1.5">
+              <label class="text-paper-300 flex items-center gap-2.5 font-mono text-[11px] tracking-wide">
+                <span>Run date</span>
+                <input
+                  type="date"
+                  :value="runDate"
+                  :min="RETENTION_FLOOR"
+                  :max="maxRunDate"
+                  class="border-ink-700 bg-ink-950 text-paper-50 focus:border-sodium-300/60 border px-2 py-1 font-mono text-base tracking-normal outline-none sm:text-xs"
+                  @change="setRunDate(($event.target as HTMLInputElement).value)"
+                />
+              </label>
+              <p v-if="missingModelCount > 0 && !loading" class="text-paper-400 font-mono text-[11px] tracking-wide">
+                {{ availableModels.length }}/{{ MODELS.length }} models available
+              </p>
+            </div>
           </div>
-          <p class="text-paper-400 max-w-xs text-right font-mono text-[11px] tracking-wide">
-            Forecast vs ERA5-Seamless truth
-            <br /><span class="text-paper-500">7-day window · 00:00 UTC</span>
+
+          <!-- Truth reference -->
+          <p class="border-ink-700 text-paper-400 mt-4 border-t pt-3 font-mono text-[11px] tracking-wide">
+            Forecast vs ERA5-Seamless <span class="text-paper-500">· 7-day window · 00:00 UTC</span>
           </p>
-        </div>
-
-        <div class="mt-4 flex flex-wrap items-center gap-4">
-          <label class="text-paper-300 flex items-center gap-2.5 font-mono text-[11px] tracking-wide">
-            <span>Run date</span>
-            <input
-              type="date"
-              :value="runDate"
-              :min="RETENTION_FLOOR"
-              :max="maxRunDate"
-              class="border-ink-700 bg-ink-950 text-paper-50 focus:border-sodium-300/60 border px-2 py-1 font-mono text-base tracking-normal outline-none sm:text-xs"
-              @change="setRunDate(($event.target as HTMLInputElement).value)"
-            />
-          </label>
-        </div>
-
-        <p v-if="missingModelCount > 0 && !loading" class="text-paper-400 mt-3 font-mono text-[11px] tracking-wide">
-          <span class="text-sodium-300">·</span> {{ availableModels.length }}/{{ MODELS.length }} models available
-        </p>
-      </section>
+        </section>
+      </CollapsibleSection>
 
       <!-- Error state -->
       <div v-if="error" class="border-heat-500/40 bg-heat-500/5 text-heat-300 border p-4 font-mono text-xs tracking-wide"><span class="text-heat-400">[err]</span> {{ error }}</div>

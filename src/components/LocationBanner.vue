@@ -3,10 +3,10 @@ import { computed } from "vue";
 
 import type { ForecastResponse } from "@/api/omForecast";
 import type { DailyAggregate } from "@/composables/useForecast";
-import { useLocation } from "@/composables/useLocation";
 import { convertVar, useUnits } from "@/composables/useUnits";
 import { weatherLabel } from "@/domain/weatherCodes";
 
+import LocationLabel from "./LocationLabel.vue";
 import WeatherIcon from "./WeatherIcon.vue";
 
 const props = defineProps<{
@@ -15,9 +15,6 @@ const props = defineProps<{
   solar: { sunrise: string[]; sunset: string[] } | null;
   locationName: string;
 }>();
-
-const { current, isFavourite, toggleFavourite } = useLocation();
-const starred = computed(() => isFavourite(current.value));
 
 const { temp, prefs, formatPercent } = useUnits();
 
@@ -55,19 +52,7 @@ const tempWhole = computed(() => {
        repeated here. -->
   <div class="registration border-ink-700 bg-ink-900/60 relative flex flex-wrap items-center justify-between gap-x-6 gap-y-4 border p-4 sm:p-6">
     <!-- Location + favourite toggle -->
-    <div class="flex min-w-0 items-center gap-2">
-      <span class="text-paper-50 truncate font-mono text-sm tracking-[0.04em] sm:text-base" :title="locationName">{{ locationName }}</span>
-      <button
-        type="button"
-        class="-m-1 shrink-0 p-1 text-sm leading-none transition-colors"
-        :class="starred ? 'text-sodium-300 hover:text-sodium-200' : 'text-paper-400 hover:text-sodium-300'"
-        :title="starred ? 'Remove from favourites' : 'Save as favourite'"
-        :aria-pressed="starred"
-        @click="toggleFavourite(current)"
-      >
-        {{ starred ? "★" : "☆" }}
-      </button>
-    </div>
+    <LocationLabel :name="locationName" />
 
     <!-- Live reading: temperature + matching-size icon, then condition + precip,
          with a quieter solar / last-updated line beneath. -->
