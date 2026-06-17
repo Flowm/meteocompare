@@ -49,20 +49,24 @@ const days = computed<DayRow[]>(() =>
 </script>
 
 <template>
-  <DayCard
-    v-for="(d, i) in days"
-    :key="d.date"
-    class="snap-start"
-    :date="d.date"
-    :code="d.code"
-    :high="d.high"
-    :low="d.low"
-    :precip-prob="d.precipProb"
-    :precip-sum="d.precipSum"
-    :wind-speed="d.windSpeed"
-    :wind-direction="d.windDirection"
-    :confidence="d.confidence"
-    :highlight="i === 0"
-    :models="d.models"
-  />
+  <!-- Horizontal snap-scroll rail of day cards. The scrollbar is hidden on
+       mobile (no-scrollbar) where it only steals vertical space. -->
+  <div class="no-scrollbar flex snap-x gap-2 overflow-x-auto pt-0 pb-1 sm:pt-1 sm:pb-3">
+    <DayCard
+      v-for="(d, i) in days"
+      :key="d.date"
+      class="snap-start"
+      :date="d.date"
+      :code="d.code"
+      :high="d.high"
+      :low="d.low"
+      :precip-prob="d.precipProb"
+      :precip-sum="d.precipSum"
+      :wind-speed="d.windSpeed"
+      :wind-direction="d.windDirection"
+      :confidence="d.confidence"
+      :highlight="i === 0"
+      :models="d.models"
+    />
+  </div>
 </template>

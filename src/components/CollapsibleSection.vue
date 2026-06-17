@@ -44,7 +44,10 @@ function toggle(): void {
         </span>
         <span class="eyebrow group-hover:text-paper-100 transition-colors">{{ title }}</span>
       </button>
-      <span v-if="summary" class="text-paper-400 font-mono text-[10px] tracking-wide">{{ summary }}</span>
+      <!-- Summary surfaces a glanceable value (e.g. the location name) in the
+           header, but only while collapsed — once open, the section's own
+           content carries it, so showing both would duplicate. -->
+      <span v-if="summary && !open" class="text-paper-400 font-mono text-[10px] tracking-wide">{{ summary }}</span>
     </div>
 
     <div v-if="shouldRender" v-show="open" :id="panelId">

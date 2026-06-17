@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
+import AppFooter from "@/components/AppFooter.vue";
 import { type ChartViewId } from "@/components/chartHelpers";
 import CollapsibleSection from "@/components/CollapsibleSection.vue";
-import ConditionsOutlookCard from "@/components/ConditionsOutlookCard.vue";
+import DailyStrip from "@/components/DailyStrip.vue";
 import HourlySeriesChart from "@/components/HourlySeriesChart.vue";
 import LoadingVeil from "@/components/LoadingVeil.vue";
+import LocationBanner from "@/components/LocationBanner.vue";
 import LocationBar from "@/components/LocationBar.vue";
 import RadarSpinner from "@/components/RadarSpinner.vue";
 import WindyMap from "@/components/WindyMap.vue";
@@ -44,8 +46,12 @@ const locationLabel = computed(() => {
            a location change re-fetches, instead of leaving stale data on screen. -->
       <LoadingVeil v-if="raw && hourly && daily" :loading="loading">
         <div class="space-y-3 sm:space-y-8">
-          <CollapsibleSection title="Conditions &amp; outlook">
-            <ConditionsOutlookCard :daily="daily" :raw="raw" :solar="solar" :location-name="locationLabel" />
+          <CollapsibleSection title="Location" :summary="locationLabel">
+            <LocationBanner :daily="daily" :raw="raw" :solar="solar" :location-name="locationLabel" />
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Daily outlook">
+            <DailyStrip :daily="daily" />
           </CollapsibleSection>
 
           <CollapsibleSection title="Hourly forecast">
@@ -67,15 +73,6 @@ const locationLabel = computed(() => {
       </LoadingVeil>
     </main>
 
-    <footer class="border-ink-700/60 border-t px-6 py-6 text-center">
-      <p class="text-paper-400 font-mono text-[11px] tracking-wide">
-        Data <span class="text-sodium-300">·</span>
-        <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer" class="text-paper-200 hover:text-sodium-200 underline-offset-4 hover:underline"
-          >open-meteo.com</a
-        >
-        <span class="text-paper-500"> // </span>
-        Multi-model aggregate, informational only
-      </p>
-    </footer>
+    <AppFooter>Multi-model aggregate, informational only</AppFooter>
   </div>
 </template>
