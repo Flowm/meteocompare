@@ -35,6 +35,17 @@ function formatClock(iso: string | null): string {
 
 const lastUpdatedClock = computed(() => formatClock(props.raw.current.time));
 
+// The "from when" stamp for the forecast data: current.time is the reference
+// moment the model output is valid for. The reading-area clock shows only the
+// time, so a cached page from yesterday is indistinguishable from a fresh one —
+// the location field carries the full date + time to make the data's age plain.
+function formatStamp(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString([], { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+const forecastStamp = computed(() => formatStamp(props.raw.current.time));
+
 // Decimal portion of the current temperature is dropped; the banner shows a
 // rounded reading so the serif number reads as a compact hero value.
 const tempWhole = computed(() => {
@@ -51,8 +62,18 @@ const tempWhole = computed(() => {
        the per-day confidence lives on the outlook cards — so neither is
        repeated here. -->
   <div class="registration border-ink-700 bg-ink-900/60 relative flex flex-wrap items-center justify-between gap-x-6 gap-y-4 border p-4 sm:p-6">
-    <!-- Location + favourite toggle -->
-    <LocationLabel :name="locationName" />
+    <!-- Location + favourite toggle, with the forecast data's reference time
+         beneath so it's clear how fresh the reading is. -->
+    <div class="flex min-w-0 flex-col gap-1">
+      <LocationLabel :name="locationName" />
+      <span class="text-paper-400 flex items-center gap-1.5 font-mono text-[10px] tracking-wide tabular-nums" :title="`Forecast data from ${forecastStamp}`">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="size-3 shrink-0" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" />
+          <polyline points="12 7.5 12 12 15 13.5" />
+        </svg>
+        <span class="text-paper-500">data from</span> {{ forecastStamp }}
+      </span>
+    </div>
 
     <!-- Live reading: temperature + matching-size icon, then condition + precip,
          with a quieter solar / last-updated line beneath. -->
