@@ -44,6 +44,9 @@ function formatStamp(iso: string | null): string {
   return new Date(iso).toLocaleString([], { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
+// The field shows just the clock; the full dated stamp stays in the title so
+// hovering still disambiguates a stale (e.g. previous-day) reading.
+const forecastClock = computed(() => formatClock(props.raw.current.time));
 const forecastStamp = computed(() => formatStamp(props.raw.current.time));
 
 // Decimal portion of the current temperature is dropped; the banner shows a
@@ -71,7 +74,7 @@ const tempWhole = computed(() => {
           <circle cx="12" cy="12" r="9" />
           <polyline points="12 7.5 12 12 15 13.5" />
         </svg>
-        <span class="text-paper-500">data from</span> {{ forecastStamp }}
+        {{ forecastClock }}
       </span>
     </div>
 
