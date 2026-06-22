@@ -35,6 +35,17 @@ function formatClock(iso: string | null): string {
 
 const lastUpdatedClock = computed(() => formatClock(props.raw.current.time));
 
+// The full dated "from when" stamp for the last-updated tooltip: current.time is
+// the reference moment the model output is valid for. The line itself shows only
+// the clock, so the dated stamp on hover disambiguates a stale (e.g. previous-day)
+// reading that the bare time would hide.
+function formatStamp(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString([], { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+const forecastStamp = computed(() => formatStamp(props.raw.current.time));
+
 // Decimal portion of the current temperature is dropped; the banner shows a
 // rounded reading so the serif number reads as a compact hero value.
 const tempWhole = computed(() => {
@@ -87,7 +98,7 @@ const tempWhole = computed(() => {
           <span v-if="sunset" class="flex items-center gap-1.5" :title="`Sunset ${formatClock(sunset)}`">
             <span class="text-heat-300" aria-hidden="true">↓</span>{{ formatClock(sunset) }}
           </span>
-          <span class="flex items-center gap-1.5" :title="`Last updated ${lastUpdatedClock}`">
+          <span class="flex items-center gap-1.5" :title="`Forecast data from ${forecastStamp}`">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="size-3" aria-hidden="true">
               <circle cx="12" cy="12" r="9" />
               <polyline points="12 7.5 12 12 15 13.5" />

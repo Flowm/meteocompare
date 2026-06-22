@@ -13,7 +13,7 @@
     "lint": "oxlint && oxfmt --check && vue-tsc",
     "lint:fix": "oxlint --fix && oxfmt --write",
     "deploy": "npm run build && wrangler deploy",
-    "deploy:preview": "npm run build && wrangler versions upload --preview-alias $(git rev-parse HEAD | head -c 8)"
+    "deploy:preview": "npm run build && wrangler versions upload --preview-alias preview-$(git rev-parse HEAD | head -c 8)"
   },
   "dependencies": {
     "@fontsource-variable/instrument-sans": "^5.2.8",
