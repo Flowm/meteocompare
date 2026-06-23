@@ -15,11 +15,14 @@ const { favourites, recent, setLocation } = useLocation();
 const query = ref("");
 const results = ref<GeocodingResult[]>([]);
 const isOpen = ref(false);
+// -1 means "no row highlighted"; the first ArrowDown lands on row 0.
+const activeIndex = ref(-1);
 const isSearching = ref(false);
 const searchError = ref<string | null>(null);
 const isLocating = ref(false);
 const locateError = ref<string | null>(null);
 const root = ref<HTMLElement | null>(null);
+const inputEl = ref<HTMLInputElement | null>(null);
 
 // View-switcher dropdown — replaces the side-by-side links so a single
 // affordance works on every viewport size.
@@ -39,7 +42,43 @@ const currentViewShort = computed(() => VIEW_LABEL_SHORT[String(route.name ?? ""
 // thread through identically.
 const preservedQuery = computed(() => ({ ...route.query }));
 
-onClickOutside(root, () => (isOpen.value = false));
+onClickOutside(root, () => {
+  isOpen.value = false;
+  activeIndex.value = -1;
+});
+
+// Flat list of keyboard-navigable rows, mirroring exactly what the panel
+// renders: search results while typing, otherwise saved favourites + recent.
+// The order here is the source of truth for activeIndex / aria-activedescendant.
+const navItems = computed<Array<{ type: "result"; data: GeocodingResult } | { type: "saved"; data: Location }>>(() => {
+  if (query.value) {
+    return results.value.map((data) => ({ type: "result" as const, data }));
+  }
+  return [...favourites.value, ...recent.value.slice(0, 5)].map((data) => ({ type: "saved" as const, data }));
+});
+
+function onKeydown(e: KeyboardEvent): void {
+  if (e.key === "Escape") {
+    isOpen.value = false;
+    activeIndex.value = -1;
+    return;
+  }
+  if (!isOpen.value) return;
+  const items = navItems.value;
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    if (items.length) activeIndex.value = activeIndex.value >= items.length - 1 ? 0 : activeIndex.value + 1;
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    if (items.length) activeIndex.value = activeIndex.value <= 0 ? items.length - 1 : activeIndex.value - 1;
+  } else if (e.key === "Enter") {
+    const item = items[activeIndex.value];
+    if (!item) return;
+    e.preventDefault();
+    if (item.type === "result") pick(item.data);
+    else pickSaved(item.data);
+  }
+}
 
 const runSearch = useDebounceFn(async () => {
   if (query.value.trim().length < 2) {
@@ -60,7 +99,12 @@ const runSearch = useDebounceFn(async () => {
 }, 250);
 
 watch(query, () => {
-  isOpen.value = true;
+  // Open only when the user is actually typing — not for the programmatic reset
+  // that runs after a pick, which would otherwise re-open the panel we just
+  // dismissed (and the input is already blurred by then).
+  if (inputEl.value && document.activeElement === inputEl.value) isOpen.value = true;
+  // A fresh keystroke invalidates the prior highlight; restart from "none".
+  activeIndex.value = -1;
   void runSearch();
 });
 
@@ -77,11 +121,15 @@ function pick(r: GeocodingResult): void {
   query.value = "";
   results.value = [];
   isOpen.value = false;
+  activeIndex.value = -1;
+  inputEl.value?.blur();
 }
 
 function pickSaved(loc: Location): void {
   setLocation(loc);
   isOpen.value = false;
+  activeIndex.value = -1;
+  inputEl.value?.blur();
 }
 
 function geolocate(): void {
@@ -204,11 +252,18 @@ function geolocate(): void {
           <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
         <input
+          ref="inputEl"
           v-model="query"
           type="search"
           placeholder="Search station, city, coordinates…"
           class="border-ink-700 bg-ink-900/70 text-paper-50 placeholder:text-paper-400/70 focus:border-sodium-300/70 focus:bg-ink-900 h-9 w-full min-w-0 border pr-10 pl-9 text-base outline-none sm:text-sm"
+          role="combobox"
+          aria-controls="location-results"
+          aria-autocomplete="list"
+          :aria-expanded="isOpen && navItems.length > 0"
+          :aria-activedescendant="activeIndex >= 0 ? `location-option-${activeIndex}` : undefined"
           @focus="isOpen = true"
+          @keydown="onKeydown"
         />
         <button
           type="button"
@@ -256,8 +311,10 @@ function geolocate(): void {
         :recent="recent"
         :is-searching="isSearching"
         :search-error="searchError"
+        :active-index="activeIndex"
         @pick-result="pick"
         @pick-saved="pickSaved"
+        @hover="activeIndex = $event"
       />
     </div>
   </header>
