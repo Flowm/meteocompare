@@ -22,25 +22,46 @@ const ARCHIVED_MODEL_IDS: string[] = MODELS.filter((m) => m.singleRunAvailabilit
 
 // open-meteo's single-runs API expands several of our registry ids into a
 // differently-named *internal* component, and a "model run is not available"
-// 4xx names that component, not the id we sent (e.g. we request `jma_seamless`,
-// the error says `jma_gsm`). This maps each known component back to its registry
-// id so the retry below can drop the right model. Values are the limiting
-// component — the one that ages out of the archive first — captured empirically
-// against the live API. Models whose component already equals their registry id
-// (ecmwf_ifs, cma_grapes_global, the Harmonie pair, …) need no entry; the
-// direct-id check in resolveMissingId handles them.
+// error names that component, not the id we sent (e.g. we request `icon_global`,
+// the error says `dwd_icon`). resolveMissingId maps the component back so the
+// retry can drop the right model, in two layers:
+//
+//  1. This explicit map, for providers whose components fan out to *different*
+//     registry ids and so can't be matched by prefix: the DWD ICON family
+//     (global/eu/d2 are three separate models for us) and the NCEP family (the
+//     GFS component feeds gfs_seamless, GraphCast its own id).
+//  2. A provider-prefix fallback (PROVIDER_PREFIX_TO_SEAMLESS_ID) for the
+//     single-owner seamless products — see its note for why the component can't
+//     be pinned statically.
+//
+// Models whose component already equals their registry id (ecmwf_ifs,
+// cma_grapes_global, the Harmonie pair, …) need no entry; the direct-id check
+// in resolveMissingId handles them.
 const COMPONENT_TO_REGISTRY_ID: Readonly<Record<string, string>> = {
   ncep_gfs025: "gfs_seamless",
-  ukmo_global_deterministic_10km: "ukmo_seamless",
-  meteofrance_arpege_world025: "meteofrance_seamless",
-  jma_gsm: "jma_seamless",
-  kma_gdps: "kma_seamless",
+  ncep_gfs_graphcast025: "gfs_graphcast025",
   dwd_icon: "icon_global",
   dwd_icon_eu: "icon_eu",
   dwd_icon_d2: "icon_d2",
-  meteoswiss_icon_ch2: "meteoswiss_icon_seamless",
-  ncep_gfs_graphcast025: "gfs_graphcast025",
 };
+
+// Single-owner seamless products. open-meteo serves these by picking the
+// highest-resolution component available at the queried point (e.g. AROME
+// France HD 15-min inside France, ARPEGE elsewhere), so *which* component a run
+// resolves to — and which one ages out of the archive first — is
+// location-dependent: there's no single id to pin in the map above. But every
+// component such a product expands into shares the provider's prefix, and no
+// other registry id claims that prefix, so any unmapped component under it
+// resolves unambiguously to the one seamless model. NOT usable for
+// dwd_*/ncep_*, whose prefixes span several distinct registry ids (handled
+// exactly above).
+const PROVIDER_PREFIX_TO_SEAMLESS_ID: ReadonlyArray<readonly [string, string]> = [
+  ["meteofrance_", "meteofrance_seamless"],
+  ["ukmo_", "ukmo_seamless"],
+  ["jma_", "jma_seamless"],
+  ["kma_", "kma_seamless"],
+  ["meteoswiss_", "meteoswiss_icon_seamless"],
+];
 
 const HOURLY_VARS = ["temperature_2m", "precipitation"] as const;
 
@@ -117,12 +138,17 @@ function parseMissingModel(message: string): string | null {
 }
 
 // Resolve the component id named in an error to the requested registry id to
-// drop. Most models report their own id (direct hit); the seamless/product
-// ones report an internal component we translate via the map.
+// drop, in three layers: the model reports its own id (direct hit), an explicit
+// component→id mapping, or a provider-prefix fallback for single-owner seamless
+// products. Only ever returns an id that's actually in `requested`.
 function resolveMissingId(named: string, requested: readonly string[]): string | null {
   if (requested.includes(named)) return named;
   const mapped = COMPONENT_TO_REGISTRY_ID[named];
-  return mapped && requested.includes(mapped) ? mapped : null;
+  if (mapped && requested.includes(mapped)) return mapped;
+  for (const [prefix, id] of PROVIDER_PREFIX_TO_SEAMLESS_ID) {
+    if (named.startsWith(prefix) && requested.includes(id)) return id;
+  }
+  return null;
 }
 
 // A single missing run fails the *entire* batch — and the archive's per-model
