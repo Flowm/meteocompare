@@ -84,6 +84,24 @@ describe("fetchSingleRuns adaptive retry", () => {
     expect(modelsOf(fetchMock, 2)).toEqual(["ecmwf_ifs"]);
   });
 
+  it("resolves a location-specific seamless component to its registry id", async () => {
+    // Inside France, meteofrance_seamless resolves to the AROME France HD 15-min
+    // component, so a missing run names that component rather than the id we
+    // sent. The provider-prefix fallback maps it back to meteofrance_seamless so
+    // the batch drops one model and retries instead of failing wholesale.
+    const req = { lat: 48.0, lon: 8.9, runDate: "2026-06-10", models: ["ecmwf_ifs", "meteofrance_seamless"] };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(res({ ok: false, stream: true, model: "meteofrance_arome_france_hd_15min" }))
+      .mockResolvedValueOnce(res({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchSingleRuns(req);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(modelsOf(fetchMock, 1)).toEqual(["ecmwf_ifs"]);
+  });
+
   it("resolves a model that reports its own id directly", async () => {
     const fetchMock = vi
       .fn()
