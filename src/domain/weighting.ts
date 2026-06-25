@@ -45,18 +45,22 @@ function variableBoost(model: ModelDef, variable: Variable): number {
   return 1;
 }
 
-export function modelWeight(model: ModelDef, leadHours: number, lat: number, lon: number, variable: Variable): number {
+export function modelWeight(model: ModelDef, leadHours: number, lat: number, lon: number, variable: Variable, multipliers?: Record<string, number>): number {
   const base = 1 + regionBonus(model, lat, lon);
-  return base * leadFactor(model, leadHours) * variableBoost(model, variable);
+  // Optional per-model multiplier — the trained, per-location override applied
+  // when the user opts in (see learnedWeights / the settings toggle). Defaults
+  // to 1, so an absent or unset model is exactly the heuristic weight.
+  const trained = multipliers?.[model.id] ?? 1;
+  return base * leadFactor(model, leadHours) * variableBoost(model, variable) * trained;
 }
 
 /** Compute normalized weights (sum = 1) given a list of models and a context.
  *  Models whose raw weight is 0 are dropped — they don't cover this lead time. */
-export function normalizedWeights(models: ModelDef[], leadHours: number, lat: number, lon: number, variable: Variable): Map<string, number> {
+export function normalizedWeights(models: ModelDef[], leadHours: number, lat: number, lon: number, variable: Variable, multipliers?: Record<string, number>): Map<string, number> {
   const raw = new Map<string, number>();
   let total = 0;
   for (const m of models) {
-    const w = modelWeight(m, leadHours, lat, lon, variable);
+    const w = modelWeight(m, leadHours, lat, lon, variable, multipliers);
     if (w > 0) {
       raw.set(m.id, w);
       total += w;

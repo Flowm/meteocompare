@@ -118,7 +118,7 @@ export interface ScorecardInput {
  *  - amount + timing drop out when there is no precip data,
  *  - timing alone drops out on a dry scope (no truth-wet hours) while amount
  *    still penalises false precipitation. */
-function scoreScope(
+export function scoreScope(
   fTemp: readonly (number | null)[],
   tTemp: readonly (number | null)[],
   fPrecip: readonly (number | null)[],

@@ -36,6 +36,8 @@ export interface AggregateVariablesOptions<K extends string = string> {
    *  predictability resolution "hourly". `daily`: lead = index*24 + 12 (a noon
    *  anchor), resolution "daily". */
   cadence: "hourly" | "daily";
+  /** Optional per-model weight multipliers (trained, per-location override). */
+  multipliers?: Record<string, number>;
 }
 
 export interface AggregatedVariables<K extends string = string> {
@@ -62,6 +64,7 @@ export function aggregateVariables<K extends string>(opts: AggregateVariablesOpt
       lat: opts.lat,
       lon: opts.lon,
       baseTime: opts.baseTime,
+      multipliers: opts.multipliers,
     });
     aggregate[key] = agg;
     predictability[key] = agg.map((p, i) => predictabilityFor(p, family, leadAt(i), opts.cadence));
