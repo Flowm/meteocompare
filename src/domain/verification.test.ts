@@ -5,6 +5,7 @@ import {
   bias,
   buildDailyVerification,
   classifyHours,
+  coveredPrecipSums,
   HOURS_PER_DAY,
   mae,
   maxNonNull,
@@ -112,9 +113,14 @@ describe("classifyHours", () => {
     expect(labels[2]).toBe("false_alarm");
   });
 
-  it("treats nulls as dry", () => {
-    const labels = classifyHours([null, null, null], [null, null, null]);
-    expect(labels).toEqual(["correct_dry", "correct_dry", "correct_dry"]);
+  it("labels hours with no forecast (or no truth) as no_data, not as a miss", () => {
+    // Forecast drops out at hour 1 while truth is wet there — must be no_data,
+    // not a miss: the model never had a chance to forecast that hour.
+    expect(classifyHours([wet, null, wet], [wet, wet, wet])).toEqual(["hit", "no_data", "hit"]);
+    // A whole missing forecast → all no_data (was "all correct_dry" before).
+    expect(classifyHours([null, null, null], [dry, dry, dry])).toEqual(["no_data", "no_data", "no_data"]);
+    // Missing truth is likewise unscorable.
+    expect(classifyHours([wet, wet], [wet, null])).toEqual(["hit", "no_data"]);
   });
 
   it("does not match across larger gaps than tolerance", () => {
@@ -143,6 +149,32 @@ describe("timingScore (Critical Success Index)", () => {
   it("returns NaN only when nothing happened (all correct-dry / empty)", () => {
     expect(timingScore(["correct_dry", "correct_dry"])).toBeNaN();
     expect(timingScore([])).toBeNaN();
+  });
+
+  it("ignores no_data hours — missing forecast is excluded, not counted as a miss", () => {
+    expect(timingScore(["hit", "no_data", "miss"])).toBeCloseTo(1 / 2);
+    expect(timingScore(["hit", "no_data", "no_data"])).toBeCloseTo(1);
+    // All-no_data has no events → undefined, same as empty.
+    expect(timingScore(["no_data", "no_data"])).toBeNaN();
+  });
+});
+
+describe("coveredPrecipSums", () => {
+  it("sums truth only over hours the forecast covers", () => {
+    // Forecast covers hours 0–1 (sum 3); drops out for hours 2–3 where it rained.
+    const { forecastSum, truthSum } = coveredPrecipSums([1, 2, null, null], [1, 1, 5, 5]);
+    expect(forecastSum).toBeCloseTo(3);
+    expect(truthSum).toBeCloseTo(2); // 1 + 1, NOT 1 + 1 + 5 + 5 = the tail is ignored
+  });
+
+  it("treats a covered hour with null truth as zero truth (forecast still counts)", () => {
+    const { forecastSum, truthSum } = coveredPrecipSums([1, 2], [null, 1]);
+    expect(forecastSum).toBeCloseTo(3);
+    expect(truthSum).toBeCloseTo(1);
+  });
+
+  it("is zero/zero when the forecast covers nothing", () => {
+    expect(coveredPrecipSums([null, null], [4, 6])).toEqual({ forecastSum: 0, truthSum: 0 });
   });
 });
 

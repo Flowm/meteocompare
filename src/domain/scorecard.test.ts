@@ -86,6 +86,28 @@ describe("buildModelScorecard — amount normalised per covered day", () => {
   });
 });
 
+describe("buildModelScorecard — missing forecast hours are ignored, not penalised", () => {
+  it("does not charge a dropped-out model for rain in the hours it never forecast", () => {
+    // Model covers the first 48 h with a perfect dry forecast, then drops out.
+    // Truth is dry during coverage but rains heavily in the uncovered tail. The
+    // old scoring summed truth over the whole window, charging the model
+    // amountError = −(tail rain) and a long run of misses. It must now see a
+    // clean amount error (0) and an undefined timing score (no scorable events).
+    const fPrecip = array(N, (i) => (i < 48 ? 0 : null));
+    const input = makeInput({
+      truthPrecip: array(N, (i) => (i < 48 ? 0 : 5)),
+      perModelTemp: { m: array(N, (i) => (i < 48 ? 20 : null)) },
+      perModelPrecip: { m: fPrecip },
+    });
+    const row = rowFor(input, "m")!;
+    expect(row.overall.amountError).toBeCloseTo(0);
+    expect(row.overall.timingScore).toBeNaN(); // tail wet-hours are no_data, not misses
+    // Composite reflects only the covered hours (perfect temp + perfect dry
+    // amount), so the drop-out doesn't drag the score down.
+    expect(row.overall.composite).toBeCloseTo(100);
+  });
+});
+
 describe("buildModelScorecard — false alarms are penalised", () => {
   it("a model predicting rain across a dry week does NOT get a full score", () => {
     // Truth dry all week; model cries wolf with 1 mm every hour, temp perfect.

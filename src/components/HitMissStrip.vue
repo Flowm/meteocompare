@@ -17,11 +17,14 @@ const props = withDefaults(
 );
 
 // Tones tuned to the "Observatory" palette: sage / sodium / coral / faint ink.
+// no_data sits near the page floor so unscored hours read as an absence (a gap)
+// rather than a real outcome.
 const TONE: Record<HourClassification, string> = {
   hit: "bg-predictability-high/85",
   miss: "bg-sodium-300/80",
   false_alarm: "bg-heat-400/85",
   correct_dry: "bg-ink-700",
+  no_data: "bg-ink-950/60",
 };
 
 const LEGEND: Record<HourClassification, string> = {
@@ -29,13 +32,16 @@ const LEGEND: Record<HourClassification, string> = {
   miss: "miss",
   false_alarm: "false alarm",
   correct_dry: "correct dry",
+  no_data: "no data",
 };
 
 const cells = computed(() => props.classification.map((c, i) => ({ cls: c, tone: TONE[c], title: `${props.hourLabel?.(i) ?? `hour ${i}`} · ${LEGEND[c]}` })));
 
-const isDryDay = computed(() => props.classification.every((c) => c === "correct_dry"));
+// "Dry day" overlay only when every hour is a genuine correct-dry — a strip of
+// unscored (no_data) hours is an absence, not a dry day.
+const isDryDay = computed(() => props.classification.length > 0 && props.classification.every((c) => c === "correct_dry"));
 const wrapperTitle = computed(() =>
-  isDryDay.value ? "No precipitation events on this day" : "Per-hour outcomes — sage: hit, sodium: miss, coral: false alarm, dark: correct dry",
+  isDryDay.value ? "No precipitation events on this day" : "Per-hour outcomes — sage: hit, sodium: miss, coral: false alarm, dark: correct dry, empty: no data",
 );
 </script>
 

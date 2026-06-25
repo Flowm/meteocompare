@@ -9,7 +9,7 @@
 // docs/adr/0004-per-model-composite-score.md.
 
 import { aggregateValue, type AggregatePoint } from "./aggregate";
-import { bias, classifyHours, mae, sumNonNull, timingScore, type HourClassification } from "./verification";
+import { bias, classifyHours, coveredPrecipSums, mae, timingScore, type HourClassification } from "./verification";
 
 // ---------------------------------------------------------------------------
 // Fixed reference scales + weights (tunable — see ADR 0004)
@@ -136,7 +136,10 @@ export function scoreScope(
   const tempMae = mae(fTemp, tTemp);
 
   const anyPrecip = fPrecip.some((v) => v != null);
-  const amountError = anyPrecip ? sumNonNull(fPrecip) - sumNonNull(tPrecip) : NaN;
+  // Coverage-aligned: truth summed only over hours the forecast covers, so a
+  // model that drops out isn't charged for the rain it never forecast.
+  const { forecastSum, truthSum } = coveredPrecipSums(fPrecip, tPrecip);
+  const amountError = anyPrecip ? forecastSum - truthSum : NaN;
   const thr = anyPrecip ? timingScore(classifyHours(fPrecip, tPrecip)) : NaN;
 
   const terms: Array<{ w: number; g: number }> = [];

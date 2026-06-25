@@ -41,9 +41,12 @@ predictability.
   the harder problem; revisit by reweighting `COMPOSITE_WEIGHTS`.
 - **Temperature bias is excluded** from the composite (shown as a column only):
   `|bias| ≤ MAE` always, so including it would double-count temperature error.
-- **Coverage-fair amount.** Amount error is normalised per _covered_ day, so a
-  short-lead model isn't flattered by the dry hours it never forecast. Temp MAE
-  and timing are already per-hour averages/fractions.
+- **Coverage-fair amount.** Amount error sums truth only over the hours the
+  forecast covers (coverage-aligned `forecastSum − truthSum`) and is then
+  normalised per _covered_ day. So a short-lead model is neither flattered by the
+  dry hours it never forecast nor charged for rain that fell after it dropped
+  out. Timing likewise excludes uncovered hours (they are `no_data`, not misses),
+  and temp MAE only scores overlapping non-null pairs — see ADR 0002.
 - **Dry-scope renormalisation.** When a scope has no truth-wet hours, the timing
   term is undefined and dropped, and the remaining weights renormalise; amount
   still penalises false precipitation.

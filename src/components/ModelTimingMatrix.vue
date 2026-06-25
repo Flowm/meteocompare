@@ -61,6 +61,7 @@ const accent = (id: string, isAggregate: boolean): string => (isAggregate ? AGG_
       <span class="flex items-center gap-1"><span class="bg-sodium-300/80 inline-block size-2" /> Miss</span>
       <span class="flex items-center gap-1"><span class="bg-heat-400/85 inline-block size-2" /> False alarm</span>
       <span class="flex items-center gap-1"><span class="bg-ink-700 inline-block size-2" /> Correct dry</span>
+      <span class="flex items-center gap-1"><span class="bg-ink-950/60 border-ink-700 inline-block size-2 border" /> No data</span>
     </div>
   </div>
 </template>
