@@ -49,11 +49,15 @@ export interface EvaluateRunInputs {
   /** When the location has stored tuned weights, also compute an "Aggregate
    *  (tuned)" scorecard row from these per-model multipliers, for comparison. */
   tunedMultipliers?: Record<string, number>;
+  /** Whether the displayed surfaces (chart, daily cards, weather icons) use the
+   *  tuned weights as the active aggregate — i.e. the "use trained weights"
+   *  toggle. The scorecard always shows both default and tuned regardless. */
+  applyTuned?: boolean;
 }
 
 /** Score one fetched run against its truth. Returns null when the run carried no
  *  hours (nothing to align or score). */
-export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tunedMultipliers }: EvaluateRunInputs): RunEvaluation | null {
+export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tunedMultipliers, applyTuned = false }: EvaluateRunInputs): RunEvaluation | null {
   const times = runs.hourly.time;
   const firstTime = times[0];
   if (!firstTime) return null;
@@ -79,6 +83,29 @@ export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tuned
     cadence: "hourly",
   });
 
+  // A second aggregate under the location's tuned weights (when stored): reused
+  // as the scorecard's "Aggregate (tuned)" row, and — when the user opts in via
+  // applyTuned (the settings toggle) — as the active aggregate the chart and
+  // daily cards display. The scorecard always compares default vs tuned, so it
+  // ignores applyTuned.
+  const tuned = tunedMultipliers
+    ? aggregateVariables({
+        times,
+        perModel,
+        vars: [
+          { key: "temperature_2m", family: "temperature_2m" },
+          { key: "precipitation", family: "precipitation" },
+        ],
+        models: MODELS,
+        lat,
+        lon,
+        baseTime,
+        cadence: "hourly",
+        multipliers: tunedMultipliers,
+      })
+    : null;
+  const active = applyTuned && tuned ? tuned : { aggregate, predictability };
+
   // Align truth to the run's time axis by ISO-string lookup; the two APIs can
   // return their hours offset by UTC-shift, which the map handles cleanly.
   const truthTimes = truth.hourly.time;
@@ -97,50 +124,33 @@ export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tuned
 
   const hourly: VerificationHourly = {
     times,
-    aggregate,
+    aggregate: active.aggregate,
     perModel,
     truth: { temperature_2m: truthTemp, precipitation: truthPrecip },
-    predictability,
+    predictability: active.predictability,
   };
 
   const daily = buildDailyVerification({
     runDate,
     times,
-    aggregateTemp: aggregate.temperature_2m ?? [],
-    aggregatePrecip: aggregate.precipitation ?? [],
-    predictabilityTemp: predictability.temperature_2m ?? [],
-    predictabilityPrecip: predictability.precipitation ?? [],
+    aggregateTemp: active.aggregate.temperature_2m ?? [],
+    aggregatePrecip: active.aggregate.precipitation ?? [],
+    predictabilityTemp: active.predictability.temperature_2m ?? [],
+    predictabilityPrecip: active.predictability.precipitation ?? [],
     perModelTemp: perModel.temperature_2m ?? {},
     perModelPrecip: perModel.precipitation ?? {},
     truthTemp,
     truthPrecip,
   });
 
-  // A second aggregate under the location's tuned weights, scored inline for
-  // a default-vs-tuned comparison (only when tuned weights are supplied).
-  const tunedAgg = tunedMultipliers
-    ? aggregateVariables({
-        times,
-        perModel,
-        vars: [
-          { key: "temperature_2m", family: "temperature_2m" },
-          { key: "precipitation", family: "precipitation" },
-        ],
-        models: MODELS,
-        lat,
-        lon,
-        baseTime,
-        cadence: "hourly",
-        multipliers: tunedMultipliers,
-      }).aggregate
-    : null;
-
+  // Scorecard: the default-weight aggregate row, plus a tuned row (when stored)
+  // for the inline comparison — independent of applyTuned.
   const scorecard = buildModelScorecard({
     times,
     aggregateTemp: aggregate.temperature_2m ?? [],
     aggregatePrecip: aggregate.precipitation ?? [],
-    tunedAggregateTemp: tunedAgg?.temperature_2m,
-    tunedAggregatePrecip: tunedAgg?.precipitation,
+    tunedAggregateTemp: tuned?.aggregate.temperature_2m,
+    tunedAggregatePrecip: tuned?.aggregate.precipitation,
     perModelTemp: perModel.temperature_2m ?? {},
     perModelPrecip: perModel.precipitation ?? {},
     truthTemp,
@@ -153,7 +163,7 @@ export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tuned
     hourly,
     daily,
     scorecard,
-    weatherCodes: aggregateWeatherCodes(runs, lat, lon),
+    weatherCodes: aggregateWeatherCodes(runs, lat, lon, applyTuned ? tunedMultipliers : undefined),
     availableModels: availableModelsOf(runs),
   };
 }
@@ -161,7 +171,7 @@ export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tuned
 /** Per-day aggregate WMO weather codes for the forecast-row icon. Same
  *  severity-weighted-mode aggregation as the forecast view; predictability is
  *  agreement-based (lead-independent) and dropped here. */
-function aggregateWeatherCodes(runs: SingleRunsResponse, lat: number, lon: number): number[] {
+function aggregateWeatherCodes(runs: SingleRunsResponse, lat: number, lon: number, multipliers?: Record<string, number>): number[] {
   const dailyTimes = runs.daily.time;
   const firstDailyTime = dailyTimes[0];
   if (!firstDailyTime) return [];
@@ -175,6 +185,7 @@ function aggregateWeatherCodes(runs: SingleRunsResponse, lat: number, lon: numbe
     lon,
     baseTime,
     cadence: "daily",
+    multipliers,
   });
   return (aggregate.weather_code ?? []).map((p) => Math.round(p.value));
 }

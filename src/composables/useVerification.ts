@@ -12,6 +12,7 @@ import { addDaysIso } from "@/utils/date";
 
 import { useAbortableResource } from "./useAbortableResource";
 import type { Location } from "./useLocation";
+import { useSettings } from "./useSettings";
 
 /** Re-exported from the framework-free analysis layer, where the run evaluation
  *  is now computed (see `@/analysis/runEvaluation`). */
@@ -39,6 +40,8 @@ export interface UseVerificationReturn {
 }
 
 export function useVerification(location: Ref<Location>, runDate: Ref<string>, runCycle: Ref<number>): UseVerificationReturn {
+  const { useTrainedWeights } = useSettings();
+
   // The runs + truth pair is fetched together (so a superseded date/location
   // change aborts both); the helper owns the abort + superseded-loading guard.
   const { data, loading, error, refresh } = useAbortableResource(
@@ -64,7 +67,18 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>, r
     // Show a default-vs-tuned comparison whenever this location has stored
     // trained weights — independent of the live "use trained weights" toggle.
     const tunedMultipliers = loadWeights(location.value.latitude, location.value.longitude)?.multipliers;
-    return evaluateRun({ runs, truth, lat: location.value.latitude, lon: location.value.longitude, runDate: runDate.value, runHour: runCycle.value, tunedMultipliers });
+    // applyTuned mirrors the live forecast: when the toggle is on, the chart +
+    // daily cards draw the tuned aggregate. The scorecard compares both regardless.
+    return evaluateRun({
+      runs,
+      truth,
+      lat: location.value.latitude,
+      lon: location.value.longitude,
+      runDate: runDate.value,
+      runHour: runCycle.value,
+      tunedMultipliers,
+      applyTuned: useTrainedWeights.value,
+    });
   });
 
   const hourly = computed<VerificationHourly | null>(() => evaluation.value?.hourly ?? null);

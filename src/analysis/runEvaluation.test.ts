@@ -59,4 +59,14 @@ describe("evaluateRun", () => {
     const ev = evaluateRun({ runs, truth, lat: 48, lon: 11, runDate: "2026-05-20", tunedMultipliers: { ecmwf_ifs: 2 } });
     expect(ev?.scorecard.some((r) => r.id === AGGREGATE_TUNED_ROW_ID)).toBe(true);
   });
+
+  it("uses the tuned weights for the displayed aggregate only when applyTuned is set", () => {
+    const def = evaluateRun({ runs, truth, lat: 48, lon: 11, runDate: "2026-05-20" });
+    const on = evaluateRun({ runs, truth, lat: 48, lon: 11, runDate: "2026-05-20", tunedMultipliers: { ecmwf_ifs: 5 }, applyTuned: true });
+    // Default is the equal-weight mean (ecmwf 10, gfs 12 → 11); heavily up-weighting
+    // the cooler ecmwf pulls the *displayed* aggregate down only when applyTuned.
+    const defVal = def?.hourly.aggregate.temperature_2m?.[0]?.value ?? NaN;
+    const onVal = on?.hourly.aggregate.temperature_2m?.[0]?.value ?? NaN;
+    expect(onVal).toBeLessThan(defVal);
+  });
 });
