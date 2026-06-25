@@ -26,14 +26,17 @@ The geographic bounding box where a regional model has a structural advantage. D
 A single forecast cycle issued by a model at a specific datetime, e.g. "the GFS run from 2026-05-11 00:00 UTC". Runs are the unit identified by the single-runs API.
 
 **Run date**:
-The date component of a run. By app convention, every run on the verification page is 00Z, so a date alone uniquely identifies one.
+The date component of a run. The verification page also lets you pick the **run cycle**, so a run is identified by date + cycle — not date alone. The default cycle is 00Z.
 _Avoid_: issue date, cycle date.
+
+**Run cycle**:
+The hour-of-day a run was issued (00 / 06 / 12 / 18 Z), selectable on the verification page; defaults to 00Z. Models publish different cycles (e.g. ECMWF issues 00/12Z), so picking a non-00Z cycle naturally drops the models that don't issue it — the single-runs API reports them missing and they're pruned (see "Available models").
 
 **Lead time**:
 Hours elapsed since run start. A value forecast 36 h into the future has lead time 36 h. Drives lead-time decay in the weighting recipe.
 
 **Available models**:
-The subset of registered models for which the single-runs API actually returned data for a given run date. Retention varies per model, so this is a runtime fact, not a static list.
+The subset of registered models for which the single-runs API actually returned data for a given run (date + cycle). Retention varies per model — and not every model issues every cycle — so this is a runtime fact, not a static list.
 
 **Model family**:
 A lineage group of models that share a dynamical core, or are initialised from / trained on the same analysis, and therefore share systematic errors — they are not independent votes. Examples: the ICON variants (`icon_global`/`icon_eu`/`icon_d2`/`meteoswiss_icon`); the HARMONIE-AROME CAMs built on Météo-France's AROME; the UK Unified Model products (UKMO / BOM ACCESS / KMA); and each AI product grouped with the analysis it derives from (AIFS↔IFS; GraphCast / AI-GFS / GEFS-mean↔GFS). The **effective model count** discounts same-family siblings (the first member counts fully, each sibling adds `SIBLING_CREDIT`) and feeds the predictability model-count factor, so a cluster of relatives doesn't read as independent corroboration. Defined in `models.ts`; see ADR 0006.

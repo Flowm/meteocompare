@@ -50,9 +50,22 @@ function setRunDate(newDate: string): void {
   void router.replace({ query: { ...route.query, runDate: newDate } });
 }
 
+// Run cycle (00 / 06 / 12 / 18 Z). A run is identified by date + cycle; default 00Z.
+// Models publish different cycles, so a non-00Z pick naturally prunes the ones
+// that don't issue it (the single-runs API reports them missing).
+const RUN_CYCLES = new Set([0, 6, 12, 18]);
+const runCycle = computed<number>(() => {
+  const c = Number(route.query.cycle);
+  return RUN_CYCLES.has(c) ? c : 0;
+});
+function setRunCycle(hour: number): void {
+  void router.replace({ query: { ...route.query, cycle: String(hour) } });
+}
+const cycleLabel = computed(() => `${String(runCycle.value).padStart(2, "0")}:00 UTC`);
+
 const showModels = ref(false);
 
-const { loading, error, hourly, daily, scorecard, weatherCodes, availableModels, solar } = useVerification(current, runDate);
+const { loading, error, hourly, daily, scorecard, weatherCodes, availableModels, solar } = useVerification(current, runDate, runCycle);
 
 const locationLabel = computed(() => {
   const loc = current.value;
@@ -88,6 +101,16 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
                   @change="setRunDate(($event.target as HTMLInputElement).value)"
                 />
               </label>
+              <label class="text-paper-300 flex items-center gap-2.5 font-mono text-[11px] tracking-wide">
+                <span>Cycle</span>
+                <select
+                  :value="String(runCycle)"
+                  class="border-ink-700 bg-ink-950 text-paper-50 focus:border-sodium-300/60 border px-2 py-1 font-mono text-base tracking-normal outline-none sm:text-xs"
+                  @change="setRunCycle(Number(($event.target as HTMLSelectElement).value))"
+                >
+                  <option v-for="h in RUN_CYCLES" :key="h" :value="String(h)">{{ String(h).padStart(2, "0") }}Z</option>
+                </select>
+              </label>
               <p v-if="missingModelCount > 0 && !loading" class="text-paper-400 font-mono text-[11px] tracking-wide">
                 {{ availableModels.length }}/{{ MODELS.length }} models available
               </p>
@@ -96,7 +119,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
 
           <!-- Truth reference -->
           <p class="border-ink-700 text-paper-400 mt-4 border-t pt-3 font-mono text-[11px] tracking-wide">
-            Forecast vs ERA5-Seamless <span class="text-paper-500">· 7-day window · 00:00 UTC</span>
+            Forecast vs ERA5-Seamless <span class="text-paper-500">· 7-day window · {{ cycleLabel }}</span>
           </p>
         </section>
       </CollapsibleSection>

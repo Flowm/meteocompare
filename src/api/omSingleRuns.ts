@@ -78,9 +78,11 @@ export type SingleRunsDailyVar = (typeof DAILY_VARS)[number];
 export interface SingleRunsRequest {
   lat: number;
   lon: number;
-  /** ISO local date (`YYYY-MM-DD`). Combined with `T00:00` at request time —
-   *  by app convention every verification run is the 00Z cycle. */
+  /** ISO local date (`YYYY-MM-DD`), combined with `runHour` into the run cycle. */
   runDate: string;
+  /** Run cycle hour (00 / 06 / 12 / 18 Z); defaults to 0 (00Z). Models publish
+   *  different cycles, so a non-00Z hour naturally prunes models that skip it. */
+  runHour?: number;
   /** Optional subset of model ids; defaults to the full registry. */
   models?: string[];
   /** Days forward from the run start; defaults to 7. */
@@ -95,7 +97,7 @@ function buildUrl(models: string[], req: SingleRunsRequest): string {
   const params = new URLSearchParams({
     latitude: String(req.lat),
     longitude: String(req.lon),
-    run: `${req.runDate}T00:00`,
+    run: `${req.runDate}T${String(req.runHour ?? 0).padStart(2, "0")}:00`,
     hourly: HOURLY_VARS.join(","),
     daily: [...DAILY_VARS, ...DAILY_SOLAR_VARS].join(","),
     models: models.join(","),

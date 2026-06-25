@@ -37,7 +37,7 @@ export interface UseVerificationReturn {
   refresh: () => Promise<void>;
 }
 
-export function useVerification(location: Ref<Location>, runDate: Ref<string>): UseVerificationReturn {
+export function useVerification(location: Ref<Location>, runDate: Ref<string>, runCycle: Ref<number>): UseVerificationReturn {
   // The runs + truth pair is fetched together (so a superseded date/location
   // change aborts both); the helper owns the abort + superseded-loading guard.
   const { data, loading, error, refresh } = useAbortableResource(
@@ -46,12 +46,12 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
       // TZ-shifted forecast window is fully covered regardless of UTC offset.
       const truthEndDate = addDaysIso(runDate.value, 7);
       const [runs, truth] = await Promise.all([
-        fetchSingleRuns({ lat: location.value.latitude, lon: location.value.longitude, runDate: runDate.value }, signal),
+        fetchSingleRuns({ lat: location.value.latitude, lon: location.value.longitude, runDate: runDate.value, runHour: runCycle.value }, signal),
         fetchHistoricalWeather({ lat: location.value.latitude, lon: location.value.longitude, startDate: runDate.value, endDate: truthEndDate }, signal),
       ]);
       return { runs, truth };
     },
-    () => [location.value.latitude, location.value.longitude, runDate.value],
+    () => [location.value.latitude, location.value.longitude, runDate.value, runCycle.value],
   );
 
   // All scoring lives in the framework-free analysis layer now; the composable

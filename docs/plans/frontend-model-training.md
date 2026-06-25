@@ -29,17 +29,17 @@ run of fetch → domain → reactive refs. So most of Phase 1 is _moving_ logic.
 
 ## Phases
 
-### Phase 1 — Decouple analysis data from the UI
+### Phase 1 — Decouple analysis data from the UI ✅
 
 Extract a framework-free evaluation unit so the same computation feeds the
 single-run view, the multi-run view, and the trainer.
 
-- New `domain/analysis/runEvaluation.ts`: `interface RunEvaluation { location; run; perModel: ScorecardRow[]; aggregate: ScorecardRow; coverageByModel; … }` and `evaluateRun(runs, truth, location, run): RunEvaluation` — the body of `useVerification`'s computeds, with no `Ref`s.
+- New `src/analysis/runEvaluation.ts`: `interface RunEvaluation { location; run; perModel: ScorecardRow[]; aggregate: ScorecardRow; coverageByModel; … }` and `evaluateRun(runs, truth, location, run): RunEvaluation` — the body of `useVerification`'s computeds, with no `Ref`s.
 - Refactor `useVerification` to fetch → `evaluateRun(...)`. Behaviour-preserving; existing tests stay green; UI unchanged.
 
 Decision-free, low-risk — the dependency-free foundation.
 
-### Phase 2 — Run-cycle selection on the single-run analysis page (early)
+### Phase 2 — Run-cycle selection on the single-run analysis page (early) ✅
 
 Drop the **00Z-only** assumption so a single run is identified by **date + cycle
 hour**, not date alone.
