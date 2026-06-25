@@ -10,6 +10,7 @@ import { MODELS } from "@/domain/models";
 
 import type { ForecastResponse } from "./omForecast";
 import { extractDailyByModel, extractHourlyByModel } from "./omForecast";
+import { buildOpenMeteoUrl } from "./openMeteo";
 
 const SINGLE_RUNS_URL = "https://single-runs-api.open-meteo.com/v1/forecast";
 
@@ -107,7 +108,7 @@ function buildUrl(models: string[], req: SingleRunsRequest): string {
     temperature_unit: "celsius",
     precipitation_unit: "mm",
   });
-  return `${SINGLE_RUNS_URL}?${params}`;
+  return buildOpenMeteoUrl(SINGLE_RUNS_URL, params);
 }
 
 async function fetchModels(models: string[], req: SingleRunsRequest, signal?: AbortSignal): Promise<SingleRunsResponse> {

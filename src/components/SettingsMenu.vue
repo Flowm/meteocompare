@@ -2,11 +2,13 @@
 import { onClickOutside } from "@vueuse/core";
 import { ref } from "vue";
 
+import { useApiKey } from "@/composables/useApiKey";
 import { useSettings } from "@/composables/useSettings";
 import { useUnits, type PrecipitationUnit, type TemperatureUnit } from "@/composables/useUnits";
 
 const { temp, precip } = useUnits();
 const { useTrainedWeights } = useSettings();
+const { apiKey } = useApiKey();
 
 const isOpen = ref(false);
 const root = ref<HTMLElement | null>(null);
@@ -116,6 +118,33 @@ const precipOptions: { value: PrecipitationUnit; label: string }[] = [
             On
           </button>
         </div>
+      </div>
+
+      <div class="border-ink-700 text-paper-400 border-t border-b px-3 py-2 font-mono text-[11px] tracking-wide"><span class="text-sodium-300">·</span> Open-Meteo API key</div>
+
+      <div class="px-3 py-3">
+        <div class="flex items-stretch gap-1.5">
+          <input
+            v-model.lazy.trim="apiKey"
+            type="password"
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+            placeholder="Paste key…"
+            aria-label="Open-Meteo API key"
+            class="border-ink-700 bg-ink-950 text-paper-100 placeholder:text-paper-500 focus:border-sodium-300/60 min-w-0 flex-1 border px-2 py-1 font-mono text-[11px] transition-colors outline-none"
+          />
+          <button
+            type="button"
+            :disabled="!apiKey"
+            class="border-ink-700 text-paper-300 hover:border-sodium-300/60 hover:text-sodium-300 disabled:hover:border-ink-700 disabled:hover:text-paper-300 border px-2.5 py-1 font-mono text-[11px] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+            @click="apiKey = ''"
+          >
+            Clear
+          </button>
+        </div>
+        <p class="text-paper-400 mt-2 font-mono text-[10px] leading-relaxed">Optional: with a key the commercial endpoints are used, otherwise the free ones.</p>
       </div>
     </div>
   </div>
