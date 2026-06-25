@@ -48,7 +48,7 @@ hour**, not date alone.
 - Thread the cycle through state/URL (`runDate` → run datetime) and `baseTime` (lead-time math already keys off the first timestamp, so it follows for free).
 - **Glossary impact (must update CONTEXT.md when this lands):** the **Run date** entry currently says "every run on the verification page is 00Z, so a date alone uniquely identifies one." That invariant goes away — run identity becomes (date, cycle). Revisit **Run**, **Run date**, and **Available models** then.
 
-### Phase 3 — Multi-run analysis mode (gather + view + store)
+### Phase 3 — Multi-run analysis mode (gather + view + store) ✅
 
 A **mode switch on the analysis page** between _single-run_ and _multi-run_
 analysis (no separate route).
@@ -59,7 +59,7 @@ analysis (no separate route).
 - **View** (Phase 4 content) renders from the gathered, in-memory sample.
 - **Explicit "Store data" button** → persist the gathered sample to **IndexedDB** (keyed by gridded location), merging/accruing into any existing stored sample for that location. Nothing is persisted without the button; the gather itself is ephemeral (SW-cache backed).
 
-### Phase 4 — Multi-run performance view
+### Phase 4 — Multi-run performance view ✅ (folded into the multi-run mode)
 
 The content of the multi-run mode: **per-model performance across the whole
 sample**, not one run.

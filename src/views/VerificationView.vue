@@ -11,9 +11,11 @@ import LocationBar from "@/components/LocationBar.vue";
 import LocationLabel from "@/components/LocationLabel.vue";
 import ModelScorecard from "@/components/ModelScorecard.vue";
 import ModelTimingMatrix from "@/components/ModelTimingMatrix.vue";
+import MultiRunScorecard from "@/components/MultiRunScorecard.vue";
 import RadarSpinner from "@/components/RadarSpinner.vue";
 import VerificationDayCard from "@/components/VerificationDayCard.vue";
 import { useLocation } from "@/composables/useLocation";
+import { useSampleCollection } from "@/composables/useSampleCollection";
 import { useVerification } from "@/composables/useVerification";
 import { MODELS } from "@/domain/models";
 import { addDaysIso } from "@/utils/date";
@@ -63,9 +65,34 @@ function setRunCycle(hour: number): void {
 }
 const cycleLabel = computed(() => `${String(runCycle.value).padStart(2, "0")}:00 UTC`);
 
+// Single-run vs multi-run analysis mode (view-local). The single-run date picker
+// doubles as the run-date window end when gathering a multi-run sample.
+const mode = ref<"single" | "multi">("single");
+const durationDays = ref(30);
+const cyclesPerDay = ref<1 | 4>(1);
+
 const showModels = ref(false);
 
 const { loading, error, hourly, daily, scorecard, weatherCodes, availableModels, solar } = useVerification(current, runDate, runCycle);
+
+const {
+  stats: sampleStats,
+  runs: sampleRuns,
+  gathering,
+  progress,
+  error: sampleError,
+  storedCount,
+  gather,
+  store,
+  cancel,
+} = useSampleCollection(current, runDate, RETENTION_FLOOR);
+
+function runGather(): void {
+  void gather({ durationDays: durationDays.value, cyclesPerDay: cyclesPerDay.value });
+}
+function runStore(): void {
+  void store();
+}
 
 const locationLabel = computed(() => {
   const loc = current.value;
@@ -84,14 +111,33 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
            the location surfaces in the title bar (summary) while collapsed. -->
       <CollapsibleSection title="Verification" :summary="locationLabel">
         <section class="registration border-ink-700 bg-ink-900/60 relative border p-5 sm:p-6">
-          <!-- Location (same formatting as the forecast banner) on the left, with
-               the run-date control taking the right where the forecast shows the
-               live conditions. -->
+          <!-- Single-run vs multi-run mode. -->
+          <div class="mb-4 flex items-center gap-3">
+            <div class="border-ink-700 inline-flex border font-mono text-xs tracking-wide">
+              <button
+                type="button"
+                class="px-3 py-1 transition-colors"
+                :class="mode === 'single' ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
+                @click="mode = 'single'"
+              >
+                Single run
+              </button>
+              <button
+                type="button"
+                class="border-ink-700 border-l px-3 py-1 transition-colors"
+                :class="mode === 'multi' ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
+                @click="mode = 'multi'"
+              >
+                Multi-run
+              </button>
+            </div>
+          </div>
+
           <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
             <LocationLabel :name="locationLabel" />
             <div class="flex flex-col items-end gap-1.5">
               <label class="text-paper-300 flex items-center gap-2.5 font-mono text-[11px] tracking-wide">
-                <span>Run date</span>
+                <span>{{ mode === "multi" ? "End date" : "Run date" }}</span>
                 <input
                   type="date"
                   :value="runDate"
@@ -101,7 +147,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
                   @change="setRunDate(($event.target as HTMLInputElement).value)"
                 />
               </label>
-              <label class="text-paper-300 flex items-center gap-2.5 font-mono text-[11px] tracking-wide">
+              <label v-if="mode === 'single'" class="text-paper-300 flex items-center gap-2.5 font-mono text-[11px] tracking-wide">
                 <span>Cycle</span>
                 <select
                   :value="String(runCycle)"
@@ -111,69 +157,156 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
                   <option v-for="h in RUN_CYCLES" :key="h" :value="String(h)">{{ String(h).padStart(2, "0") }}Z</option>
                 </select>
               </label>
-              <p v-if="missingModelCount > 0 && !loading" class="text-paper-400 font-mono text-[11px] tracking-wide">
+              <p v-if="mode === 'single' && missingModelCount > 0 && !loading" class="text-paper-400 font-mono text-[11px] tracking-wide">
                 {{ availableModels.length }}/{{ MODELS.length }} models available
               </p>
             </div>
           </div>
 
-          <!-- Truth reference -->
-          <p class="border-ink-700 text-paper-400 mt-4 border-t pt-3 font-mono text-[11px] tracking-wide">
+          <!-- Multi-run sampling controls: gather a window of runs for this
+               location, then store them for training (phase 3). -->
+          <div v-if="mode === 'multi'" class="border-ink-700 mt-4 space-y-3 border-t pt-4">
+            <div class="flex flex-wrap items-center gap-x-5 gap-y-3">
+              <label class="text-paper-300 flex items-center gap-2.5 font-mono text-[11px] tracking-wide">
+                <span>Duration (days)</span>
+                <input
+                  v-model.number="durationDays"
+                  type="number"
+                  min="1"
+                  max="120"
+                  class="border-ink-700 bg-ink-950 text-paper-50 focus:border-sodium-300/60 w-20 border px-2 py-1 font-mono text-base tracking-normal outline-none sm:text-xs"
+                />
+              </label>
+              <div class="text-paper-300 flex items-center gap-2.5 font-mono text-[11px] tracking-wide">
+                <span>Runs / day</span>
+                <div class="border-ink-700 inline-flex border">
+                  <button
+                    type="button"
+                    class="px-2.5 py-1 transition-colors"
+                    :class="cyclesPerDay === 1 ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
+                    @click="cyclesPerDay = 1"
+                  >
+                    00Z only
+                  </button>
+                  <button
+                    type="button"
+                    class="border-ink-700 border-l px-2.5 py-1 transition-colors"
+                    :class="cyclesPerDay === 4 ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
+                    @click="cyclesPerDay = 4"
+                  >
+                    All cycles
+                  </button>
+                </div>
+              </div>
+              <button
+                type="button"
+                :disabled="gathering"
+                class="border-sodium-300/40 bg-sodium-300/10 text-sodium-200 hover:bg-sodium-300/20 border px-3 py-1 font-mono text-xs tracking-wide transition-colors disabled:opacity-40"
+                @click="runGather"
+              >
+                {{ gathering ? "Gathering…" : "Gather" }}
+              </button>
+              <button
+                v-if="gathering"
+                type="button"
+                class="border-ink-700 text-paper-300 hover:text-paper-50 border px-3 py-1 font-mono text-xs tracking-wide transition-colors"
+                @click="cancel"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                :disabled="!sampleRuns.length || gathering"
+                class="border-ink-600 bg-ink-800 text-paper-100 hover:bg-ink-700 border px-3 py-1 font-mono text-xs tracking-wide transition-colors disabled:opacity-40"
+                @click="runStore"
+              >
+                Store data
+              </button>
+            </div>
+            <p v-if="gathering || progress.total" class="text-paper-400 font-mono text-[11px] tracking-wide">
+              Gathered {{ sampleRuns.length }} runs · {{ progress.done }}/{{ progress.total }} fetched
+            </p>
+            <p v-if="storedCount != null" class="text-predictability-high font-mono text-[11px] tracking-wide">Stored {{ storedCount }} runs for this location.</p>
+            <p v-if="sampleError" class="text-heat-300 font-mono text-[11px] tracking-wide"><span class="text-heat-400">[err]</span> {{ sampleError }}</p>
+          </div>
+
+          <!-- Truth reference (single-run window). -->
+          <p v-if="mode === 'single'" class="border-ink-700 text-paper-400 mt-4 border-t pt-3 font-mono text-[11px] tracking-wide">
             Forecast vs ERA5-Seamless <span class="text-paper-500">· 7-day window · {{ cycleLabel }}</span>
           </p>
         </section>
       </CollapsibleSection>
 
-      <!-- Error state -->
-      <div v-if="error" class="border-heat-500/40 bg-heat-500/5 text-heat-300 border p-4 font-mono text-xs tracking-wide"><span class="text-heat-400">[err]</span> {{ error }}</div>
-
-      <!-- Cold-load state (no data yet). Same spinner as the refetch indicator,
-           just centered and larger. -->
-      <div v-if="loading && !hourly" class="grid place-items-center gap-4 py-32">
-        <RadarSpinner />
-        <p class="text-paper-400 font-mono text-[11px] tracking-wide">Loading run…</p>
-      </div>
-
-      <!-- Content — once a run has loaded. LoadingVeil dims it and shows an
-           "Updating…" indicator below the header while a date/location change
-           re-fetches, instead of silently leaving the previous run on screen. -->
-      <LoadingVeil v-if="hourly" :loading="loading">
-        <div class="space-y-8">
-          <!-- Chart (CollapsibleSection supplies the heading, so the chart's own is off). -->
-          <CollapsibleSection title="Hourly verification">
-            <HourlySeriesChart
-              v-model:showModels="showModels"
-              title="Hourly verification"
-              :show-title="false"
-              :data="hourly"
-              :variables="VERIFY_VARIABLES"
-              :solar="solar"
-              :default-window="168"
-            />
-          </CollapsibleSection>
-
-          <!-- Per-model scorecard — each model (and the aggregate, ranked inline)
-               scored over the full window, with lead-time bands + a timing matrix. -->
-          <CollapsibleSection v-if="scorecard && scorecard.length" title="Per-model scorecard">
-            <div class="space-y-3">
-              <p class="text-paper-500 font-mono text-[11px] tracking-wide">
-                Each model scored over the full run window · 0–100 overall (higher = better) · <span class="text-aggregate-400">Aggregate</span> is the weighted combination of
-                models
-              </p>
-              <ModelScorecard :rows="scorecard" />
-              <ModelTimingMatrix :rows="scorecard" />
-            </div>
-          </CollapsibleSection>
-
-          <!-- Daily breakdown — the aggregate's per-day calibration lens (predictability
-               beside measured error). The per-model lens lives in the scorecard above. -->
-          <CollapsibleSection v-if="daily && daily.length" title="Daily breakdown">
-            <div class="-mx-2 flex snap-x gap-2 overflow-x-auto px-2 pt-1 pb-3">
-              <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" :weather-code="weatherCodes[d.dayIndex]" />
-            </div>
-          </CollapsibleSection>
+      <!-- Single-run analysis -->
+      <template v-if="mode === 'single'">
+        <div v-if="error" class="border-heat-500/40 bg-heat-500/5 text-heat-300 border p-4 font-mono text-xs tracking-wide">
+          <span class="text-heat-400">[err]</span> {{ error }}
         </div>
-      </LoadingVeil>
+
+        <div v-if="loading && !hourly" class="grid place-items-center gap-4 py-32">
+          <RadarSpinner />
+          <p class="text-paper-400 font-mono text-[11px] tracking-wide">Loading run…</p>
+        </div>
+
+        <LoadingVeil v-if="hourly" :loading="loading">
+          <div class="space-y-8">
+            <!-- Chart (CollapsibleSection supplies the heading, so the chart's own is off). -->
+            <CollapsibleSection title="Hourly verification">
+              <HourlySeriesChart
+                v-model:showModels="showModels"
+                title="Hourly verification"
+                :show-title="false"
+                :data="hourly"
+                :variables="VERIFY_VARIABLES"
+                :solar="solar"
+                :default-window="168"
+              />
+            </CollapsibleSection>
+
+            <!-- Per-model scorecard — each model (and the aggregate, ranked inline)
+                 scored over the full window, with lead-time bands + a timing matrix. -->
+            <CollapsibleSection v-if="scorecard && scorecard.length" title="Per-model scorecard">
+              <div class="space-y-3">
+                <p class="text-paper-500 font-mono text-[11px] tracking-wide">
+                  Each model scored over the full run window · 0–100 overall (higher = better) · <span class="text-aggregate-400">Aggregate</span> is the weighted combination of
+                  models
+                </p>
+                <ModelScorecard :rows="scorecard" />
+                <ModelTimingMatrix :rows="scorecard" />
+              </div>
+            </CollapsibleSection>
+
+            <!-- Daily breakdown — the aggregate's per-day calibration lens (predictability
+                 beside measured error). The per-model lens lives in the scorecard above. -->
+            <CollapsibleSection v-if="daily && daily.length" title="Daily breakdown">
+              <div class="-mx-2 flex snap-x gap-2 overflow-x-auto px-2 pt-1 pb-3">
+                <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" :weather-code="weatherCodes[d.dayIndex]" />
+              </div>
+            </CollapsibleSection>
+          </div>
+        </LoadingVeil>
+      </template>
+
+      <!-- Multi-run analysis: per-model performance across the gathered sample. -->
+      <template v-else>
+        <CollapsibleSection v-if="sampleStats.length" title="Per-model performance" :summary="`${sampleRuns.length} runs`">
+          <div class="space-y-3">
+            <p class="text-paper-500 font-mono text-[11px] tracking-wide">
+              Each model's mean skill across {{ sampleRuns.length }} gathered runs · 0–100 (higher = better) · <span class="text-aggregate-400">Aggregate</span> ranked inline ·
+              Range = min–max
+            </p>
+            <MultiRunScorecard :stats="sampleStats" />
+          </div>
+        </CollapsibleSection>
+        <div v-else-if="gathering" class="grid place-items-center gap-4 py-32">
+          <RadarSpinner />
+          <p class="text-paper-400 font-mono text-[11px] tracking-wide">Gathering {{ progress.done }}/{{ progress.total }} runs…</p>
+        </div>
+        <div v-else class="border-ink-700 bg-ink-900/40 text-paper-400 border p-6 text-center font-mono text-[11px] tracking-wide">
+          Set a duration and press <span class="text-sodium-200">Gather</span> to sample this location's runs, then <span class="text-paper-200">Store data</span> to keep them for
+          training.
+        </div>
+      </template>
     </main>
 
     <AppFooter>Truth <span class="text-sodium-300">·</span> ERA5-Seamless</AppFooter>
