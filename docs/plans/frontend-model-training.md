@@ -68,7 +68,7 @@ sample**, not one run.
 - Distribution, not just mean (bias/MAE/amount/timing spread) so a usually-good-but-occasionally-terrible model is visible.
 - Aggregate-vs-best-model and ranking stability across the sample.
 
-### Phase 5 — Training (per-location weight fit)
+### Phase 5 — Training (per-location weight fit) ✅
 
 A training **page** (its own route) fed by the **stored** IndexedDB samples.
 

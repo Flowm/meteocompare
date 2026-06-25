@@ -1,5 +1,6 @@
 import { computed, onScopeDispose, ref, type Ref } from "vue";
 
+import { loadWeights } from "@/analysis/learnedWeightsStore";
 import { fetchForecast, extractHourlyByModel, extractDailyByModel, solarFrom, type ForecastResponse, type HourlyVar, type DailyVar } from "@/api/omForecast";
 import type { AggregatePoint } from "@/domain/aggregate";
 import { aggregateVariables } from "@/domain/aggregateVariables";
@@ -9,6 +10,7 @@ import type { Variable } from "@/domain/weighting";
 
 import { useAbortableResource } from "./useAbortableResource";
 import type { Location } from "./useLocation";
+import { useSettings } from "./useSettings";
 
 const HOURLY: HourlyVar[] = ["temperature_2m", "precipitation", "precipitation_probability", "weather_code", "wind_speed_10m", "wind_direction_10m", "cloud_cover"];
 
@@ -81,6 +83,12 @@ export interface UseForecastReturn {
 export function useForecast(location: Ref<Location>): UseForecastReturn {
   const lastUpdated = ref<Date | null>(null);
 
+  // When the user opts in, apply this location's trained weight multipliers to
+  // the live aggregate (training page / ADR 0007). Off → undefined → the
+  // heuristic weighting, byte-for-byte unchanged.
+  const { useTrainedWeights } = useSettings();
+  const multipliers = computed(() => (useTrainedWeights.value ? loadWeights(location.value.latitude, location.value.longitude)?.multipliers : undefined));
+
   // Re-fetches on location change; the superseded-request guard lives in the
   // helper. `lastUpdated` is stamped here, inside the fetcher, so it only moves
   // on a non-aborted success.
@@ -132,6 +140,7 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
       lon: location.value.longitude,
       baseTime,
       cadence: "hourly",
+      multipliers: multipliers.value,
     });
     return { times, aggregate, predictability, perModel };
   });
@@ -156,6 +165,7 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
       lon: location.value.longitude,
       baseTime,
       cadence: "daily",
+      multipliers: multipliers.value,
     });
     return { times, series, predictability, perModel };
   });

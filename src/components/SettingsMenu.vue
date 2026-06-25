@@ -2,9 +2,11 @@
 import { onClickOutside } from "@vueuse/core";
 import { ref } from "vue";
 
+import { useSettings } from "@/composables/useSettings";
 import { useUnits, type PrecipitationUnit, type TemperatureUnit } from "@/composables/useUnits";
 
 const { temp, precip } = useUnits();
+const { useTrainedWeights } = useSettings();
 
 const isOpen = ref(false);
 const root = ref<HTMLElement | null>(null);
@@ -85,6 +87,33 @@ const precipOptions: { value: PrecipitationUnit; label: string }[] = [
             @click="precip = opt.value"
           >
             {{ opt.label }}
+          </button>
+        </div>
+      </div>
+
+      <div class="border-ink-700 text-paper-400 border-t px-3 py-2 font-mono text-[11px] tracking-wide"><span class="text-sodium-300">·</span> Forecast</div>
+      <div class="flex items-center justify-between px-3 py-2.5 text-sm">
+        <span class="text-paper-200 font-mono text-xs tracking-wide" title="Apply per-location trained weights to the aggregate where available">Trained weights</span>
+        <div class="border-ink-700 flex border" role="radiogroup" aria-label="Use trained weights">
+          <button
+            type="button"
+            role="radio"
+            :aria-checked="!useTrainedWeights"
+            class="px-3 py-1 font-mono text-[11px] transition-colors"
+            :class="!useTrainedWeights ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
+            @click="useTrainedWeights = false"
+          >
+            Off
+          </button>
+          <button
+            type="button"
+            role="radio"
+            :aria-checked="useTrainedWeights"
+            class="px-3 py-1 font-mono text-[11px] transition-colors"
+            :class="useTrainedWeights ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
+            @click="useTrainedWeights = true"
+          >
+            On
           </button>
         </div>
       </div>

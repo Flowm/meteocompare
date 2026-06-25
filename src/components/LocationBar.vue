@@ -30,9 +30,9 @@ const viewOpen = ref(false);
 const viewRoot = ref<HTMLElement | null>(null);
 onClickOutside(viewRoot, () => (viewOpen.value = false));
 
-const VIEW_LABEL: Record<string, string> = { forecast: "Forecast", verify: "Verify" };
+const VIEW_LABEL: Record<string, string> = { forecast: "Forecast", verify: "Verify", train: "Train" };
 // Compact labels for the tight mobile header; the dropdown items keep full names.
-const VIEW_LABEL_SHORT: Record<string, string> = { forecast: "Fcst", verify: "Verify" };
+const VIEW_LABEL_SHORT: Record<string, string> = { forecast: "Fcst", verify: "Verify", train: "Train" };
 const currentView = computed(() => VIEW_LABEL[String(route.name ?? "")] ?? "Forecast");
 const currentViewShort = computed(() => VIEW_LABEL_SHORT[String(route.name ?? "")] ?? "Fcst");
 
@@ -230,6 +230,15 @@ function geolocate(): void {
               @click="viewOpen = false"
             >
               · Verify
+            </RouterLink>
+            <RouterLink
+              :to="{ path: '/train', query: preservedQuery }"
+              role="menuitem"
+              class="text-paper-200 hover:bg-ink-800 hover:text-sodium-200 block px-3 py-2 font-mono text-xs tracking-wide transition-colors"
+              active-class="bg-ink-800 text-sodium-200"
+              @click="viewOpen = false"
+            >
+              · Train
             </RouterLink>
           </div>
         </div>
