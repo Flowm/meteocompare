@@ -60,7 +60,7 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>, r
     const runs = data.value?.runs;
     const truth = data.value?.truth;
     if (!runs || !truth) return null;
-    return evaluateRun({ runs, truth, lat: location.value.latitude, lon: location.value.longitude, runDate: runDate.value });
+    return evaluateRun({ runs, truth, lat: location.value.latitude, lon: location.value.longitude, runDate: runDate.value, runHour: runCycle.value });
   });
 
   const hourly = computed<VerificationHourly | null>(() => evaluation.value?.hourly ?? null);

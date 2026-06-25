@@ -39,6 +39,7 @@ describe("evaluateRun", () => {
     if (!ev) return;
 
     expect(ev.runDate).toBe("2026-05-20");
+    expect(ev.runHour).toBe(0);
     expect(ev.hourly.times).toHaveLength(N);
     expect(ev.hourly.truth?.temperature_2m).toHaveLength(N);
     expect(ev.daily.length).toBeGreaterThanOrEqual(1);

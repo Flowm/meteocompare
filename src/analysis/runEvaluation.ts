@@ -28,6 +28,8 @@ export interface VerificationHourly extends HourlySeries {
  *  `runDate` so a multi-run sample is just `RunEvaluation[]`. */
 export interface RunEvaluation {
   runDate: string;
+  /** Run cycle hour (00 / 06 / 12 / 18 Z). With runDate, the run's identity. */
+  runHour: number;
   hourly: VerificationHourly;
   daily: DailyVerification[];
   scorecard: ScorecardRow[];
@@ -40,13 +42,15 @@ export interface EvaluateRunInputs {
   truth: HistoricalWeatherResponse;
   lat: number;
   lon: number;
-  /** ISO local date of the run (00Z by convention today; Phase 2 generalises to date + cycle). */
+  /** ISO local date of the run. */
   runDate: string;
+  /** Run cycle hour (00 / 06 / 12 / 18 Z); defaults to 0. Identifies the run with runDate. */
+  runHour?: number;
 }
 
 /** Score one fetched run against its truth. Returns null when the run carried no
  *  hours (nothing to align or score). */
-export function evaluateRun({ runs, truth, lat, lon, runDate }: EvaluateRunInputs): RunEvaluation | null {
+export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0 }: EvaluateRunInputs): RunEvaluation | null {
   const times = runs.hourly.time;
   const firstTime = times[0];
   if (!firstTime) return null;
@@ -121,6 +125,7 @@ export function evaluateRun({ runs, truth, lat, lon, runDate }: EvaluateRunInput
 
   return {
     runDate,
+    runHour,
     hourly,
     daily,
     scorecard,
