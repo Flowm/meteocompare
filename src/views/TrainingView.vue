@@ -2,7 +2,7 @@
 import { computed, ref, watch } from "vue";
 
 import { fitWeights, MIN_TRAIN_RUNS, MIN_VAL_RUNS, type FitResult } from "@/analysis/learnedWeights";
-import { clearWeights, loadWeights, saveWeights, type StoredWeights } from "@/analysis/learnedWeightsStore";
+import { clearWeightsByKey, listWeights, REACH_PRESETS_KM, saveWeights, setReach, type StoredWeights, type WeightEntry } from "@/analysis/learnedWeightsStore";
 import type { LocationSample } from "@/analysis/sample";
 import { loadSample, sampleKey } from "@/analysis/sampleStore";
 import AppFooter from "@/components/AppFooter.vue";
@@ -14,7 +14,7 @@ import { useLocation } from "@/composables/useLocation";
 import { useSettings } from "@/composables/useSettings";
 import { getModel } from "@/domain/models";
 
-const { current } = useLocation();
+const { current, setLocation } = useLocation();
 const { useTrainedWeights } = useSettings();
 
 const MIN_RUNS = MIN_TRAIN_RUNS + MIN_VAL_RUNS;
@@ -23,14 +23,50 @@ const sample = ref<LocationSample | null>(null);
 const sampleLoading = ref(false);
 const result = ref<FitResult | null>(null);
 const training = ref(false);
-const stored = ref<StoredWeights | null>(null);
 const justSaved = ref(false);
+const entries = ref<WeightEntry[]>([]);
 
 const locationLabel = computed(() => {
   const loc = current.value;
   return loc.detail ? `${loc.name}, ${loc.detail}` : loc.name;
 });
 const runCount = computed(() => sample.value?.runs.length ?? 0);
+const currentKey = computed(() => sampleKey(current.value.latitude, current.value.longitude));
+
+/** The exact-cell entry for the current location (a neighbour's reach never
+ *  counts as "stored here" — only a fit trained at this cell does). */
+const stored = computed<StoredWeights | null>(() => entries.value.find((e) => e.key === currentKey.value)?.weights ?? null);
+
+const reachLabel = (km: number): string => (km <= 0 ? "This point only" : `${km} km`);
+const fmtDate = (iso: string): string => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString();
+};
+
+/** Device-wide stored-weights inventory, current location first then newest. */
+const overview = computed(() =>
+  entries.value
+    .map((e) => {
+      const loc = e.weights.location;
+      return {
+        key: e.key,
+        name: loc?.name ?? e.key,
+        detail: loc?.detail,
+        latitude: loc?.latitude,
+        longitude: loc?.longitude,
+        trainedAt: e.weights.trainedAt,
+        improvement: e.weights.improvement,
+        radiusKm: e.weights.radiusKm ?? 0,
+        tuned: Object.values(e.weights.multipliers).filter((m) => Math.abs(m - 1) > 1e-9).length,
+        isCurrent: e.key === currentKey.value,
+      };
+    })
+    .toSorted((a, b) => (a.isCurrent === b.isCurrent ? b.trainedAt.localeCompare(a.trainedAt) : a.isCurrent ? -1 : 1)),
+);
+
+function refreshEntries(): void {
+  entries.value = listWeights();
+}
 
 /** Per-model multiplier rows, sorted highest-trust first. */
 const rows = computed(() =>
@@ -47,7 +83,7 @@ async function reload(): Promise<void> {
   const lon = current.value.longitude;
   result.value = null;
   justSaved.value = false;
-  stored.value = loadWeights(lat, lon);
+  refreshEntries();
   sampleLoading.value = true;
   const key = sampleKey(lat, lon);
   const loaded = await loadSample(key);
@@ -74,15 +110,33 @@ async function train(): Promise<void> {
 function apply(): void {
   const r = result.value;
   if (!r?.ok) return;
-  saveWeights(current.value.latitude, current.value.longitude, { multipliers: r.multipliers, trainedAt: new Date().toISOString(), improvement: r.improvement });
-  stored.value = loadWeights(current.value.latitude, current.value.longitude);
+  const loc = current.value;
+  // Preserve any reach already set for this location across re-fits.
+  saveWeights(loc.latitude, loc.longitude, {
+    multipliers: r.multipliers,
+    trainedAt: new Date().toISOString(),
+    improvement: r.improvement,
+    location: { name: loc.name, detail: loc.detail, latitude: loc.latitude, longitude: loc.longitude },
+    radiusKm: stored.value?.radiusKm ?? 0,
+  });
   justSaved.value = true;
+  refreshEntries();
 }
 
-function clear(): void {
-  clearWeights(current.value.latitude, current.value.longitude);
-  stored.value = null;
-  justSaved.value = false;
+function onReachChange(key: string, radiusKm: number): void {
+  setReach(key, radiusKm);
+  refreshEntries();
+}
+
+function removeEntry(key: string): void {
+  clearWeightsByKey(key);
+  if (key === currentKey.value) justSaved.value = false;
+  refreshEntries();
+}
+
+function jumpTo(row: { name: string; detail?: string; latitude?: number; longitude?: number }): void {
+  if (row.latitude == null || row.longitude == null) return;
+  setLocation({ name: row.name, detail: row.detail, latitude: row.latitude, longitude: row.longitude });
 }
 </script>
 
@@ -211,7 +265,7 @@ function clear(): void {
                 v-if="stored"
                 type="button"
                 class="border-ink-700 text-paper-300 hover:text-paper-50 border px-3 py-1 font-mono text-xs tracking-wide transition-colors"
-                @click="clear"
+                @click="removeEntry(currentKey)"
               >
                 Clear stored
               </button>
@@ -219,9 +273,78 @@ function clear(): void {
                 Stored. {{ useTrainedWeights ? "Applied to the forecast." : "Turn on Trained weights in settings to apply." }}
               </p>
             </div>
+
+            <!-- Reach: apply this location's fit to nearby locations. -->
+            <div v-if="stored" class="border-ink-700 bg-ink-900/40 flex flex-wrap items-center gap-x-3 gap-y-2 border p-4">
+              <label for="reach-current" class="text-paper-300 font-mono text-[11px] tracking-wide">Reach</label>
+              <select
+                id="reach-current"
+                class="border-ink-600 bg-ink-800 text-paper-100 border px-2 py-1 font-mono text-[11px] tracking-wide"
+                :value="stored.radiusKm ?? 0"
+                @change="onReachChange(currentKey, Number(($event.target as HTMLSelectElement).value))"
+              >
+                <option v-for="km in REACH_PRESETS_KM" :key="km" :value="km">{{ reachLabel(km) }}</option>
+              </select>
+              <span class="text-paper-500 font-mono text-[11px] leading-relaxed tracking-wide">
+                Apply these weights to any location within this distance of {{ locationLabel }}.
+              </span>
+            </div>
           </template>
         </template>
       </div>
+
+      <!-- Device-wide stored-weights inventory. -->
+      <section class="border-ink-700 bg-ink-900/60 border p-5 sm:p-6">
+        <h2 class="eyebrow mb-1">Trained weights on this device</h2>
+        <p class="text-paper-500 mb-4 font-mono text-[11px] leading-relaxed tracking-wide">
+          Every location with a stored fit. Give a fit a reach to apply it to nearby locations; where a location has no fit of its own, the nearest covering fit is used.
+        </p>
+
+        <p v-if="overview.length === 0" class="text-paper-400 font-mono text-[11px] tracking-wide">Nothing stored yet. Train a location above and press Apply.</p>
+
+        <div v-else class="overflow-x-auto">
+          <table class="w-full border-collapse font-mono text-[11px] tabular-nums">
+            <thead>
+              <tr class="text-paper-400 text-[10px] tracking-wide">
+                <th scope="col" class="border-ink-700/60 border-b px-3 py-2 text-left font-normal">Location</th>
+                <th scope="col" class="border-ink-700/60 border-b px-3 py-2 text-left font-normal">Trained</th>
+                <th scope="col" class="border-ink-700/60 border-b px-3 py-2 text-right font-normal">Improvement</th>
+                <th scope="col" title="Models whose weight was changed from the heuristic" class="border-ink-700/60 border-b px-3 py-2 text-right font-normal">Tuned</th>
+                <th scope="col" class="border-ink-700/60 border-b px-3 py-2 text-left font-normal">Reach</th>
+                <th scope="col" class="border-ink-700/60 border-b px-3 py-2"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in overview" :key="row.key" :class="row.isCurrent ? 'bg-sodium-300/5' : ''">
+                <th scope="row" class="border-ink-700/40 border-b px-3 py-1.5 text-left font-normal">
+                  <button v-if="row.latitude != null" type="button" class="text-paper-200 hover:text-sodium-200 text-left transition-colors" @click="jumpTo(row)">
+                    {{ row.name }}<span v-if="row.detail" class="text-paper-500">, {{ row.detail }}</span>
+                  </button>
+                  <span v-else class="text-paper-300">{{ row.name }}</span>
+                  <span v-if="row.isCurrent" class="text-sodium-300 ml-2 text-[10px]">· current</span>
+                </th>
+                <td class="border-ink-700/40 text-paper-400 border-b px-3 py-1.5 text-left">{{ fmtDate(row.trainedAt) }}</td>
+                <td class="border-ink-700/40 border-b px-3 py-1.5 text-right" :class="row.improvement > 0 ? 'text-predictability-high' : 'text-heat-300'">
+                  {{ row.improvement >= 0 ? "+" : "" }}{{ fmt1(row.improvement) }}
+                </td>
+                <td class="border-ink-700/40 text-paper-400 border-b px-3 py-1.5 text-right">{{ row.tuned }}</td>
+                <td class="border-ink-700/40 border-b px-3 py-1.5 text-left">
+                  <select
+                    class="border-ink-600 bg-ink-800 text-paper-100 border px-2 py-1 font-mono text-[11px] tracking-wide"
+                    :value="row.radiusKm"
+                    @change="onReachChange(row.key, Number(($event.target as HTMLSelectElement).value))"
+                  >
+                    <option v-for="km in REACH_PRESETS_KM" :key="km" :value="km">{{ reachLabel(km) }}</option>
+                  </select>
+                </td>
+                <td class="border-ink-700/40 border-b px-3 py-1.5 text-right">
+                  <button type="button" class="text-paper-400 hover:text-heat-300 transition-colors" @click="removeEntry(row.key)">Clear</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </main>
 
     <AppFooter>Trained weights <span class="text-sodium-300">·</span> per location, on-device</AppFooter>
