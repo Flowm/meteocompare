@@ -16,7 +16,7 @@ export const TIMING_TOLERANCE_HOURS = 1;
 /** Hours per verification day. The page exposes one verification card per 24 h. */
 export const HOURS_PER_DAY = 24;
 
-export type HourClassification = "hit" | "miss" | "false_alarm" | "correct_dry";
+export type HourClassification = "hit" | "miss" | "false_alarm" | "correct_dry" | "no_data";
 
 export interface TemperatureScores {
   /** Signed mean error (forecast minus truth), °C. */
@@ -109,6 +109,26 @@ export function sumNonNull(values: readonly (number | null)[]): number {
   return s;
 }
 
+/** Forecast and truth precipitation sums restricted to the hours the forecast
+ *  actually covers (a non-null forecast value). Truth in hours the forecast
+ *  never provided is ignored, so a model that drops out mid-window is judged
+ *  only on the rain during the hours it forecast — not charged for rain it had
+ *  no chance to predict. Mirrors how `bias()`/`mae()` only score overlapping
+ *  pairs. The two sums are coverage-aligned, so `forecastSum − truthSum` is a
+ *  fair amount error. */
+export function coveredPrecipSums(forecast: readonly (number | null)[], truth: readonly (number | null)[]): { forecastSum: number; truthSum: number } {
+  let forecastSum = 0;
+  let truthSum = 0;
+  for (let i = 0; i < forecast.length; i++) {
+    const f = forecast[i];
+    if (f == null) continue;
+    forecastSum += f;
+    const t = truth[i];
+    if (t != null) truthSum += t;
+  }
+  return { forecastSum, truthSum };
+}
+
 export function minNonNull(values: readonly (number | null)[]): number {
   let m = Infinity;
   for (const v of values) if (v != null && v < m) m = v;
@@ -149,9 +169,12 @@ export function meanFinite(values: readonly number[]): number {
  *  - `correct_dry` — anything else (includes "forecast wet at h with adjacent
  *                    truth wet that was already counted as a hit on a neighbour
  *                    hour" — i.e. timing-shifted forecasts don't double-count).
- *
- *  Null values on either side are treated as 0 (dry) for the classification —
- *  the strip needs a label for every hour. */
+ *  - `no_data` — the forecast (or truth) has no value at this hour, so there is
+ *                nothing to evaluate. These hours are excluded from the timing
+ *                score (`timingScore` ignores them), so a model is never
+ *                penalised for hours it never forecast; the strip still gets a
+ *                label for every hour. Mirrors how `bias()`/`mae()` skip pairs
+ *                where either side is null. */
 export function classifyHours(
   forecast: readonly (number | null)[],
   truth: readonly (number | null)[],
@@ -170,6 +193,12 @@ export function classifyHours(
 
   const result: HourClassification[] = [];
   for (let i = 0; i < n; i++) {
+    // No forecast (or no truth) at this hour — nothing to score. Excluded from
+    // the timing CSI rather than counted as a miss/correct-dry.
+    if (forecast[i] == null || truth[i] == null) {
+      result.push("no_data");
+      continue;
+    }
     let nearbyForecastWet = false;
     let nearbyTruthWet = false;
     for (let k = i - tolerance; k <= i + tolerance; k++) {
@@ -236,12 +265,15 @@ function scorePrecipitation(forecast: readonly (number | null)[], truth: readonl
   const anyForecast = forecast.some((v) => v != null);
   if (!anyForecast) return null;
   const classification = classifyHours(forecast, truth);
+  // Sum truth only over the hours the forecast covers (coverage-aligned), so a
+  // model that drops out mid-day isn't charged for the rain it never forecast.
+  const { forecastSum, truthSum } = coveredPrecipSums(forecast, truth);
   return {
-    amountError: sumNonNull(forecast) - sumNonNull(truth),
+    amountError: forecastSum - truthSum,
     timingScore: timingScore(classification),
     predictability,
-    forecastSum: sumNonNull(forecast),
-    truthSum: sumNonNull(truth),
+    forecastSum,
+    truthSum,
     hourlyClassification: classification,
   };
 }
