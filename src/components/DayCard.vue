@@ -4,7 +4,7 @@ import { computed, ref } from "vue";
 import { useUnits } from "@/composables/useUnits";
 import { weatherLabel } from "@/domain/weatherCodes";
 
-import ConfidenceBadge from "./ConfidenceBadge.vue";
+import PredictabilityBadge from "./PredictabilityBadge.vue";
 import WeatherIcon from "./WeatherIcon.vue";
 
 export interface ModelRow {
@@ -24,7 +24,7 @@ const props = defineProps<{
   precipSum: number | null;
   windSpeed: number | null;
   windDirection: number | null;
-  confidence: number;
+  predictability: number;
   highlight?: boolean;
   models?: ModelRow[];
 }>();
@@ -122,7 +122,7 @@ const visibleModels = computed(() => props.models?.filter((m) => m.high != null 
       </div>
 
       <div class="mt-3 flex justify-center">
-        <ConfidenceBadge :value="confidence" size="sm" />
+        <PredictabilityBadge :value="predictability" size="sm" />
       </div>
     </div>
 

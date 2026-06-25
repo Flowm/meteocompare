@@ -16,7 +16,7 @@ import { bias, classifyHours, mae, sumNonNull, timingScore, type HourClassificat
 // ---------------------------------------------------------------------------
 
 /** Temperature MAE (°C) at which the goodness term hits 0. Mirrors the
- *  educated-guess "typical spread" anchors in confidence.ts. */
+ *  educated-guess "typical spread" anchors in predictability.ts. */
 export const TEMP_MAE_REF_BAD = 5;
 
 /** |amount error| per covered day (mm/day) at which the goodness term hits 0.

@@ -59,10 +59,10 @@
   --color-truth-400: #f5b942; /* sodium = truth (ERA5 reference) */
   --color-aggregate-400: #e8826b; /* coral = aggregate forecast */
 
-  /* — Confidence tiers — */
-  --color-confidence-high: #9bb87a; /* sage */
-  --color-confidence-mid: #f5b942; /* sodium */
-  --color-confidence-low: #e8826b; /* coral */
+  /* — Predictability tiers — */
+  --color-predictability-high: #9bb87a; /* sage */
+  --color-predictability-mid: #f5b942; /* sodium */
+  --color-predictability-low: #e8826b; /* coral */
 
   /* — Type families — */
   --font-sans: "Instrument Sans Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;

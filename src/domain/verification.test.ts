@@ -169,8 +169,8 @@ describe("buildDailyVerification", () => {
       times: array(hours, (i) => `t${i}`).map(String),
       aggregateTemp: array(hours, () => 20).map(aggregate),
       aggregatePrecip: array(hours, () => 0).map(aggregate),
-      confidenceTemp: array(hours, () => 0.8),
-      confidencePrecip: array(hours, () => 0.5),
+      predictabilityTemp: array(hours, () => 0.8),
+      predictabilityPrecip: array(hours, () => 0.5),
       perModelTemp: { ecmwf_ifs: array(hours, () => 21) },
       perModelPrecip: { ecmwf_ifs: array(hours, () => 0) },
       truthTemp: array(hours, () => 19),
@@ -191,8 +191,8 @@ describe("buildDailyVerification", () => {
       times: array(hours, (i) => String(i)),
       aggregateTemp: array(hours, () => 21).map(aggregate), // forecast 21
       aggregatePrecip: array(hours, () => 0).map(aggregate),
-      confidenceTemp: array(hours, () => 0.8),
-      confidencePrecip: array(hours, () => 0.5),
+      predictabilityTemp: array(hours, () => 0.8),
+      predictabilityPrecip: array(hours, () => 0.5),
       perModelTemp: {},
       perModelPrecip: {},
       truthTemp: array(hours, () => 19), // truth 19 → bias +2, mae 2
@@ -201,7 +201,7 @@ describe("buildDailyVerification", () => {
     const t = result[0]?.aggregate.temperature;
     expect(t?.bias).toBeCloseTo(2);
     expect(t?.mae).toBeCloseTo(2);
-    expect(t?.confidence).toBeCloseTo(0.8);
+    expect(t?.predictability).toBeCloseTo(0.8);
     expect(t?.forecastMin).toBeCloseTo(21);
     expect(t?.forecastMax).toBeCloseTo(21);
     expect(t?.truthMin).toBeCloseTo(19);
@@ -219,8 +219,8 @@ describe("buildDailyVerification", () => {
       times: array(hours, (i) => String(i)),
       aggregateTemp: array(hours, () => 20).map(aggregate),
       aggregatePrecip: forecastP.map(aggregate),
-      confidenceTemp: array(hours, () => 0.5),
-      confidencePrecip: array(hours, () => 0.5),
+      predictabilityTemp: array(hours, () => 0.5),
+      predictabilityPrecip: array(hours, () => 0.5),
       perModelTemp: {},
       perModelPrecip: {},
       truthTemp: array(hours, () => 20),
@@ -234,15 +234,15 @@ describe("buildDailyVerification", () => {
     expect(p?.hourlyClassification).toHaveLength(HOURS_PER_DAY);
   });
 
-  it("emits per-model scores keyed by model id with NaN confidence", () => {
+  it("emits per-model scores keyed by model id with NaN predictability", () => {
     const hours = HOURS_PER_DAY;
     const result = buildDailyVerification({
       runDate: "2026-05-11",
       times: array(hours, (i) => String(i)),
       aggregateTemp: array(hours, () => 20).map(aggregate),
       aggregatePrecip: array(hours, () => 0).map(aggregate),
-      confidenceTemp: array(hours, () => 0.8),
-      confidencePrecip: array(hours, () => 0.5),
+      predictabilityTemp: array(hours, () => 0.8),
+      predictabilityPrecip: array(hours, () => 0.5),
       perModelTemp: {
         ecmwf_ifs: array(hours, () => 22),
         gfs_seamless: array(hours, () => 18),
@@ -259,7 +259,7 @@ describe("buildDailyVerification", () => {
     expect(Object.keys(day!.perModel)).toEqual(expect.arrayContaining(["ecmwf_ifs", "gfs_seamless"]));
     expect(day!.perModel.ecmwf_ifs?.temperature?.bias).toBeCloseTo(2);
     expect(day!.perModel.gfs_seamless?.temperature?.bias).toBeCloseTo(-2);
-    expect(day!.perModel.ecmwf_ifs?.temperature?.confidence).toBeNaN();
+    expect(day!.perModel.ecmwf_ifs?.temperature?.predictability).toBeNaN();
   });
 
   it("returns null per-variable score when both forecast and truth are all-null", () => {
@@ -269,8 +269,8 @@ describe("buildDailyVerification", () => {
       times: array(hours, (i) => String(i)),
       aggregateTemp: array(hours, () => 20).map(aggregate),
       aggregatePrecip: array(hours, () => NaN).map(aggregate), // NaN → null at slicing
-      confidenceTemp: array(hours, () => 0.8),
-      confidencePrecip: array(hours, () => 0.5),
+      predictabilityTemp: array(hours, () => 0.8),
+      predictabilityPrecip: array(hours, () => 0.5),
       perModelTemp: {},
       perModelPrecip: {},
       truthTemp: array(hours, () => 20),
@@ -287,8 +287,8 @@ describe("buildDailyVerification", () => {
       times: array(hours, (i) => String(i)),
       aggregateTemp: array(hours, () => 20).map(aggregate),
       aggregatePrecip: array(hours, () => NaN).map(aggregate),
-      confidenceTemp: array(hours, () => 0.8),
-      confidencePrecip: array(hours, () => 0.5),
+      predictabilityTemp: array(hours, () => 0.8),
+      predictabilityPrecip: array(hours, () => 0.5),
       perModelTemp: {},
       // Model with no precipitation data at all — used to be scored as
       // amountError = −truthSum, which was misleading.

@@ -142,7 +142,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
             </div>
           </CollapsibleSection>
 
-          <!-- Daily breakdown — the aggregate's per-day calibration lens (confidence
+          <!-- Daily breakdown — the aggregate's per-day calibration lens (predictability
                beside measured error). The per-model lens lives in the scorecard above. -->
           <CollapsibleSection v-if="daily && daily.length" title="Daily breakdown">
             <div class="-mx-2 flex snap-x gap-2 overflow-x-auto px-2 pt-1 pb-3">

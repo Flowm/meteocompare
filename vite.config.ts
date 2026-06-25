@@ -63,7 +63,7 @@ export default defineConfig({
       manifest: {
         name: "MeteoCompare",
         short_name: "MeteoCompare",
-        description: "Multi-model weather forecast comparison with a weighted aggregate and confidence score.",
+        description: "Multi-model weather forecast comparison with a weighted aggregate and a predictability signal.",
         theme_color: "#050810",
         background_color: "#050810",
         display: "standalone",

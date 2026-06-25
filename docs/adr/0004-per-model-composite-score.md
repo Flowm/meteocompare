@@ -7,7 +7,7 @@ units — temperature MAE (°C), precip amount error (mm), precip timing hit rat
 scale**, then take an **equal-per-metric** weighted mean (×100). The same blend
 produces the per-lead-band composites.
 
-This mirrors the **typical-spread** methodology already in `confidence.ts`:
+This mirrors the **typical-spread** methodology already in `predictability.ts`:
 educated-guess anchors that normalise a raw quantity into a comparable score.
 The anchors (`TEMP_MAE_REF_BAD = 5 °C`, `AMOUNT_REF_BAD_PER_DAY = 5 mm/day`;
 timing hit rate is already 0..1) live as named constants in
@@ -31,7 +31,7 @@ accepted
 
 We chose the fixed-scale blend for **cross-run/-location stability** (a score of
 80 means the same thing every run) and **methodological consistency** with
-confidence.
+predictability.
 
 ## Consequences
 

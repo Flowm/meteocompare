@@ -25,11 +25,11 @@ const accent = (row: ScorecardRow): string => (row.isAggregate ? AGG_COLOR : pal
 
 const fmtComposite = (c: number): string => (Number.isFinite(c) ? String(Math.round(c)) : "—");
 
-/** 0–100 composite → tone, on the same high/mid/low thresholds the confidence
+/** 0–100 composite → tone, on the same high/mid/low thresholds the predictability
  *  badge uses (≥70 / ≥40), so the colour language reads consistently. */
 const scoreTone = (c: number): string => {
   if (!Number.isFinite(c)) return "text-paper-500";
-  if (c >= 70) return "text-confidence-high";
+  if (c >= 70) return "text-predictability-high";
   if (c >= 40) return "text-sodium-200";
   return "text-heat-300";
 };

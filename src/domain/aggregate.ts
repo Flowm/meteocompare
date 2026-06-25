@@ -25,7 +25,7 @@ export interface AggregatePoint {
   stdDev: number;
   /** Weights actually used at this timestep (sum = 1 across contributing models). */
   weights: Record<string, number>;
-  /** Raw per-model values (including nulls), for the per-model overlay & confidence math. */
+  /** Raw per-model values (including nulls), for the per-model overlay & predictability math. */
   perModel: ModelSamples;
 }
 

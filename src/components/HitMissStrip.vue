@@ -18,7 +18,7 @@ const props = withDefaults(
 
 // Tones tuned to the "Observatory" palette: sage / sodium / coral / faint ink.
 const TONE: Record<HourClassification, string> = {
-  hit: "bg-confidence-high/85",
+  hit: "bg-predictability-high/85",
   miss: "bg-sodium-300/80",
   false_alarm: "bg-heat-400/85",
   correct_dry: "bg-ink-700",

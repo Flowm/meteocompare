@@ -59,7 +59,7 @@ const tempWhole = computed(() => {
   <!-- Current-conditions banner. Mirrors the verification page's location
        header (registration marks, ink panel): the location anchors the left,
        the live reading the right. The section heading carries the eyebrow, and
-       the per-day confidence lives on the outlook cards — so neither is
+       the per-day predictability lives on the outlook cards — so neither is
        repeated here. -->
   <div class="registration border-ink-700 bg-ink-900/60 relative flex flex-wrap items-center justify-between gap-x-6 gap-y-4 border p-4 sm:p-6">
     <!-- Location + favourite toggle -->

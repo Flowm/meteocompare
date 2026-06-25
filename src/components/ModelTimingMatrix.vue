@@ -55,7 +55,7 @@ const hasRows = computed(() => props.rows.length > 0);
     <!-- Legend mirrors HitMissStrip's tones. Outside the scroll wrapper so it
          stays in place when the matrix is scrolled horizontally. -->
     <div class="text-paper-400 mt-3 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[10px] tracking-wide">
-      <span class="flex items-center gap-1"><span class="bg-confidence-high/85 inline-block size-2" /> Hit</span>
+      <span class="flex items-center gap-1"><span class="bg-predictability-high/85 inline-block size-2" /> Hit</span>
       <span class="flex items-center gap-1"><span class="bg-sodium-300/80 inline-block size-2" /> Miss</span>
       <span class="flex items-center gap-1"><span class="bg-heat-400/85 inline-block size-2" /> False alarm</span>
       <span class="flex items-center gap-1"><span class="bg-ink-700 inline-block size-2" /> Correct dry</span>

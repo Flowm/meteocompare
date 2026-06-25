@@ -4,8 +4,8 @@ import { computed } from "vue";
 import { signed, useUnits } from "@/composables/useUnits";
 import type { DailyVerification } from "@/domain/verification";
 
-import ConfidenceBadge from "./ConfidenceBadge.vue";
 import HitMissStrip from "./HitMissStrip.vue";
+import PredictabilityBadge from "./PredictabilityBadge.vue";
 import WeatherIcon from "./WeatherIcon.vue";
 
 const props = defineProps<{
@@ -69,7 +69,7 @@ const leadLabel = computed(() => `Day ${props.day.dayIndex} · ${props.day.leadH
           <span class="text-paper-400"
             >|MAE| <span class="text-paper-100">{{ day.aggregate.temperature.mae.toFixed(1) }}<span class="text-paper-500">°C</span></span></span
           >
-          <ConfidenceBadge v-if="Number.isFinite(day.aggregate.temperature.confidence)" :value="day.aggregate.temperature.confidence" size="sm" class="ml-auto" />
+          <PredictabilityBadge v-if="Number.isFinite(day.aggregate.temperature.predictability)" :value="day.aggregate.temperature.predictability" size="sm" class="ml-auto" />
         </div>
         <div v-if="day.aggregate.precipitation" class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
           <span class="text-paper-300 text-[10px] tracking-wide">Precip</span>
@@ -84,7 +84,7 @@ const leadLabel = computed(() => `Day ${props.day.dayIndex} · ${props.day.leadH
           <template v-else>
             <span class="text-paper-500 text-[10px] tracking-wide">dry day</span>
           </template>
-          <ConfidenceBadge v-if="Number.isFinite(day.aggregate.precipitation.confidence)" :value="day.aggregate.precipitation.confidence" size="sm" class="ml-auto" />
+          <PredictabilityBadge v-if="Number.isFinite(day.aggregate.precipitation.predictability)" :value="day.aggregate.precipitation.predictability" size="sm" class="ml-auto" />
         </div>
       </div>
 

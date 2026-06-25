@@ -18,9 +18,9 @@ import type { Location } from "./useLocation";
  *  also provides wind and cloud-cover truth; scoring them is a later,
  *  data-only change (see CONTEXT.md "Truth"). */
 export interface VerificationHourly extends HourlySeries {
-  /** Per-hour aggregate per-variable confidence — input to the daily card's
-   *  confidence-vs-error display. Keyed by variable id. */
-  confidence: Partial<Record<DataVarId, number[]>>;
+  /** Per-hour aggregate per-variable predictability — input to the daily card's
+   *  predictability-vs-error display. Keyed by variable id. */
+  predictability: Partial<Record<DataVarId, number[]>>;
 }
 
 export interface UseVerificationReturn {
@@ -71,13 +71,13 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
     const baseTime = new Date(firstTime);
 
     // Per-model series straight off the single-runs response. Aggregate +
-    // confidence via the shared pipeline; lead-time decay kicks in correctly
+    // predictability via the shared pipeline; lead-time decay kicks in correctly
     // because baseTime is the run start.
     const perModel = {
       temperature_2m: extractHourlyByModel(runs, "temperature_2m", MODEL_IDS),
       precipitation: extractHourlyByModel(runs, "precipitation", MODEL_IDS),
     };
-    const { aggregate, confidence } = aggregateVariables({
+    const { aggregate, predictability } = aggregateVariables({
       times,
       perModel,
       vars: [
@@ -116,7 +116,7 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
       aggregate,
       perModel,
       truth: { temperature_2m: truthTemp, precipitation: truthPrecip },
-      confidence,
+      predictability,
     };
   });
 
@@ -130,8 +130,8 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
       times: h.times,
       aggregateTemp: h.aggregate.temperature_2m ?? [],
       aggregatePrecip: h.aggregate.precipitation ?? [],
-      confidenceTemp: h.confidence.temperature_2m ?? [],
-      confidencePrecip: h.confidence.precipitation ?? [],
+      predictabilityTemp: h.predictability.temperature_2m ?? [],
+      predictabilityPrecip: h.predictability.precipitation ?? [],
       perModelTemp: h.perModel.temperature_2m ?? {},
       perModelPrecip: h.perModel.precipitation ?? {},
       truthTemp: h.truth?.temperature_2m ?? [],
@@ -165,8 +165,8 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
     if (!firstDailyTime) return [];
     const baseTime = new Date(firstDailyTime);
     // Same severity-weighted-mode aggregation as the forecast view's daily strip.
-    // weather_code confidence is agreement-based (lead-independent), so we route
-    // through the shared pipeline and simply drop the confidence here.
+    // weather_code predictability is agreement-based (lead-independent), so we route
+    // through the shared pipeline and simply drop the predictability here.
     const { aggregate } = aggregateVariables({
       times: dailyTimes,
       perModel: { weather_code: extractDailyByModel(runs, "weather_code", MODEL_IDS) },
