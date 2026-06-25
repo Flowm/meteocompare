@@ -23,9 +23,9 @@ export interface TemperatureScores {
   bias: number;
   /** Mean absolute error, °C. */
   mae: number;
-  /** Aggregate per-variable confidence averaged over the day. `NaN` for per-model rows
-   *  (the per-variable confidence formula is defined only over the aggregate). */
-  confidence: number;
+  /** Aggregate per-variable predictability averaged over the day. `NaN` for per-model rows
+   *  (the per-variable predictability formula is defined only over the aggregate). */
+  predictability: number;
   forecastMin: number;
   forecastMax: number;
   truthMin: number;
@@ -40,8 +40,8 @@ export interface PrecipitationScores {
    *  over-predicting rain no longer scores well. `NaN` only when nothing
    *  happened on either side (all correct-dry) — timing is then undefined. */
   timingScore: number;
-  /** Aggregate per-variable confidence averaged over the day. `NaN` for per-model rows. */
-  confidence: number;
+  /** Aggregate per-variable predictability averaged over the day. `NaN` for per-model rows. */
+  predictability: number;
   forecastSum: number;
   truthSum: number;
   /** Per-hour categorical labels — exactly `HOURS_PER_DAY` entries. */
@@ -122,7 +122,7 @@ export function maxNonNull(values: readonly (number | null)[]): number {
 }
 
 /** Mean of non-null finite values. Returns `0` when the array is empty/all-NaN
- *  — this is the daily mean confidence helper, where 0 means "no information". */
+ *  — this is the daily mean predictability helper, where 0 means "no information". */
 export function meanFinite(values: readonly number[]): number {
   let s = 0;
   let n = 0;
@@ -211,14 +211,14 @@ export function timingScore(classifications: readonly HourClassification[]): num
 // Per-variable score builders
 // ---------------------------------------------------------------------------
 
-function scoreTemperature(forecast: readonly (number | null)[], truth: readonly (number | null)[], confidence: number): TemperatureScores | null {
+function scoreTemperature(forecast: readonly (number | null)[], truth: readonly (number | null)[], predictability: number): TemperatureScores | null {
   const b = bias(forecast, truth);
   const m = mae(forecast, truth);
   if (Number.isNaN(b) || Number.isNaN(m)) return null;
   return {
     bias: b,
     mae: m,
-    confidence,
+    predictability,
     forecastMin: minNonNull(forecast),
     forecastMax: maxNonNull(forecast),
     truthMin: minNonNull(truth),
@@ -226,7 +226,7 @@ function scoreTemperature(forecast: readonly (number | null)[], truth: readonly 
   };
 }
 
-function scorePrecipitation(forecast: readonly (number | null)[], truth: readonly (number | null)[], confidence: number): PrecipitationScores | null {
+function scorePrecipitation(forecast: readonly (number | null)[], truth: readonly (number | null)[], predictability: number): PrecipitationScores | null {
   // If the forecast side has no data at all, there's nothing to score. The
   // earlier behaviour treated null forecasts as 0 mm/h, which produced a
   // misleading `amountError = −truthSum` for models that simply didn't return
@@ -239,7 +239,7 @@ function scorePrecipitation(forecast: readonly (number | null)[], truth: readonl
   return {
     amountError: sumNonNull(forecast) - sumNonNull(truth),
     timingScore: timingScore(classification),
-    confidence,
+    predictability,
     forecastSum: sumNonNull(forecast),
     truthSum: sumNonNull(truth),
     hourlyClassification: classification,
@@ -257,9 +257,9 @@ export interface BuildDailyOptions {
   /** Aggregate forecast points for temperature, one per hour. */
   aggregateTemp: readonly AggregatePoint[];
   aggregatePrecip: readonly AggregatePoint[];
-  /** Per-hour aggregate-level per-variable confidence, one per hour. */
-  confidenceTemp: readonly number[];
-  confidencePrecip: readonly number[];
+  /** Per-hour aggregate-level per-variable predictability, one per hour. */
+  predictabilityTemp: readonly number[];
+  predictabilityPrecip: readonly number[];
   /** Per-model raw hourly forecast values, keyed by model id. */
   perModelTemp: Readonly<Record<string, readonly (number | null)[]>>;
   perModelPrecip: Readonly<Record<string, readonly (number | null)[]>>;
@@ -284,12 +284,12 @@ export function buildDailyVerification(opts: BuildDailyOptions): DailyVerificati
     const truthT = opts.truthTemp.slice(start, end);
     const truthP = opts.truthPrecip.slice(start, end);
 
-    const dailyConfT = meanFinite(opts.confidenceTemp.slice(start, end));
-    const dailyConfP = meanFinite(opts.confidencePrecip.slice(start, end));
+    const dailyPredT = meanFinite(opts.predictabilityTemp.slice(start, end));
+    const dailyPredP = meanFinite(opts.predictabilityPrecip.slice(start, end));
 
     const aggregate: VariableScores = {
-      temperature: scoreTemperature(aggT, truthT, dailyConfT),
-      precipitation: scorePrecipitation(aggP, truthP, dailyConfP),
+      temperature: scoreTemperature(aggT, truthT, dailyPredT),
+      precipitation: scorePrecipitation(aggP, truthP, dailyPredP),
     };
 
     const perModel: Record<string, VariableScores> = {};

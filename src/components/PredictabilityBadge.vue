@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import { confidenceTier } from "@/domain/confidence";
+import { predictabilityTier } from "@/domain/predictability";
 
 const props = withDefaults(
   defineProps<{
@@ -13,15 +13,15 @@ const props = withDefaults(
   { size: "md" },
 );
 
-const tier = computed(() => confidenceTier(props.value));
+const tier = computed(() => predictabilityTier(props.value));
 
 // Each tier gets its own typographic register: sodium for "mid" (the neutral
 // instrument-default), sage for "high", coral for "low".
 const TONE_BY_TIER = {
   high: {
-    bar: "bg-confidence-high",
-    text: "text-confidence-high",
-    ring: "border-confidence-high/40",
+    bar: "bg-predictability-high",
+    text: "text-predictability-high",
+    ring: "border-predictability-high/40",
     glow: "shadow-[0_0_12px_rgba(155,184,122,0.25)]",
   },
   mid: {
@@ -48,18 +48,18 @@ const sizing = computed(() => (props.size === "sm" ? "text-[10px] px-2 py-0.5 ga
 const SEGMENTS = 12;
 const litSegments = computed(() => Math.max(0, Math.min(SEGMENTS, Math.round(props.value * SEGMENTS))));
 
-// Default label: the md size (used in the hero) carries the word "Agreement"
+// Default label: the md size (used in the hero) carries the word "Predictability"
 // so the segmented meter is introduced as a known UI element. The sm size
 // (used in the daily outlook cards) drops the word and shows just the percent
 // — by the time a user reaches the outlook they've seen the badge labelled.
-const defaultLabel = computed(() => (props.size === "sm" ? `${percent.value}%` : `Agreement ${percent.value}%`));
+const defaultLabel = computed(() => (props.size === "sm" ? `${percent.value}%` : `Predictability ${percent.value}%`));
 </script>
 
 <template>
   <span
     class="bg-ink-950/60 inline-flex items-center border font-mono tracking-wide tabular-nums"
     :class="[tone.ring, sizing]"
-    :title="`Model agreement — how closely the forecast models agree. Higher = more confident. Currently ${percent}%.`"
+    :title="`Predictability — estimated from how closely the models agree (inter-model spread). Uncalibrated. Higher = stronger agreement. Currently ${percent}%.`"
   >
     <!-- Segmented meter -->
     <span class="flex items-center gap-px" aria-hidden="true">

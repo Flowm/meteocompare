@@ -275,3 +275,48 @@ export function regionBonus(model: ModelDef, lat: number, lon: number): number {
   if (!isInBBox(lat, lon, model.homeRegion)) return 0;
   return model.kind === "regional-cam" ? 0.3 : 0.2;
 }
+
+/** Shared-lineage groups: models that share a dynamical core, or are initialised
+ *  from / trained on the same analysis, also share systematic errors — so they
+ *  are not independent votes. Used to discount near-duplicates in the
+ *  predictability model-count factor (see effectiveModelCount and ADR 0006).
+ *  AI products are grouped with the analysis they derive from. Assignments are
+ *  approximate and tunable; keep in sync with MODELS (a test asserts coverage). */
+const MODEL_FAMILIES: Record<string, readonly string[]> = {
+  ifs: ["ecmwf_ifs", "ecmwf_aifs025_single"],
+  gfs: ["gfs_seamless", "gfs_graphcast025", "ncep_aigfs025", "ncep_hgefs025_ensemble_mean"],
+  icon: ["icon_global", "icon_eu", "icon_d2", "meteoswiss_icon_seamless"],
+  um: ["ukmo_seamless", "bom_access_global", "kma_seamless"],
+  arome: ["meteofrance_seamless", "knmi_harmonie_arome_europe", "dmi_harmonie_arome_europe", "metno_nordic", "geosphere_arome_austria"],
+  gem: ["gem_seamless"],
+  grapes: ["cma_grapes_global"],
+  jma: ["jma_seamless"],
+};
+
+const FAMILY_OF: Record<string, string> = Object.fromEntries(Object.entries(MODEL_FAMILIES).flatMap(([family, ids]) => ids.map((id) => [id, family])));
+
+/** The lineage family of a model, or `undefined` if unmapped. */
+export function familyOf(id: string): string | undefined {
+  return FAMILY_OF[id];
+}
+
+/** Independent information each additional same-family sibling contributes beyond
+ *  the first member of its family (0 = siblings add nothing, 1 = fully independent). */
+const SIBLING_CREDIT = 0.25;
+
+/** Effective independent-model count for a set of contributing model ids: the
+ *  first member of each lineage family counts fully, each additional sibling adds
+ *  only SIBLING_CREDIT, since relatives share systematic errors and tend to agree
+ *  for reasons other than the weather being predictable. Unknown ids (test
+ *  fixtures, or future models not yet assigned a family) are treated as
+ *  independent. Feeds the predictability model-count factor — see ADR 0006. */
+export function effectiveModelCount(ids: Iterable<string>): number {
+  const perFamily = new Map<string, number>();
+  for (const id of ids) {
+    const family = FAMILY_OF[id] ?? id;
+    perFamily.set(family, (perFamily.get(family) ?? 0) + 1);
+  }
+  let effective = 0;
+  for (const count of perFamily.values()) effective += 1 + SIBLING_CREDIT * (count - 1);
+  return effective;
+}

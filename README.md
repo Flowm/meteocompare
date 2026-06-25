@@ -1,14 +1,14 @@
 # MeteoCompare
 
-Multi-model weather forecast comparison with a weighted aggregate and a per-timestep confidence score.
+Multi-model weather forecast comparison with a weighted aggregate and a per-timestep predictability signal.
 
 Frontend-only (Vue 3 + Vite). Forecasts come straight from [open-meteo.com](https://open-meteo.com) — no MeteoCompare backend, no API key.
 
 ## Features
 
 - **21 forecast models/products**, automatically dropped in/out based on geographic coverage and forecast horizon.
-- **Aggregate-first UI**: temperature + ±1σ confidence band, precipitation bars, daily strip with weather icon / high / low / precip prob / wind.
-- **Confidence score** per timestep — derived from inter-model spread normalised against typical seasonal spread, a model-count penalty, and lead-time decay encoded in the model weights.
+- **Aggregate-first UI**: temperature + ±1σ predictability band, precipitation bars, daily strip with weather icon / high / low / precip prob / wind.
+- **Predictability signal** per timestep — derived from inter-model spread (agreement) normalised against typical seasonal spread, a model-count penalty, and lead-time decay encoded in the model weights. An _uncalibrated, agreement-based_ estimate — a "poor man's" predictability; see ADR 0005.
 - **Per-model overlay** (opt-in) — one line per contributing model drawn over the aggregate, with per-model toggles, switchable between temperature, precipitation, precipitation probability, wind speed, and cloud cover.
 - **Window toggle** — 24 h / 3 d / 7 d on both charts.
 - **Locations** — open-meteo geocoding search, browser geolocation, URL-shareable state, favourites and recent-search in localStorage.
@@ -29,25 +29,26 @@ Per timestep and per variable:
    - **Wind direction** → weighted circular mean via unit-vector sum (so 350° + 10° averages to 0°, not 180°). Angular standard deviation via Mardia's formula on the mean resultant length.
    - **Weather code** → severity-weighted modal class: bin WMO codes into severity groups (clear / mostly_clear / cloudy / fog / drizzle / rain / snow / storm), pick the group with the highest summed weight, then within that group pick the most-weighted code.
 
-## How the confidence score works
+## How the predictability signal works
 
-For each numeric variable:
+Predictability is computed from **agreement** (inter-model spread). It is an
+_uncalibrated_ estimate — see the limitations and ADR 0005. For each numeric variable:
 
 ```
-spreadScore  = clamp(1 − stdDev / typicalSpread, 0, 1)
-               typicalSpread ramps with lead time; daily accumulated variables
-               (precipitation_sum) use a day-scale typical spread (mm/day) rather
-               than the hourly rate scale (mm/h).
+spreadScore    = clamp(1 − stdDev / typicalSpread, 0, 1)
+                 typicalSpread ramps with lead time; daily accumulated variables
+                 (precipitation_sum) use a day-scale typical spread (mm/day) rather
+                 than the hourly rate scale (mm/h).
 
-modelFactor  = min(1, n / 3)   where n = number of contributing models
-               1 model → ⅓,  2 models → ⅔,  3+ models → 1
+modelFactor    = min(1, n / 3)   where n = number of contributing models
+                 1 model → ⅓,  2 models → ⅔,  3+ models → 1
 
-confidence   = clamp(spreadScore × modelFactor, 0, 1)
+predictability = clamp(spreadScore × modelFactor, 0, 1)
 ```
 
 Wind direction uses the same formula with circular standard deviation in degrees.
 Weather codes have no meaningful stdDev, so they use severity-group agreement instead:
-`confidence = clamp(weightShare(same severity group) × modelFactor, 0, 1)`.
+`predictability = clamp(weightShare(same severity group) × modelFactor, 0, 1)`.
 
 Lead-time decay is handled entirely in the model weighting layer (not as a separate
 multiplier here): CAMs fade out by 60 h, regionals by 120 h, globals decay past 72 h,
@@ -103,7 +104,7 @@ The badge maps the result to one of three tiers — high (≥70 %, emerald), mid
 │  DailyStrip / DayCard            │  │  useForecast     │  │   ─ region bonus + decay       │
 │  VerificationDayCard            ►│◄─┤   ─ fetch+aggreg.│◄─┤  aggregate.ts                  │
 │  HitMissStrip                    │  │  useVerification │  │  aggregateVariables.ts (triad) │
-│  WeatherIcon / ConfidenceBadge   │  │   ─ fetch+score  │  │  confidence.ts                 │
+│  WeatherIcon/PredictabilityBadge │  │   ─ fetch+score  │  │  predictability.ts             │
 │                                  │  │  useUnits        │  │  verification.ts (bias/MAE …)  │
 │  ForecastView · VerificationView │  │   ─ formatters   │  │  weatherCodes.ts               │
 └──────────────────────────────────┘  └──────────────────┘  └────────────────────────────────┘
@@ -184,7 +185,7 @@ Previews are skipped for PRs from forks, which can't access the deploy secrets.
 ## Limitations
 
 - **No bias correction.** Weights are static — no weight calibration against ERA5 reanalysis. Some models systematically run cold/warm or under/over-predict precipitation in some regions; that bias passes through to the aggregate.
-- **No ensemble members.** We pull deterministic runs only, not full ensemble distributions. Confidence is derived from inter-model spread, not from individual ensemble forecasts.
+- **No ensemble members.** We pull deterministic runs only, not full ensemble distributions. Predictability is derived from inter-model spread (model agreement), not from individual ensemble forecasts — so it is an uncalibrated proxy, not a probability (see ADR 0005).
 - **Verification covers temperature and precipitation only.** ERA5-Seamless also provides wind and cloud-cover truth, but the verification page does not yet score them.
 
 ## Acknowledgements

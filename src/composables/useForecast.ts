@@ -1,14 +1,16 @@
 import { computed, onScopeDispose, ref, type Ref } from "vue";
 
+import { loadWeights } from "@/analysis/learnedWeightsStore";
 import { fetchForecast, extractHourlyByModel, extractDailyByModel, solarFrom, type ForecastResponse, type HourlyVar, type DailyVar } from "@/api/omForecast";
 import type { AggregatePoint } from "@/domain/aggregate";
 import { aggregateVariables } from "@/domain/aggregateVariables";
-import { overallConfidence } from "@/domain/confidence";
 import { MODELS, MODEL_IDS } from "@/domain/models";
+import { overallPredictability } from "@/domain/predictability";
 import type { Variable } from "@/domain/weighting";
 
 import { useAbortableResource } from "./useAbortableResource";
 import type { Location } from "./useLocation";
+import { useSettings } from "./useSettings";
 
 const HOURLY: HourlyVar[] = ["temperature_2m", "precipitation", "precipitation_probability", "weather_code", "wind_speed_10m", "wind_direction_10m", "cloud_cover"];
 
@@ -22,7 +24,7 @@ const DAILY: DailyVar[] = [
   "wind_direction_10m_dominant",
 ];
 
-/** Map a daily variable to its base variable family (drives weighting + confidence). */
+/** Map a daily variable to its base variable family (drives weighting + predictability). */
 function dailyBase(v: DailyVar): Variable {
   switch (v) {
     case "temperature_2m_max":
@@ -43,28 +45,28 @@ function dailyBase(v: DailyVar): Variable {
 
 // Structurally assignable to HourlySeries (the unified chart contract):
 // `aggregate`/`perModel` are keyed by the same variable ids, just over the
-// full forecast variable set. `confidence` is extra (used by daily cards).
+// full forecast variable set. `predictability` is extra (used by daily cards).
 export interface HourlyAggregate {
   times: string[];
   aggregate: Record<HourlyVar, AggregatePoint[]>;
-  confidence: Record<HourlyVar, number[]>;
+  predictability: Record<HourlyVar, number[]>;
   perModel: Record<HourlyVar, Record<string, (number | null)[]>>;
 }
 
 export interface DailyAggregate {
   times: string[];
   series: Record<DailyVar, AggregatePoint[]>;
-  confidence: Record<DailyVar, number[]>;
+  predictability: Record<DailyVar, number[]>;
   perModel: Record<DailyVar, Record<string, (number | null)[]>>;
 }
 
-/** The forecast view's per-day "overall confidence" collapse: the unweighted
- *  mean of the day's temperature, precipitation, and weather-code confidences.
+/** The forecast view's per-day "overall predictability" collapse: the unweighted
+ *  mean of the day's temperature, precipitation, and weather-code predictabilities.
  *  The single definition of *which* variables compose it — CONTEXT.md flags this
- *  collapse as "overall confidence (under review)", so it lives in one place
+ *  collapse as "overall predictability (under review)", so it lives in one place
  *  rather than inlined in each card. */
-export function dailyOverallConfidence(daily: DailyAggregate, i: number): number {
-  return overallConfidence([daily.confidence.temperature_2m_max[i], daily.confidence.precipitation_sum[i], daily.confidence.weather_code[i]]);
+export function dailyOverallPredictability(daily: DailyAggregate, i: number): number {
+  return overallPredictability([daily.predictability.temperature_2m_max[i], daily.predictability.precipitation_sum[i], daily.predictability.weather_code[i]]);
 }
 
 export interface UseForecastReturn {
@@ -80,6 +82,12 @@ export interface UseForecastReturn {
 
 export function useForecast(location: Ref<Location>): UseForecastReturn {
   const lastUpdated = ref<Date | null>(null);
+
+  // When the user opts in, apply this location's trained weight multipliers to
+  // the live aggregate (training page / ADR 0007). Off → undefined → the
+  // heuristic weighting, byte-for-byte unchanged.
+  const { useTrainedWeights } = useSettings();
+  const multipliers = computed(() => (useTrainedWeights.value ? loadWeights(location.value.latitude, location.value.longitude)?.multipliers : undefined));
 
   // Re-fetches on location change; the superseded-request guard lives in the
   // helper. `lastUpdated` is stamped here, inside the fetcher, so it only moves
@@ -123,7 +131,7 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
     const baseTime = new Date(firstHourlyTime);
     const perModel = {} as Record<HourlyVar, Record<string, (number | null)[]>>;
     for (const v of HOURLY) perModel[v] = extractHourlyByModel(data, v, MODEL_IDS);
-    const { aggregate, confidence } = aggregateVariables({
+    const { aggregate, predictability } = aggregateVariables({
       times,
       perModel,
       vars: HOURLY.map((v) => ({ key: v, family: v })),
@@ -132,8 +140,9 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
       lon: location.value.longitude,
       baseTime,
       cadence: "hourly",
+      multipliers: multipliers.value,
     });
-    return { times, aggregate, confidence, perModel };
+    return { times, aggregate, predictability, perModel };
   });
 
   const daily = computed<DailyAggregate | null>(() => {
@@ -145,9 +154,9 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
     const baseTime = new Date(firstDailyTime);
     const perModel = {} as Record<DailyVar, Record<string, (number | null)[]>>;
     for (const v of DAILY) perModel[v] = extractDailyByModel(data, v, MODEL_IDS);
-    // Daily cadence anchors confidence at lead = dayIndex*24 + 12, and each daily
+    // Daily cadence anchors predictability at lead = dayIndex*24 + 12, and each daily
     // variable is weighted/scored under its base family (e.g. max → temperature_2m).
-    const { aggregate: series, confidence } = aggregateVariables({
+    const { aggregate: series, predictability } = aggregateVariables({
       times,
       perModel,
       vars: DAILY.map((v) => ({ key: v, family: dailyBase(v) })),
@@ -156,8 +165,9 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
       lon: location.value.longitude,
       baseTime,
       cadence: "daily",
+      multipliers: multipliers.value,
     });
-    return { times, series, confidence, perModel };
+    return { times, series, predictability, perModel };
   });
 
   const solar = computed(() => solarFrom(raw.value));

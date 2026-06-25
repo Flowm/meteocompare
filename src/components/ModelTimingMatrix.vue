@@ -2,7 +2,7 @@
 import { computed } from "vue";
 
 import { getModel } from "@/domain/models";
-import { AGGREGATE_ROW_ID, type ScorecardRow } from "@/domain/scorecard";
+import { AGGREGATE_ROW_ID, AGGREGATE_TUNED_ROW_ID, type ScorecardRow } from "@/domain/scorecard";
 
 import { AGG_COLOR, paletteFor } from "./chartOption";
 import HitMissStrip from "./HitMissStrip.vue";
@@ -17,10 +17,11 @@ const props = defineProps<{
 // line up with the strip's day boundaries.
 const dayCount = computed(() => Math.max(1, Math.round((props.rows[0]?.hourlyClassification.length ?? 168) / 24)));
 
-const label = (id: string): string => (id === AGGREGATE_ROW_ID ? "Aggregate" : (getModel(id)?.label ?? id));
-const accent = (id: string, isAggregate: boolean): string => (isAggregate ? AGG_COLOR : paletteFor(id));
-
 const hasRows = computed(() => props.rows.length > 0);
+const hasTuned = computed(() => props.rows.some((r) => r.id === AGGREGATE_TUNED_ROW_ID));
+const label = (id: string): string =>
+  id === AGGREGATE_ROW_ID ? (hasTuned.value ? "Aggregate (default)" : "Aggregate") : id === AGGREGATE_TUNED_ROW_ID ? "Aggregate (tuned)" : (getModel(id)?.label ?? id);
+const accent = (id: string, isAggregate: boolean): string => (isAggregate ? AGG_COLOR : paletteFor(id));
 </script>
 
 <template>
@@ -31,17 +32,18 @@ const hasRows = computed(() => props.rows.length > 0);
     <div class="overflow-x-auto">
       <!-- min-width keeps each of the ~168 hour cells legible; the whole matrix
            scrolls horizontally on narrow screens, model labels frozen left. -->
-      <div class="min-w-[44rem]">
-        <!-- Lead-day axis. The w-24 spacer matches the label column width. -->
+      <div class="min-w-[48rem]">
+        <!-- Lead-day axis. The w-40 spacer matches the label column width (and
+             the per-model scorecard's first column, so the two tables align). -->
         <div class="text-paper-500 mb-1 flex items-center font-mono text-[10px] tracking-wide">
-          <div class="bg-ink-900 sticky left-0 z-10 w-24 shrink-0 pr-2">Lead time</div>
+          <div class="bg-ink-900 sticky left-0 z-10 w-40 shrink-0 pr-2">Lead time</div>
           <div class="flex flex-1">
             <div v-for="d in dayCount" :key="d" class="flex-1 text-center tabular-nums">Day {{ d }}</div>
           </div>
         </div>
 
         <div v-for="row in rows" :key="row.id" class="flex items-center py-0.5">
-          <div class="bg-ink-900 sticky left-0 z-10 flex w-24 shrink-0 items-center gap-1.5 pr-2 font-mono text-[10px]">
+          <div class="bg-ink-900 sticky left-0 z-10 flex w-40 shrink-0 items-center gap-1.5 pr-2 font-mono text-[10px]">
             <span class="inline-block size-2 shrink-0" :style="{ backgroundColor: accent(row.id, row.isAggregate) }" />
             <span class="truncate" :class="row.isAggregate ? 'text-aggregate-400' : 'text-paper-300'">{{ label(row.id) }}</span>
           </div>
@@ -55,7 +57,7 @@ const hasRows = computed(() => props.rows.length > 0);
     <!-- Legend mirrors HitMissStrip's tones. Outside the scroll wrapper so it
          stays in place when the matrix is scrolled horizontally. -->
     <div class="text-paper-400 mt-3 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[10px] tracking-wide">
-      <span class="flex items-center gap-1"><span class="bg-confidence-high/85 inline-block size-2" /> Hit</span>
+      <span class="flex items-center gap-1"><span class="bg-predictability-high/85 inline-block size-2" /> Hit</span>
       <span class="flex items-center gap-1"><span class="bg-sodium-300/80 inline-block size-2" /> Miss</span>
       <span class="flex items-center gap-1"><span class="bg-heat-400/85 inline-block size-2" /> False alarm</span>
       <span class="flex items-center gap-1"><span class="bg-ink-700 inline-block size-2" /> Correct dry</span>

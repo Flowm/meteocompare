@@ -25,7 +25,7 @@ export interface AggregatePoint {
   stdDev: number;
   /** Weights actually used at this timestep (sum = 1 across contributing models). */
   weights: Record<string, number>;
-  /** Raw per-model values (including nulls), for the per-model overlay & confidence math. */
+  /** Raw per-model values (including nulls), for the per-model overlay & predictability math. */
   perModel: ModelSamples;
 }
 
@@ -43,6 +43,8 @@ export interface AggregateOptions {
   lon: number;
   /** Hourly reference time of the *first* timestep (UTC ISO) so we can compute lead-hours. */
   baseTime: Date;
+  /** Optional per-model weight multipliers (trained, per-location override). */
+  multipliers?: Record<string, number>;
 }
 
 function leadHoursAt(time: string, baseTime: Date): number {
@@ -147,13 +149,13 @@ function severityWeightedMode(perModel: ModelSamples, weights: Map<string, numbe
 /** Stitch per-model timeseries into a single aggregate timeseries.
  *  `series[modelId]` is the value array; `times` is the shared time axis. */
 export function aggregateSeries(times: string[], series: Record<string, (number | null)[]>, opts: AggregateOptions): AggregatePoint[] {
-  const { variable, models, lat, lon, baseTime } = opts;
+  const { variable, models, lat, lon, baseTime, multipliers } = opts;
   const result: AggregatePoint[] = [];
   for (let i = 0; i < times.length; i++) {
     const timeStr = times[i];
     if (timeStr === undefined) continue;
     const leadH = leadHoursAt(timeStr, baseTime);
-    const weights = normalizedWeights(models, leadH, lat, lon, variable);
+    const weights = normalizedWeights(models, leadH, lat, lon, variable, multipliers);
     const perModel: ModelSamples = {};
     for (const m of models) {
       const arr = series[m.id];

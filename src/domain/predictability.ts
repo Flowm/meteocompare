@@ -1,4 +1,5 @@
 import type { AggregatePoint } from "./aggregate";
+import { effectiveModelCount } from "./models";
 import { severitySlug } from "./weatherCodes";
 import type { Variable } from "./weighting";
 
@@ -30,16 +31,18 @@ function typicalSpread(variable: Variable, leadHours: number, resolution: "hourl
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
-/** Penalises forecasts built from fewer than 3 contributing models.
- *  1 model → ⅓, 2 models → ⅔, 3+ models → 1. */
+/** Penalises forecasts built from fewer than ~3 *independent* contributing
+ *  models, using the effective (lineage-discounted) count so a cluster of
+ *  same-family models (e.g. the ICON variants) does not read as independent
+ *  corroboration. See effectiveModelCount and ADR 0006. */
 function modelCountFactor(point: AggregatePoint): number {
-  return Math.min(1, Object.keys(point.weights).length / 3);
+  return Math.min(1, effectiveModelCount(Object.keys(point.weights)) / 3);
 }
 
-export function confidenceFor(point: AggregatePoint, variable: Variable, leadHours: number, resolution: "hourly" | "daily" = "hourly"): number {
+export function predictabilityFor(point: AggregatePoint, variable: Variable, leadHours: number, resolution: "hourly" | "daily" = "hourly"): number {
   const mcf = modelCountFactor(point);
   if (variable === "weather_code") {
-    return weatherCodeConfidence(point) * mcf;
+    return weatherCodePredictability(point) * mcf;
   }
   if (variable === "wind_direction_10m") {
     return clamp01((1 - point.stdDev / typicalSpread("wind_direction_10m", leadHours, "hourly")) * mcf);
@@ -49,7 +52,7 @@ export function confidenceFor(point: AggregatePoint, variable: Variable, leadHou
   return clamp01(spreadScore * mcf);
 }
 
-function weatherCodeConfidence(point: AggregatePoint): number {
+function weatherCodePredictability(point: AggregatePoint): number {
   const aggSlug = severitySlug(point.value);
   let agreementW = 0;
   for (const [id, w] of Object.entries(point.weights)) {
@@ -60,13 +63,13 @@ function weatherCodeConfidence(point: AggregatePoint): number {
   return clamp01(agreementW);
 }
 
-/** UI-side "overall confidence": the unweighted mean of the finite per-variable
+/** UI-side "overall predictability": the unweighted mean of the finite per-variable
  *  parts (non-finite parts — e.g. a variable with no data — are skipped, not
  *  counted as zero). Returns 0 when nothing is finite. This is the single
- *  definition of the collapse CONTEXT.md flags as "overall confidence (under
+ *  definition of the collapse CONTEXT.md flags as "overall predictability (under
  *  review)"; the forecast view's badge and the daily strip both route through it
  *  so they can never drift apart. */
-export function overallConfidence(parts: readonly (number | null | undefined)[]): number {
+export function overallPredictability(parts: readonly (number | null | undefined)[]): number {
   let sum = 0;
   let n = 0;
   for (const v of parts) {
@@ -78,9 +81,9 @@ export function overallConfidence(parts: readonly (number | null | undefined)[])
   return n === 0 ? 0 : sum / n;
 }
 
-export type ConfidenceTier = "high" | "mid" | "low";
+export type PredictabilityTier = "high" | "mid" | "low";
 
-export function confidenceTier(c: number): ConfidenceTier {
+export function predictabilityTier(c: number): PredictabilityTier {
   if (c >= 0.7) return "high";
   if (c >= 0.4) return "mid";
   return "low";

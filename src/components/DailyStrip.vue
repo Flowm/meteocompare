@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import { dailyOverallConfidence, type DailyAggregate } from "@/composables/useForecast";
+import { dailyOverallPredictability, type DailyAggregate } from "@/composables/useForecast";
 import { MODELS } from "@/domain/models";
 
 import DayCard, { type ModelRow } from "./DayCard.vue";
@@ -19,7 +19,7 @@ interface DayRow {
   precipSum: number | null;
   windSpeed: number | null;
   windDirection: number | null;
-  confidence: number;
+  predictability: number;
   models: ModelRow[];
 }
 
@@ -41,7 +41,7 @@ const days = computed<DayRow[]>(() =>
       precipSum: props.daily.series.precipitation_sum[i]?.value ?? null,
       windSpeed: props.daily.series.wind_speed_10m_max[i]?.value ?? null,
       windDirection: props.daily.series.wind_direction_10m_dominant[i]?.value ?? null,
-      confidence: dailyOverallConfidence(props.daily, i),
+      predictability: dailyOverallPredictability(props.daily, i),
       models,
     };
   }),
@@ -64,7 +64,7 @@ const days = computed<DayRow[]>(() =>
       :precip-sum="d.precipSum"
       :wind-speed="d.windSpeed"
       :wind-direction="d.windDirection"
-      :confidence="d.confidence"
+      :predictability="d.predictability"
       :highlight="i === 0"
       :models="d.models"
     />

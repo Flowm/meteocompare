@@ -1,27 +1,22 @@
 import { computed, type Ref } from "vue";
 
+import { loadWeights } from "@/analysis/learnedWeightsStore";
+import { evaluateRun, type RunEvaluation, type VerificationHourly } from "@/analysis/runEvaluation";
 import { solarFrom } from "@/api/omForecast";
-import { extractHourly as extractTruthHourly, fetchHistoricalWeather } from "@/api/omHistoricalWeather";
-import { extractDailyByModel, extractHourlyByModel, fetchSingleRuns } from "@/api/omSingleRuns";
-import { aggregateVariables } from "@/domain/aggregateVariables";
-import { MODEL_IDS, MODELS, type ModelDef } from "@/domain/models";
-import { buildModelScorecard, type ScorecardRow } from "@/domain/scorecard";
-import { buildDailyVerification, type DailyVerification } from "@/domain/verification";
+import { fetchHistoricalWeather } from "@/api/omHistoricalWeather";
+import { fetchSingleRuns } from "@/api/omSingleRuns";
+import type { ModelDef } from "@/domain/models";
+import type { ScorecardRow } from "@/domain/scorecard";
+import type { DailyVerification } from "@/domain/verification";
 import { addDaysIso } from "@/utils/date";
 
-import type { DataVarId, HourlySeries } from "./hourlySeries";
 import { useAbortableResource } from "./useAbortableResource";
 import type { Location } from "./useLocation";
+import { useSettings } from "./useSettings";
 
-/** Conforms to the unified chart contract (HourlySeries) — temperature and
- *  precipitation only, the two variables we currently verify. ERA5-Seamless
- *  also provides wind and cloud-cover truth; scoring them is a later,
- *  data-only change (see CONTEXT.md "Truth"). */
-export interface VerificationHourly extends HourlySeries {
-  /** Per-hour aggregate per-variable confidence — input to the daily card's
-   *  confidence-vs-error display. Keyed by variable id. */
-  confidence: Partial<Record<DataVarId, number[]>>;
-}
+/** Re-exported from the framework-free analysis layer, where the run evaluation
+ *  is now computed (see `@/analysis/runEvaluation`). */
+export type { VerificationHourly };
 
 export interface UseVerificationReturn {
   loading: Ref<boolean>;
@@ -44,7 +39,9 @@ export interface UseVerificationReturn {
   refresh: () => Promise<void>;
 }
 
-export function useVerification(location: Ref<Location>, runDate: Ref<string>): UseVerificationReturn {
+export function useVerification(location: Ref<Location>, runDate: Ref<string>, runCycle: Ref<number>): UseVerificationReturn {
+  const { useTrainedWeights } = useSettings();
+
   // The runs + truth pair is fetched together (so a superseded date/location
   // change aborts both); the helper owns the abort + superseded-loading guard.
   const { data, loading, error, refresh } = useAbortableResource(
@@ -53,149 +50,43 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>): 
       // TZ-shifted forecast window is fully covered regardless of UTC offset.
       const truthEndDate = addDaysIso(runDate.value, 7);
       const [runs, truth] = await Promise.all([
-        fetchSingleRuns({ lat: location.value.latitude, lon: location.value.longitude, runDate: runDate.value }, signal),
+        fetchSingleRuns({ lat: location.value.latitude, lon: location.value.longitude, runDate: runDate.value, runHour: runCycle.value }, signal),
         fetchHistoricalWeather({ lat: location.value.latitude, lon: location.value.longitude, startDate: runDate.value, endDate: truthEndDate }, signal),
       ]);
       return { runs, truth };
     },
-    () => [location.value.latitude, location.value.longitude, runDate.value],
+    () => [location.value.latitude, location.value.longitude, runDate.value, runCycle.value],
   );
 
-  const hourly = computed<VerificationHourly | null>(() => {
+  // All scoring lives in the framework-free analysis layer now; the composable
+  // just feeds it the fetched pair and slices the result into reactive refs.
+  const evaluation = computed<RunEvaluation | null>(() => {
     const runs = data.value?.runs;
     const truth = data.value?.truth;
     if (!runs || !truth) return null;
-    const times = runs.hourly.time;
-    const firstTime = times[0];
-    if (!firstTime) return null;
-    const baseTime = new Date(firstTime);
-
-    // Per-model series straight off the single-runs response. Aggregate +
-    // confidence via the shared pipeline; lead-time decay kicks in correctly
-    // because baseTime is the run start.
-    const perModel = {
-      temperature_2m: extractHourlyByModel(runs, "temperature_2m", MODEL_IDS),
-      precipitation: extractHourlyByModel(runs, "precipitation", MODEL_IDS),
-    };
-    const { aggregate, confidence } = aggregateVariables({
-      times,
-      perModel,
-      vars: [
-        { key: "temperature_2m", family: "temperature_2m" },
-        { key: "precipitation", family: "precipitation" },
-      ],
-      models: MODELS,
+    // Show a default-vs-tuned comparison whenever this location has stored
+    // trained weights — independent of the live "use trained weights" toggle.
+    const tunedMultipliers = loadWeights(location.value.latitude, location.value.longitude)?.multipliers;
+    // applyTuned mirrors the live forecast: when the toggle is on, the chart +
+    // daily cards draw the tuned aggregate. The scorecard compares both regardless.
+    return evaluateRun({
+      runs,
+      truth,
       lat: location.value.latitude,
       lon: location.value.longitude,
-      baseTime,
-      cadence: "hourly",
-    });
-
-    // Align truth to the run's time axis by ISO-string lookup. The two APIs
-    // can return their hours offset by UTC-shift; the map handles it cleanly.
-    const truthTimes = truth.hourly.time;
-    const truthTempArr = extractTruthHourly(truth, "temperature_2m");
-    const truthPrecipArr = extractTruthHourly(truth, "precipitation");
-    const truthIndex = new Map<string, number>();
-    truthTimes.forEach((t, i) => truthIndex.set(t, i));
-
-    const truthTemp: (number | null)[] = times.map((t) => {
-      const i = truthIndex.get(t);
-      return i == null ? null : (truthTempArr[i] ?? null);
-    });
-    const truthPrecip: (number | null)[] = times.map((t) => {
-      const i = truthIndex.get(t);
-      return i == null ? null : (truthPrecipArr[i] ?? null);
-    });
-
-    // The unified HourlySeries shape: variable id → series. Adding wind/cloud
-    // truth later (see CONTEXT.md "Truth") becomes a data-only change here — no
-    // new fields.
-    return {
-      times,
-      aggregate,
-      perModel,
-      truth: { temperature_2m: truthTemp, precipitation: truthPrecip },
-      confidence,
-    };
-  });
-
-  const daily = computed<DailyVerification[] | null>(() => {
-    const h = hourly.value;
-    if (!h) return null;
-    // buildDailyVerification keeps its flat, tested signature — we just feed it
-    // from the re-keyed maps. The verification scoring domain stays frozen.
-    return buildDailyVerification({
       runDate: runDate.value,
-      times: h.times,
-      aggregateTemp: h.aggregate.temperature_2m ?? [],
-      aggregatePrecip: h.aggregate.precipitation ?? [],
-      confidenceTemp: h.confidence.temperature_2m ?? [],
-      confidencePrecip: h.confidence.precipitation ?? [],
-      perModelTemp: h.perModel.temperature_2m ?? {},
-      perModelPrecip: h.perModel.precipitation ?? {},
-      truthTemp: h.truth?.temperature_2m ?? [],
-      truthPrecip: h.truth?.precipitation ?? [],
+      runHour: runCycle.value,
+      tunedMultipliers,
+      applyTuned: useTrainedWeights.value,
     });
   });
 
-  const scorecard = computed<ScorecardRow[] | null>(() => {
-    const h = hourly.value;
-    if (!h) return null;
-    // Same hourly arrays the daily breakdown is fed — the scorecard just scores
-    // the full window (with lead-time bands) instead of per 24 h.
-    return buildModelScorecard({
-      times: h.times,
-      aggregateTemp: h.aggregate.temperature_2m ?? [],
-      aggregatePrecip: h.aggregate.precipitation ?? [],
-      perModelTemp: h.perModel.temperature_2m ?? {},
-      perModelPrecip: h.perModel.precipitation ?? {},
-      truthTemp: h.truth?.temperature_2m ?? [],
-      truthPrecip: h.truth?.precipitation ?? [],
-    });
-  });
-
+  const hourly = computed<VerificationHourly | null>(() => evaluation.value?.hourly ?? null);
+  const daily = computed<DailyVerification[] | null>(() => evaluation.value?.daily ?? null);
+  const scorecard = computed<ScorecardRow[] | null>(() => evaluation.value?.scorecard ?? null);
+  const weatherCodes = computed<number[]>(() => evaluation.value?.weatherCodes ?? []);
+  const availableModels = computed<ModelDef[]>(() => evaluation.value?.availableModels ?? []);
   const solar = computed(() => solarFrom(data.value?.runs ?? null));
-
-  const weatherCodes = computed<number[]>(() => {
-    const runs = data.value?.runs;
-    if (!runs) return [];
-    const dailyTimes = runs.daily.time;
-    const firstDailyTime = dailyTimes[0];
-    if (!firstDailyTime) return [];
-    const baseTime = new Date(firstDailyTime);
-    // Same severity-weighted-mode aggregation as the forecast view's daily strip.
-    // weather_code confidence is agreement-based (lead-independent), so we route
-    // through the shared pipeline and simply drop the confidence here.
-    const { aggregate } = aggregateVariables({
-      times: dailyTimes,
-      perModel: { weather_code: extractDailyByModel(runs, "weather_code", MODEL_IDS) },
-      vars: [{ key: "weather_code", family: "weather_code" }],
-      models: MODELS,
-      lat: location.value.latitude,
-      lon: location.value.longitude,
-      baseTime,
-      cadence: "daily",
-    });
-    return (aggregate.weather_code ?? []).map((p) => Math.round(p.value));
-  });
-
-  const availableModels = computed<ModelDef[]>(() => {
-    const runs = data.value?.runs;
-    if (!runs) return [];
-    const ids = new Set<string>();
-    for (const id of MODEL_IDS) {
-      // Honest availability: include any model that returned a non-null value
-      // for at least one variable (temperature OR precipitation). The earlier
-      // temp-only check undercounted models that had precip-only data.
-      const tempArr = runs.hourly[`temperature_2m_${id}`];
-      const precipArr = runs.hourly[`precipitation_${id}`];
-      const hasTemp = tempArr && tempArr.some((x) => x != null);
-      const hasPrecip = precipArr && precipArr.some((x) => x != null);
-      if (hasTemp || hasPrecip) ids.add(id);
-    }
-    return MODELS.filter((m) => ids.has(m.id));
-  });
 
   return { loading, error, hourly, daily, scorecard, weatherCodes, availableModels, solar, refresh };
 }

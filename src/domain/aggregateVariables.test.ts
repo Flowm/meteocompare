@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 
 import { aggregateSeries } from "./aggregate";
 import { aggregateVariables } from "./aggregateVariables";
-import { confidenceFor } from "./confidence";
 import { getModel } from "./models";
+import { predictabilityFor } from "./predictability";
 
 const PARIS = { lat: 48.85, lon: 2.35 };
 const subset = [getModel("ecmwf_ifs")!, getModel("gfs_seamless")!, getModel("icon_global")!, getModel("meteofrance_seamless")!];
@@ -20,7 +20,7 @@ describe("aggregateVariables — index→lead-hours convention", () => {
   // copy-pasted (i for hourly, i*24+12 for daily) and could drift. Pin it.
   it("uses lead = index for hourly and index*24+12 for daily", () => {
     const times = makeTimes(2, "2026-05-20T00:00:00Z");
-    // Small disagreement so confidence sits strictly inside (0,1) for both leads
+    // Small disagreement so predictability sits strictly inside (0,1) for both leads
     // (no clamping) — the typicalSpread band differs between lead 1 and lead 36.
     const perModel = {
       temperature_2m: {
@@ -36,12 +36,12 @@ describe("aggregateVariables — index→lead-hours convention", () => {
     const daily = aggregateVariables({ ...opts, cadence: "daily" });
 
     // The aggregate points themselves are identical (same times/baseTime/models);
-    // only the confidence lead differs.
+    // only the predictability lead differs.
     const point = hourly.aggregate.temperature_2m![1]!;
-    expect(hourly.confidence.temperature_2m![1]).toBeCloseTo(confidenceFor(point, "temperature_2m", 1, "hourly"), 10);
-    expect(daily.confidence.temperature_2m![1]).toBeCloseTo(confidenceFor(point, "temperature_2m", 36, "daily"), 10);
+    expect(hourly.predictability.temperature_2m![1]).toBeCloseTo(predictabilityFor(point, "temperature_2m", 1, "hourly"), 10);
+    expect(daily.predictability.temperature_2m![1]).toBeCloseTo(predictabilityFor(point, "temperature_2m", 36, "daily"), 10);
     // And they genuinely differ — a wrong copy-paste would collapse them.
-    expect(daily.confidence.temperature_2m![1]).not.toBeCloseTo(hourly.confidence.temperature_2m![1]!, 5);
+    expect(daily.predictability.temperature_2m![1]).not.toBeCloseTo(hourly.predictability.temperature_2m![1]!, 5);
   });
 });
 
@@ -69,7 +69,7 @@ describe("aggregateVariables — key vs family", () => {
 });
 
 describe("aggregateVariables — shape", () => {
-  it("echoes perModel and keys aggregate/confidence per variable, lengths match times", () => {
+  it("echoes perModel and keys aggregate/predictability per variable, lengths match times", () => {
     const times = makeTimes(3, "2026-05-20T00:00:00Z");
     const perModel = {
       temperature_2m: { ecmwf_ifs: [10, 11, 12], gfs_seamless: [10, 11, 12], icon_global: [10, 11, 12], meteofrance_seamless: [10, 11, 12] },
@@ -91,14 +91,14 @@ describe("aggregateVariables — shape", () => {
     expect(out.perModel).toBe(perModel); // echoed by reference — drop-in view-model
     expect(Object.keys(out.aggregate).toSorted()).toEqual(["precipitation", "temperature_2m"]);
     expect(out.aggregate.temperature_2m).toHaveLength(3);
-    expect(out.confidence.precipitation).toHaveLength(3);
-    // Independence: precip disagreement at index 1 does not perturb temperature confidence.
-    expect(out.confidence.temperature_2m![0]).toBeCloseTo(out.confidence.temperature_2m![1]!, 10);
+    expect(out.predictability.precipitation).toHaveLength(3);
+    // Independence: precip disagreement at index 1 does not perturb temperature predictability.
+    expect(out.predictability.temperature_2m![0]).toBeCloseTo(out.predictability.temperature_2m![1]!, 10);
   });
 });
 
 describe("aggregateVariables — weather_code is lead-independent", () => {
-  it("scores weather_code by agreement, so cadence does not change confidence", () => {
+  it("scores weather_code by agreement, so cadence does not change predictability", () => {
     const times = makeTimes(1, "2026-05-20T00:00:00Z");
     const perModel = { weather_code: { ecmwf_ifs: [61], gfs_seamless: [63], icon_global: [80], meteofrance_seamless: [0] } };
     const vars = [{ key: "weather_code", family: "weather_code" as const }];
@@ -106,14 +106,14 @@ describe("aggregateVariables — weather_code is lead-independent", () => {
 
     const hourly = aggregateVariables({ ...base, cadence: "hourly" });
     const daily = aggregateVariables({ ...base, cadence: "daily" });
-    expect(daily.confidence.weather_code![0]).toBeCloseTo(hourly.confidence.weather_code![0]!, 10);
-    expect(hourly.confidence.weather_code![0]).toBeGreaterThanOrEqual(0);
-    expect(hourly.confidence.weather_code![0]).toBeLessThanOrEqual(1);
+    expect(daily.predictability.weather_code![0]).toBeCloseTo(hourly.predictability.weather_code![0]!, 10);
+    expect(hourly.predictability.weather_code![0]).toBeGreaterThanOrEqual(0);
+    expect(hourly.predictability.weather_code![0]).toBeLessThanOrEqual(1);
   });
 });
 
 describe("aggregateVariables — degenerate input", () => {
-  it("yields a NaN aggregate value and zero confidence when every model is null", () => {
+  it("yields a NaN aggregate value and zero predictability when every model is null", () => {
     const times = makeTimes(1, "2026-05-20T00:00:00Z");
     const perModel = { temperature_2m: { ecmwf_ifs: [null], gfs_seamless: [null], icon_global: [null], meteofrance_seamless: [null] } };
     const out = aggregateVariables({
@@ -127,6 +127,6 @@ describe("aggregateVariables — degenerate input", () => {
       cadence: "hourly",
     });
     expect(Number.isNaN(out.aggregate.temperature_2m![0]!.value)).toBe(true);
-    expect(out.confidence.temperature_2m![0]).toBe(0);
+    expect(out.predictability.temperature_2m![0]).toBe(0);
   });
 });

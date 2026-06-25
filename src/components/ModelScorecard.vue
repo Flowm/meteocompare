@@ -3,7 +3,7 @@ import { computed, ref } from "vue";
 
 import { convertDelta, convertVar, signed, unitLabel, useUnits } from "@/composables/useUnits";
 import { getModel } from "@/domain/models";
-import { AGGREGATE_ROW_ID, LEAD_BANDS, type ScorecardRow } from "@/domain/scorecard";
+import { AGGREGATE_ROW_ID, AGGREGATE_TUNED_ROW_ID, LEAD_BANDS, type ScorecardRow } from "@/domain/scorecard";
 
 import { AGG_COLOR, paletteFor } from "./chartOption";
 
@@ -15,21 +15,25 @@ const props = defineProps<{
 const { prefs } = useUnits();
 
 const hasRows = computed(() => props.rows.length > 0);
+// When a tuned aggregate is shown too, qualify both so neither claims the bare
+// "Aggregate" — which elsewhere (chart, forecast page) means the active weighting.
+const hasTuned = computed(() => props.rows.some((r) => r.id === AGGREGATE_TUNED_ROW_ID));
 
 const tempUnit = computed(() => unitLabel("temperature_2m", prefs.value));
 const precipUnit = computed(() => unitLabel("precipitation", prefs.value));
 const unitOf = (kind: "temp" | "precip"): string => (kind === "temp" ? tempUnit.value : precipUnit.value);
 
-const label = (id: string): string => (id === AGGREGATE_ROW_ID ? "Aggregate" : (getModel(id)?.label ?? id));
+const label = (id: string): string =>
+  id === AGGREGATE_ROW_ID ? (hasTuned.value ? "Aggregate (default)" : "Aggregate") : id === AGGREGATE_TUNED_ROW_ID ? "Aggregate (tuned)" : (getModel(id)?.label ?? id);
 const accent = (row: ScorecardRow): string => (row.isAggregate ? AGG_COLOR : paletteFor(row.id));
 
 const fmtComposite = (c: number): string => (Number.isFinite(c) ? String(Math.round(c)) : "—");
 
-/** 0–100 composite → tone, on the same high/mid/low thresholds the confidence
+/** 0–100 composite → tone, on the same high/mid/low thresholds the predictability
  *  badge uses (≥70 / ≥40), so the colour language reads consistently. */
 const scoreTone = (c: number): string => {
   if (!Number.isFinite(c)) return "text-paper-500";
-  if (c >= 70) return "text-confidence-high";
+  if (c >= 70) return "text-predictability-high";
   if (c >= 40) return "text-sodium-200";
   return "text-heat-300";
 };
