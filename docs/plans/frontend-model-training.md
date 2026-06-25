@@ -6,7 +6,7 @@ Status: **draft / decisions resolved** (not an ADR yet — Phase 4 becomes ADR-w
 
 Close the verification loop **without leaving the browser**. Today the
 verification ("analysis") page scores one location at one run date. We want to
-(1) collect verification data for a single location across *many* runs, (2) show
+(1) collect verification data for a single location across _many_ runs, (2) show
 how each model performs over that whole sample, and (3) use stored samples to
 fine-tune the aggregate weighting per location — turning the fixed heuristic
 weights into per-location, evidence-fed weights. This is the concrete first step
@@ -25,7 +25,7 @@ The scoring domain is **already pure and decoupled from Vue**:
 - `api/omSingleRuns.ts` `fetchSingleRuns({lat,lon,runDate})` and `api/omHistoricalWeather.ts` `fetchHistoricalWeather(...)` — both cached by the service worker (SWR); `fetchSingleRuns` already prunes models that have aged out of the archive.
 
 The only Vue-coupled piece is `composables/useVerification.ts`, which wires one
-run of fetch → domain → reactive refs. So most of Phase 1 is *moving* logic.
+run of fetch → domain → reactive refs. So most of Phase 1 is _moving_ logic.
 
 ## Phases
 
@@ -50,7 +50,7 @@ hour**, not date alone.
 
 ### Phase 3 — Multi-run analysis mode (gather + view + store)
 
-A **mode switch on the analysis page** between *single-run* and *multi-run*
+A **mode switch on the analysis page** between _single-run_ and _multi-run_
 analysis (no separate route).
 
 - **Sampling controls:** a **duration (days)** input, and a **single-run-per-day vs multiple-runs-per-day** toggle (multiple = use the available cycles per day from Phase 2).
