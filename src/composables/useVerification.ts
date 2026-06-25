@@ -1,5 +1,6 @@
 import { computed, type Ref } from "vue";
 
+import { loadWeights } from "@/analysis/learnedWeightsStore";
 import { evaluateRun, type RunEvaluation, type VerificationHourly } from "@/analysis/runEvaluation";
 import { solarFrom } from "@/api/omForecast";
 import { fetchHistoricalWeather } from "@/api/omHistoricalWeather";
@@ -60,7 +61,10 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>, r
     const runs = data.value?.runs;
     const truth = data.value?.truth;
     if (!runs || !truth) return null;
-    return evaluateRun({ runs, truth, lat: location.value.latitude, lon: location.value.longitude, runDate: runDate.value, runHour: runCycle.value });
+    // Show a default-vs-tuned comparison whenever this location has stored
+    // trained weights — independent of the live "use trained weights" toggle.
+    const tunedMultipliers = loadWeights(location.value.latitude, location.value.longitude)?.multipliers;
+    return evaluateRun({ runs, truth, lat: location.value.latitude, lon: location.value.longitude, runDate: runDate.value, runHour: runCycle.value, tunedMultipliers });
   });
 
   const hourly = computed<VerificationHourly | null>(() => evaluation.value?.hourly ?? null);

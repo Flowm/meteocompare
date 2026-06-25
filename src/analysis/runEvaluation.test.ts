@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 
 import type { HistoricalWeatherResponse } from "@/api/omHistoricalWeather";
 import type { SingleRunsResponse } from "@/api/omSingleRuns";
+import { AGGREGATE_TUNED_ROW_ID } from "@/domain/scorecard";
 
 import { evaluateRun } from "./runEvaluation";
 
@@ -52,5 +53,10 @@ describe("evaluateRun", () => {
   it("returns null when the run carried no hours", () => {
     const empty = { hourly: { time: [] }, daily: { time: [] } } as unknown as SingleRunsResponse;
     expect(evaluateRun({ runs: empty, truth, lat: 48, lon: 11, runDate: "2026-05-20" })).toBeNull();
+  });
+
+  it("adds an Aggregate (tuned) scorecard row when tuned multipliers are supplied", () => {
+    const ev = evaluateRun({ runs, truth, lat: 48, lon: 11, runDate: "2026-05-20", tunedMultipliers: { ecmwf_ifs: 2 } });
+    expect(ev?.scorecard.some((r) => r.id === AGGREGATE_TUNED_ROW_ID)).toBe(true);
   });
 });

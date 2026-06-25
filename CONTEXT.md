@@ -122,7 +122,7 @@ Signed daily-sum forecast minus daily-sum truth, in mm. The "was the total rough
 The per-day cards on the verification page. Scores the **aggregate** against truth and pairs each day's measured error with that day's per-variable **predictability** — the calibration lens, and the page's core purpose. Aggregate-only: per-model detail lives in the scorecard, not here.
 
 **Per-model scorecard**:
-The table scoring each **Model** (and the **Aggregate**, ranked inline) over the full run window, sorted by composite score. The per-model lens, as opposed to the aggregate-per-day daily breakdown. Carries no predictability — predictability is defined only over the aggregate (see "Predictability").
+The table scoring each **Model** (and the **Aggregate**, ranked inline) over the full run window, sorted by composite score. The per-model lens, as opposed to the aggregate-per-day daily breakdown. Carries no predictability — predictability is defined only over the aggregate (see "Predictability"). When the location has stored tuned weights (training page), a second **Aggregate (tuned)** row is scored inline for a direct default-vs-tuned comparison.
 
 **Composite score**:
 A single 0–100 number blending a model's temperature MAE, precip amount error and precip timing score over a scope — each mapped to a 0..1 goodness against a _fixed per-variable reference scale_ (cf. typical spread) and averaged with equal per-metric weight, so precipitation carries ~⅔. Computed per model over the full window and per lead-time band. A deliberate collapse, kin to the under-review _overall predictability_; see ADR 0004.

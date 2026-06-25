@@ -55,6 +55,10 @@ export const LEAD_BANDS: readonly LeadBand[] = [
 /** Sentinel id used for the aggregate's row (it is not a Model — CONTEXT.md). */
 export const AGGREGATE_ROW_ID = "__aggregate__";
 
+/** Sentinel id for the optional second aggregate row computed with the location's
+ *  tuned weights (training page), shown alongside the default-weight aggregate. */
+export const AGGREGATE_TUNED_ROW_ID = "__aggregate_tuned__";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -99,6 +103,10 @@ export interface ScorecardInput {
    *  mapped back to `null` (same convention as verification.ts). */
   aggregateTemp: readonly AggregatePoint[];
   aggregatePrecip: readonly AggregatePoint[];
+  /** Optional second aggregate computed with the location's tuned weights — when
+   *  present, scored as an extra "Aggregate (tuned)" row for comparison. */
+  tunedAggregateTemp?: readonly AggregatePoint[];
+  tunedAggregatePrecip?: readonly AggregatePoint[];
   /** Per-model raw hourly forecast values, keyed by model id. */
   perModelTemp: Readonly<Record<string, readonly (number | null)[]>>;
   perModelPrecip: Readonly<Record<string, readonly (number | null)[]>>;
@@ -209,6 +217,12 @@ export function buildModelScorecard(input: ScorecardInput): ScorecardRow[] {
   const aggTemp = input.aggregateTemp.slice(0, n).map(aggregateValue);
   const aggPrecip = input.aggregatePrecip.slice(0, n).map(aggregateValue);
   rows.push(buildRow(AGGREGATE_ROW_ID, true, aggTemp, aggPrecip, truthTemp, truthPrecip, n));
+
+  if (input.tunedAggregateTemp && input.tunedAggregatePrecip) {
+    const tunedTemp = input.tunedAggregateTemp.slice(0, n).map(aggregateValue);
+    const tunedPrecip = input.tunedAggregatePrecip.slice(0, n).map(aggregateValue);
+    rows.push(buildRow(AGGREGATE_TUNED_ROW_ID, true, tunedTemp, tunedPrecip, truthTemp, truthPrecip, n));
+  }
 
   rows.sort((a, b) => rankKey(b.overall.composite) - rankKey(a.overall.composite));
   return rows;

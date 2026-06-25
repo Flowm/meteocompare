@@ -46,11 +46,14 @@ export interface EvaluateRunInputs {
   runDate: string;
   /** Run cycle hour (00 / 06 / 12 / 18 Z); defaults to 0. Identifies the run with runDate. */
   runHour?: number;
+  /** When the location has stored tuned weights, also compute an "Aggregate
+   *  (tuned)" scorecard row from these per-model multipliers, for comparison. */
+  tunedMultipliers?: Record<string, number>;
 }
 
 /** Score one fetched run against its truth. Returns null when the run carried no
  *  hours (nothing to align or score). */
-export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0 }: EvaluateRunInputs): RunEvaluation | null {
+export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tunedMultipliers }: EvaluateRunInputs): RunEvaluation | null {
   const times = runs.hourly.time;
   const firstTime = times[0];
   if (!firstTime) return null;
@@ -113,10 +116,31 @@ export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0 }: Eva
     truthPrecip,
   });
 
+  // A second aggregate under the location's tuned weights, scored inline for
+  // a default-vs-tuned comparison (only when tuned weights are supplied).
+  const tunedAgg = tunedMultipliers
+    ? aggregateVariables({
+        times,
+        perModel,
+        vars: [
+          { key: "temperature_2m", family: "temperature_2m" },
+          { key: "precipitation", family: "precipitation" },
+        ],
+        models: MODELS,
+        lat,
+        lon,
+        baseTime,
+        cadence: "hourly",
+        multipliers: tunedMultipliers,
+      }).aggregate
+    : null;
+
   const scorecard = buildModelScorecard({
     times,
     aggregateTemp: aggregate.temperature_2m ?? [],
     aggregatePrecip: aggregate.precipitation ?? [],
+    tunedAggregateTemp: tunedAgg?.temperature_2m,
+    tunedAggregatePrecip: tunedAgg?.precipitation,
     perModelTemp: perModel.temperature_2m ?? {},
     perModelPrecip: perModel.precipitation ?? {},
     truthTemp,

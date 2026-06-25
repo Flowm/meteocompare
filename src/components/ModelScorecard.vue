@@ -3,7 +3,7 @@ import { computed, ref } from "vue";
 
 import { convertDelta, convertVar, signed, unitLabel, useUnits } from "@/composables/useUnits";
 import { getModel } from "@/domain/models";
-import { AGGREGATE_ROW_ID, LEAD_BANDS, type ScorecardRow } from "@/domain/scorecard";
+import { AGGREGATE_ROW_ID, AGGREGATE_TUNED_ROW_ID, LEAD_BANDS, type ScorecardRow } from "@/domain/scorecard";
 
 import { AGG_COLOR, paletteFor } from "./chartOption";
 
@@ -20,7 +20,7 @@ const tempUnit = computed(() => unitLabel("temperature_2m", prefs.value));
 const precipUnit = computed(() => unitLabel("precipitation", prefs.value));
 const unitOf = (kind: "temp" | "precip"): string => (kind === "temp" ? tempUnit.value : precipUnit.value);
 
-const label = (id: string): string => (id === AGGREGATE_ROW_ID ? "Aggregate" : (getModel(id)?.label ?? id));
+const label = (id: string): string => (id === AGGREGATE_ROW_ID ? "Aggregate" : id === AGGREGATE_TUNED_ROW_ID ? "Aggregate (tuned)" : (getModel(id)?.label ?? id));
 const accent = (row: ScorecardRow): string => (row.isAggregate ? AGG_COLOR : paletteFor(row.id));
 
 const fmtComposite = (c: number): string => (Number.isFinite(c) ? String(Math.round(c)) : "—");
