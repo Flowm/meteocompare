@@ -7,6 +7,7 @@ import type { LocationSample } from "@/analysis/sample";
 import { loadSample, sampleKey } from "@/analysis/sampleStore";
 import AppFooter from "@/components/AppFooter.vue";
 import { paletteFor } from "@/components/chartOption";
+import CollapsibleSection from "@/components/CollapsibleSection.vue";
 import LocationBar from "@/components/LocationBar.vue";
 import LocationLabel from "@/components/LocationLabel.vue";
 import RadarSpinner from "@/components/RadarSpinner.vue";
@@ -144,158 +145,160 @@ function jumpTo(row: { name: string; detail?: string; latitude?: number; longitu
   <div class="flex min-h-screen flex-col">
     <LocationBar />
 
-    <main class="mx-auto w-full max-w-3xl flex-1 space-y-6 px-4 py-8 sm:px-6">
-      <header class="border-ink-700 bg-ink-900/60 border p-5 sm:p-6">
-        <div class="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 class="eyebrow mb-2">Training</h1>
-            <LocationLabel :name="locationLabel" />
-          </div>
-          <p class="text-paper-400 font-mono text-[11px] tracking-wide">
-            Trained weights: <span :class="useTrainedWeights ? 'text-predictability-high' : 'text-paper-500'">{{ useTrainedWeights ? "applied" : "off" }}</span>
-            <span v-if="stored" class="text-paper-500"> · stored here</span>
-          </p>
-        </div>
-        <p class="border-ink-700 text-paper-400 mt-4 border-t pt-3 font-mono text-[11px] leading-relaxed tracking-wide">
-          Fit per-model weight multipliers from this location's stored runs, validated on held-out recent runs. The heuristic weighting stays the default — turn on
-          <span class="text-paper-200">Trained weights</span> in settings to apply a saved fit. Uncalibrated and per-location; see ADR 0007.
-        </p>
-      </header>
-
-      <div v-if="sampleLoading" class="grid place-items-center gap-4 py-24">
-        <RadarSpinner />
-        <p class="text-paper-400 font-mono text-[11px] tracking-wide">Loading stored data…</p>
-      </div>
-
-      <div v-else-if="runCount === 0" class="border-ink-700 bg-ink-900/40 text-paper-400 border p-6 text-center font-mono text-[11px] leading-relaxed tracking-wide">
-        No stored runs for this location yet. Open
-        <RouterLink to="/verify" class="text-sodium-200 hover:text-sodium-100">Verify → Multi-run</RouterLink>, gather a window of runs, and press
-        <span class="text-paper-200">Store data</span>.
-      </div>
-
-      <div v-else class="space-y-6">
-        <div class="border-ink-700 bg-ink-900/40 flex flex-wrap items-center gap-x-5 gap-y-3 border p-4">
-          <p class="text-paper-300 font-mono text-[11px] tracking-wide">
-            {{ runCount }} runs stored<span v-if="runCount < MIN_RUNS" class="text-heat-300"> · need ≥ {{ MIN_RUNS }} to train</span>
-          </p>
-          <button
-            type="button"
-            :disabled="training || runCount < MIN_RUNS"
-            class="border-sodium-300/40 bg-sodium-300/10 text-sodium-200 hover:bg-sodium-300/20 border px-3 py-1 font-mono text-xs tracking-wide transition-colors disabled:opacity-40"
-            @click="train"
-          >
-            {{ training ? "Training…" : "Train" }}
-          </button>
-        </div>
-
-        <div v-if="training" class="grid place-items-center gap-4 py-16">
-          <RadarSpinner />
-          <p class="text-paper-400 font-mono text-[11px] tracking-wide">Fitting weights…</p>
-        </div>
-
-        <template v-else-if="result">
-          <div v-if="!result.ok" class="border-heat-500/40 bg-heat-500/5 text-heat-300 border p-4 font-mono text-[11px] tracking-wide">
-            <span class="text-heat-400">[err]</span> {{ result.reason }}
-          </div>
-
-          <template v-else>
-            <!-- Train/validation summary -->
-            <div class="border-ink-700 bg-ink-700/60 grid grid-cols-2 gap-px border sm:grid-cols-4">
-              <div class="bg-ink-900 p-3">
-                <p class="text-paper-500 font-mono text-[10px] tracking-wide">Train / val runs</p>
-                <p class="text-paper-100 mt-1 font-mono text-sm tabular-nums">{{ result.nTrain }} / {{ result.nVal }}</p>
-              </div>
-              <div class="bg-ink-900 p-3">
-                <p class="text-paper-500 font-mono text-[10px] tracking-wide">Heuristic (val)</p>
-                <p class="text-paper-100 mt-1 font-mono text-sm tabular-nums">{{ fmt1(result.valBaselineComposite) }}</p>
-              </div>
-              <div class="bg-ink-900 p-3">
-                <p class="text-paper-500 font-mono text-[10px] tracking-wide">Trained (val)</p>
-                <p class="text-paper-100 mt-1 font-mono text-sm tabular-nums">{{ fmt1(result.valComposite) }}</p>
-              </div>
-              <div class="bg-ink-900 p-3">
-                <p class="text-paper-500 font-mono text-[10px] tracking-wide">Improvement</p>
-                <p class="mt-1 font-mono text-sm tabular-nums" :class="result.improvement > 0 ? 'text-predictability-high' : 'text-heat-300'">
-                  {{ result.improvement >= 0 ? "+" : "" }}{{ fmt1(result.improvement) }}
-                </p>
-              </div>
-            </div>
-
-            <p v-if="result.improvement <= 0" class="text-paper-400 font-mono text-[11px] leading-relaxed tracking-wide">
-              The fit didn't beat the heuristic on held-out runs — gather more data, or keep the default weighting. You can still store it, but applying it isn't recommended.
-            </p>
-
-            <!-- Per-model multipliers -->
-            <div class="border-ink-700 bg-ink-900/40 overflow-x-auto border">
-              <table class="w-full border-collapse font-mono text-[11px] tabular-nums">
-                <thead>
-                  <tr class="text-paper-400 text-[10px] tracking-wide">
-                    <th scope="col" class="border-ink-700/60 border-b px-3 py-2 text-left font-normal">Model</th>
-                    <th scope="col" title="Multiplier on the heuristic weight (1.0 = unchanged)" class="border-ink-700/60 border-b px-3 py-2 text-right font-normal">Weight ×</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="row in rows" :key="row.id">
-                    <th scope="row" class="border-ink-700/40 border-b px-3 py-1.5 text-left font-normal">
-                      <span class="flex items-center gap-2">
-                        <span class="inline-block size-2 shrink-0" :style="{ backgroundColor: row.color }" />
-                        <span class="text-paper-200">{{ row.label }}</span>
-                      </span>
-                    </th>
-                    <td
-                      class="border-ink-700/40 border-b px-3 py-1.5 text-right"
-                      :class="row.mult > 1.02 ? 'text-predictability-high' : row.mult < 0.98 ? 'text-heat-300' : 'text-paper-400'"
-                    >
-                      {{ fmt2(row.mult) }}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div class="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                class="border-ink-600 bg-ink-800 text-paper-100 hover:bg-ink-700 border px-3 py-1 font-mono text-xs tracking-wide transition-colors"
-                @click="apply"
-              >
-                {{ stored ? "Update stored weights" : "Apply + store" }}
-              </button>
-              <button
-                v-if="stored"
-                type="button"
-                class="border-ink-700 text-paper-300 hover:text-paper-50 border px-3 py-1 font-mono text-xs tracking-wide transition-colors"
-                @click="removeEntry(currentKey)"
-              >
-                Clear stored
-              </button>
-              <p v-if="justSaved" class="text-predictability-high font-mono text-[11px] tracking-wide">
-                Stored. {{ useTrainedWeights ? "Applied to the forecast." : "Turn on Trained weights in settings to apply." }}
+    <main class="mx-auto w-full max-w-3xl flex-1 space-y-8 px-4 py-8 sm:px-6">
+      <CollapsibleSection title="Training" :summary="locationLabel">
+        <div class="space-y-6">
+          <div class="border-ink-700 bg-ink-900/60 border p-5 sm:p-6">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+              <LocationLabel :name="locationLabel" />
+              <p class="text-paper-400 font-mono text-[11px] tracking-wide">
+                Trained weights: <span :class="useTrainedWeights ? 'text-predictability-high' : 'text-paper-500'">{{ useTrainedWeights ? "applied" : "off" }}</span>
+                <span v-if="stored" class="text-paper-500"> · stored here</span>
               </p>
             </div>
+            <p class="border-ink-700 text-paper-400 mt-4 border-t pt-3 font-mono text-[11px] leading-relaxed tracking-wide">
+              Fit per-model weight multipliers from this location's stored runs, validated on held-out recent runs. The heuristic weighting stays the default — turn on
+              <span class="text-paper-200">Trained weights</span> in settings to apply a saved fit. Uncalibrated and per-location; see ADR 0007.
+            </p>
+          </div>
 
-            <!-- Reach: apply this location's fit to nearby locations. -->
-            <div v-if="stored" class="border-ink-700 bg-ink-900/40 flex flex-wrap items-center gap-x-3 gap-y-2 border p-4">
-              <label for="reach-current" class="text-paper-300 font-mono text-[11px] tracking-wide">Reach</label>
-              <select
-                id="reach-current"
-                class="border-ink-600 bg-ink-800 text-paper-100 border px-2 py-1 font-mono text-[11px] tracking-wide"
-                :value="stored.radiusKm ?? 0"
-                @change="onReachChange(currentKey, Number(($event.target as HTMLSelectElement).value))"
+          <div v-if="sampleLoading" class="grid place-items-center gap-4 py-24">
+            <RadarSpinner />
+            <p class="text-paper-400 font-mono text-[11px] tracking-wide">Loading stored data…</p>
+          </div>
+
+          <div v-else-if="runCount === 0" class="border-ink-700 bg-ink-900/40 text-paper-400 border p-6 text-center font-mono text-[11px] leading-relaxed tracking-wide">
+            No stored runs for this location yet. Open
+            <RouterLink to="/verify" class="text-sodium-200 hover:text-sodium-100">Verify → Multi-run</RouterLink>, gather a window of runs, and press
+            <span class="text-paper-200">Store data</span>.
+          </div>
+
+          <div v-else class="space-y-6">
+            <div class="border-ink-700 bg-ink-900/40 flex flex-wrap items-center gap-x-5 gap-y-3 border p-4">
+              <p class="text-paper-300 font-mono text-[11px] tracking-wide">
+                {{ runCount }} runs stored<span v-if="runCount < MIN_RUNS" class="text-heat-300"> · need ≥ {{ MIN_RUNS }} to train</span>
+              </p>
+              <button
+                type="button"
+                :disabled="training || runCount < MIN_RUNS"
+                class="border-sodium-300/40 bg-sodium-300/10 text-sodium-200 hover:bg-sodium-300/20 border px-3 py-1 font-mono text-xs tracking-wide transition-colors disabled:opacity-40"
+                @click="train"
               >
-                <option v-for="km in REACH_PRESETS_KM" :key="km" :value="km">{{ reachLabel(km) }}</option>
-              </select>
-              <span class="text-paper-500 font-mono text-[11px] leading-relaxed tracking-wide">
-                Apply these weights to any location within this distance of {{ locationLabel }}.
-              </span>
+                {{ training ? "Training…" : "Train" }}
+              </button>
             </div>
-          </template>
-        </template>
-      </div>
+
+            <div v-if="training" class="grid place-items-center gap-4 py-16">
+              <RadarSpinner />
+              <p class="text-paper-400 font-mono text-[11px] tracking-wide">Fitting weights…</p>
+            </div>
+
+            <template v-else-if="result">
+              <div v-if="!result.ok" class="border-heat-500/40 bg-heat-500/5 text-heat-300 border p-4 font-mono text-[11px] tracking-wide">
+                <span class="text-heat-400">[err]</span> {{ result.reason }}
+              </div>
+
+              <template v-else>
+                <!-- Train/validation summary -->
+                <div class="border-ink-700 bg-ink-700/60 grid grid-cols-2 gap-px border sm:grid-cols-4">
+                  <div class="bg-ink-900 p-3">
+                    <p class="text-paper-500 font-mono text-[10px] tracking-wide">Train / val runs</p>
+                    <p class="text-paper-100 mt-1 font-mono text-sm tabular-nums">{{ result.nTrain }} / {{ result.nVal }}</p>
+                  </div>
+                  <div class="bg-ink-900 p-3">
+                    <p class="text-paper-500 font-mono text-[10px] tracking-wide">Heuristic (val)</p>
+                    <p class="text-paper-100 mt-1 font-mono text-sm tabular-nums">{{ fmt1(result.valBaselineComposite) }}</p>
+                  </div>
+                  <div class="bg-ink-900 p-3">
+                    <p class="text-paper-500 font-mono text-[10px] tracking-wide">Trained (val)</p>
+                    <p class="text-paper-100 mt-1 font-mono text-sm tabular-nums">{{ fmt1(result.valComposite) }}</p>
+                  </div>
+                  <div class="bg-ink-900 p-3">
+                    <p class="text-paper-500 font-mono text-[10px] tracking-wide">Improvement</p>
+                    <p class="mt-1 font-mono text-sm tabular-nums" :class="result.improvement > 0 ? 'text-predictability-high' : 'text-heat-300'">
+                      {{ result.improvement >= 0 ? "+" : "" }}{{ fmt1(result.improvement) }}
+                    </p>
+                  </div>
+                </div>
+
+                <p v-if="result.improvement <= 0" class="text-paper-400 font-mono text-[11px] leading-relaxed tracking-wide">
+                  The fit didn't beat the heuristic on held-out runs — gather more data, or keep the default weighting. You can still store it, but applying it isn't recommended.
+                </p>
+
+                <!-- Per-model multipliers -->
+                <div class="border-ink-700 bg-ink-900/40 overflow-x-auto border">
+                  <table class="w-full border-collapse font-mono text-[11px] tabular-nums">
+                    <thead>
+                      <tr class="text-paper-400 text-[10px] tracking-wide">
+                        <th scope="col" class="border-ink-700/60 border-b px-3 py-2 text-left font-normal">Model</th>
+                        <th scope="col" title="Multiplier on the heuristic weight (1.0 = unchanged)" class="border-ink-700/60 border-b px-3 py-2 text-right font-normal">
+                          Weight ×
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="row in rows" :key="row.id">
+                        <th scope="row" class="border-ink-700/40 border-b px-3 py-1.5 text-left font-normal">
+                          <span class="flex items-center gap-2">
+                            <span class="inline-block size-2 shrink-0" :style="{ backgroundColor: row.color }" />
+                            <span class="text-paper-200">{{ row.label }}</span>
+                          </span>
+                        </th>
+                        <td
+                          class="border-ink-700/40 border-b px-3 py-1.5 text-right"
+                          :class="row.mult > 1.02 ? 'text-predictability-high' : row.mult < 0.98 ? 'text-heat-300' : 'text-paper-400'"
+                        >
+                          {{ fmt2(row.mult) }}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    class="border-ink-600 bg-ink-800 text-paper-100 hover:bg-ink-700 border px-3 py-1 font-mono text-xs tracking-wide transition-colors"
+                    @click="apply"
+                  >
+                    {{ stored ? "Update stored weights" : "Apply + store" }}
+                  </button>
+                  <button
+                    v-if="stored"
+                    type="button"
+                    class="border-ink-700 text-paper-300 hover:text-paper-50 border px-3 py-1 font-mono text-xs tracking-wide transition-colors"
+                    @click="removeEntry(currentKey)"
+                  >
+                    Clear stored
+                  </button>
+                  <p v-if="justSaved" class="text-predictability-high font-mono text-[11px] tracking-wide">
+                    Stored. {{ useTrainedWeights ? "Applied to the forecast." : "Turn on Trained weights in settings to apply." }}
+                  </p>
+                </div>
+
+                <!-- Reach: apply this location's fit to nearby locations. -->
+                <div v-if="stored" class="border-ink-700 bg-ink-900/40 flex flex-wrap items-center gap-x-3 gap-y-2 border p-4">
+                  <label for="reach-current" class="text-paper-300 font-mono text-[11px] tracking-wide">Reach</label>
+                  <select
+                    id="reach-current"
+                    class="border-ink-600 bg-ink-800 text-paper-100 border px-2 py-1 font-mono text-[11px] tracking-wide"
+                    :value="stored.radiusKm ?? 0"
+                    @change="onReachChange(currentKey, Number(($event.target as HTMLSelectElement).value))"
+                  >
+                    <option v-for="km in REACH_PRESETS_KM" :key="km" :value="km">{{ reachLabel(km) }}</option>
+                  </select>
+                  <span class="text-paper-500 font-mono text-[11px] leading-relaxed tracking-wide">
+                    Apply these weights to any location within this distance of {{ locationLabel }}.
+                  </span>
+                </div>
+              </template>
+            </template>
+          </div>
+        </div>
+      </CollapsibleSection>
 
       <!-- Device-wide stored-weights inventory. -->
-      <section class="border-ink-700 bg-ink-900/60 border p-5 sm:p-6">
-        <h2 class="eyebrow mb-1">Trained weights on this device</h2>
+      <CollapsibleSection title="Trained weights on this device" :summary="overview.length ? `${overview.length} stored` : undefined">
         <p class="text-paper-500 mb-4 font-mono text-[11px] leading-relaxed tracking-wide">
           Every location with a stored fit. Give a fit a reach to apply it to nearby locations; where a location has no fit of its own, the nearest covering fit is used.
         </p>
@@ -344,7 +347,7 @@ function jumpTo(row: { name: string; detail?: string; latitude?: number; longitu
             </tbody>
           </table>
         </div>
-      </section>
+      </CollapsibleSection>
     </main>
 
     <AppFooter>Trained weights <span class="text-sodium-300">·</span> per location, on-device</AppFooter>
