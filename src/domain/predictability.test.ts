@@ -24,6 +24,26 @@ describe("predictabilityFor", () => {
     expect(predictabilityFor(single, "temperature_2m", 6)).toBeCloseTo(predictabilityFor(full, "temperature_2m", 6) / 3, 2);
   });
 
+  it("counts same-family models as less independent than distinct lineages", () => {
+    // Four ICON variants agree perfectly, but they are one lineage → effective
+    // count 1.75, factor 0.583 — not the full vote four independent models get.
+    const iconFamily = mkPoint(
+      { icon_global: 10, icon_eu: 10, icon_d2: 10, meteoswiss_icon_seamless: 10 },
+      { icon_global: 0.25, icon_eu: 0.25, icon_d2: 0.25, meteoswiss_icon_seamless: 0.25 },
+      10,
+      0,
+    );
+    const distinct = mkPoint(
+      { ecmwf_ifs: 10, gfs_seamless: 10, gem_seamless: 10, jma_seamless: 10 },
+      { ecmwf_ifs: 0.25, gfs_seamless: 0.25, gem_seamless: 0.25, jma_seamless: 0.25 },
+      10,
+      0,
+    );
+    const same = predictabilityFor(iconFamily, "temperature_2m", 6);
+    expect(same).toBeLessThan(predictabilityFor(distinct, "temperature_2m", 6));
+    expect(same).toBeCloseTo(0.583, 2);
+  });
+
   it("is stable across lead times when models agree (lead decay is weight-layer only)", () => {
     const p = mkPoint({ a: 10, b: 10, c: 10, d: 10 }, { a: 0.25, b: 0.25, c: 0.25, d: 0.25 }, 10, 0);
     const c24 = predictabilityFor(p, "temperature_2m", 24);

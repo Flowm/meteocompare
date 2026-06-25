@@ -1,4 +1,5 @@
 import type { AggregatePoint } from "./aggregate";
+import { effectiveModelCount } from "./models";
 import { severitySlug } from "./weatherCodes";
 import type { Variable } from "./weighting";
 
@@ -30,10 +31,12 @@ function typicalSpread(variable: Variable, leadHours: number, resolution: "hourl
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
-/** Penalises forecasts built from fewer than 3 contributing models.
- *  1 model → ⅓, 2 models → ⅔, 3+ models → 1. */
+/** Penalises forecasts built from fewer than ~3 *independent* contributing
+ *  models, using the effective (lineage-discounted) count so a cluster of
+ *  same-family models (e.g. the ICON variants) does not read as independent
+ *  corroboration. See effectiveModelCount and ADR 0006. */
 function modelCountFactor(point: AggregatePoint): number {
-  return Math.min(1, Object.keys(point.weights).length / 3);
+  return Math.min(1, effectiveModelCount(Object.keys(point.weights)) / 3);
 }
 
 export function predictabilityFor(point: AggregatePoint, variable: Variable, leadHours: number, resolution: "hourly" | "daily" = "hourly"): number {

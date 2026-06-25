@@ -35,6 +35,9 @@ Hours elapsed since run start. A value forecast 36 h into the future has lead ti
 **Available models**:
 The subset of registered models for which the single-runs API actually returned data for a given run date. Retention varies per model, so this is a runtime fact, not a static list.
 
+**Model family**:
+A lineage group of models that share a dynamical core, or are initialised from / trained on the same analysis, and therefore share systematic errors — they are not independent votes. Examples: the ICON variants (`icon_global`/`icon_eu`/`icon_d2`/`meteoswiss_icon`); the HARMONIE-AROME CAMs built on Météo-France's AROME; the UK Unified Model products (UKMO / BOM ACCESS / KMA); and each AI product grouped with the analysis it derives from (AIFS↔IFS; GraphCast / AI-GFS / GEFS-mean↔GFS). The **effective model count** discounts same-family siblings (the first member counts fully, each sibling adds `SIBLING_CREDIT`) and feeds the predictability model-count factor, so a cluster of relatives doesn't read as independent corroboration. Defined in `models.ts`; see ADR 0006.
+
 ### Aggregation
 
 **Aggregate**:
@@ -62,7 +65,7 @@ _Avoid_: spaghetti view, breakdown view (both used historically). "Spaghetti" sp
 ### Predictability
 
 **Predictability**:
-A 0..1 signal estimating how much to trust an aggregate value at a timestep, derived from inter-model **spread** (the agreement mechanism) normalised against typical spread, multiplied by a model-count factor. Computed per variable. Stored in code as `predictability` (renamed from `confidence`). When unqualified, refers to the per-variable primitive — see "Flagged ambiguities".
+A 0..1 signal estimating how much to trust an aggregate value at a timestep, derived from inter-model **spread** (the agreement mechanism) normalised against typical spread, multiplied by a model-count factor based on the _effective_ (lineage-discounted) number of contributing models — see **Model family**. Computed per variable. Stored in code as `predictability` (renamed from `confidence`). When unqualified, refers to the per-variable primitive — see "Flagged ambiguities".
 _Honesty note_: this is an **uncalibrated, agreement-based** estimate — a _poor man's predictability_. It has not been validated against verification, so it is neither a probability nor a verified spread-skill predictability (see ADR 0005). We adopt the word **predictability** to match the three-output frame and the direction of travel, and we mark the calibration gap explicitly rather than hide behind a vaguer word.
 _Avoid_: _confidence_ (the prior term — it reads as a probability of being correct, which this is not).
 
