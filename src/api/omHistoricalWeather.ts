@@ -4,6 +4,8 @@
 // We always request ERA5-Seamless as the truth source — see
 // docs/adr/0001-era5-seamless-as-sole-ground-truth.md.
 
+import { buildOpenMeteoUrl } from "./openMeteo";
+
 const HISTORICAL_WEATHER_URL = "https://archive-api.open-meteo.com/v1/archive";
 
 const TRUTH_MODEL_ID = "era5_seamless";
@@ -48,7 +50,7 @@ export async function fetchHistoricalWeather(req: HistoricalWeatherRequest, sign
     precipitation_unit: "mm",
   });
 
-  const url = `${HISTORICAL_WEATHER_URL}?${params}`;
+  const url = buildOpenMeteoUrl(HISTORICAL_WEATHER_URL, params);
   const res = await fetch(url, { signal });
   if (!res.ok) {
     const text = await res.text().catch(() => "");

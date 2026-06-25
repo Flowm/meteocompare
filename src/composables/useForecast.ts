@@ -9,6 +9,7 @@ import { overallPredictability } from "@/domain/predictability";
 import type { Variable } from "@/domain/weighting";
 
 import { useAbortableResource } from "./useAbortableResource";
+import { useApiKey } from "./useApiKey";
 import type { Location } from "./useLocation";
 import { useSettings } from "./useSettings";
 
@@ -82,6 +83,9 @@ export interface UseForecastReturn {
 
 export function useForecast(location: Ref<Location>): UseForecastReturn {
   const lastUpdated = ref<Date | null>(null);
+  // Switching the commercial API key on/off changes which host every request
+  // hits, so it's a fetch dependency — flipping it refetches the current view.
+  const { apiKey } = useApiKey();
 
   // When the user opts in, apply this location's trained weight multipliers to
   // the live aggregate (training page / ADR 0007). Off → undefined → the
@@ -103,7 +107,7 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
       lastUpdated.value = new Date();
       return data;
     },
-    () => [location.value.latitude, location.value.longitude],
+    () => [location.value.latitude, location.value.longitude, apiKey.value],
   );
 
   // The forecast SW cache uses StaleWhileRevalidate: the initial fetch resolves with

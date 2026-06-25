@@ -3,6 +3,8 @@
 
 import { MODEL_IDS } from "@/domain/models";
 
+import { buildOpenMeteoUrl } from "./openMeteo";
+
 const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 
 // open-meteo only derives precipitation_probability from ensemble members, so
@@ -90,7 +92,7 @@ export async function fetchForecast(req: ForecastRequest, signal?: AbortSignal):
     precipitation_unit: "mm",
   });
 
-  const url = `${FORECAST_URL}?${params}`;
+  const url = buildOpenMeteoUrl(FORECAST_URL, params);
   const res = await fetch(url, { signal });
   if (!res.ok) {
     const text = await res.text().catch(() => "");

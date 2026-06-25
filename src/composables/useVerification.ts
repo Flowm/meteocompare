@@ -11,6 +11,7 @@ import type { DailyVerification } from "@/domain/verification";
 import { addDaysIso } from "@/utils/date";
 
 import { useAbortableResource } from "./useAbortableResource";
+import { useApiKey } from "./useApiKey";
 import type { Location } from "./useLocation";
 import { useSettings } from "./useSettings";
 
@@ -41,7 +42,9 @@ export interface UseVerificationReturn {
 
 export function useVerification(location: Ref<Location>, runDate: Ref<string>, runCycle: Ref<number>): UseVerificationReturn {
   const { useTrainedWeights } = useSettings();
-
+  // The commercial API key switches which host both requests hit, so it joins
+  // location + runDate as a fetch dependency (flipping it refetches the run).
+  const { apiKey } = useApiKey();
   // The runs + truth pair is fetched together (so a superseded date/location
   // change aborts both); the helper owns the abort + superseded-loading guard.
   const { data, loading, error, refresh } = useAbortableResource(
@@ -55,7 +58,7 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>, r
       ]);
       return { runs, truth };
     },
-    () => [location.value.latitude, location.value.longitude, runDate.value, runCycle.value],
+    () => [location.value.latitude, location.value.longitude, runDate.value, runCycle.value, apiKey.value],
   );
 
   // All scoring lives in the framework-free analysis layer now; the composable

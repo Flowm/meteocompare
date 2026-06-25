@@ -44,7 +44,7 @@ const forecastBroadcastPlugin: WorkboxPlugin = {
 // Forecast: serve stale immediately, revalidate in background, broadcast when
 // current.time changes.
 registerRoute(
-  /^https:\/\/api\.open-meteo\.com\/.*/i,
+  /^https:\/\/(?:customer-)?api\.open-meteo\.com\/.*/i,
   new StaleWhileRevalidate({
     cacheName: "open-meteo-forecast",
     plugins: [forecastBroadcastPlugin, new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 60 * 15 }), new CacheableResponsePlugin({ statuses: [0, 200] })],
@@ -53,7 +53,7 @@ registerRoute(
 
 // Geocoding: network-first with 5 s timeout.
 registerRoute(
-  /^https:\/\/geocoding-api\.open-meteo\.com\/.*/i,
+  /^https:\/\/(?:customer-)?geocoding-api\.open-meteo\.com\/.*/i,
   new NetworkFirst({
     cacheName: "open-meteo-geocoding",
     networkTimeoutSeconds: 5,
@@ -65,7 +65,7 @@ registerRoute(
 // past dates, so a long-TTL cache-first is the right call. The endpoint is on
 // a distinct subdomain from /v1/forecast.
 registerRoute(
-  /^https:\/\/single-runs-api\.open-meteo\.com\/.*/i,
+  /^https:\/\/(?:customer-)?single-runs-api\.open-meteo\.com\/.*/i,
   new CacheFirst({
     cacheName: "open-meteo-single-runs",
     plugins: [new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 }), new CacheableResponsePlugin({ statuses: [0, 200] })],
@@ -75,7 +75,7 @@ registerRoute(
 // Historical weather (ERA5-Seamless truth): also effectively immutable for
 // past dates. Same cache-first strategy.
 registerRoute(
-  /^https:\/\/archive-api\.open-meteo\.com\/.*/i,
+  /^https:\/\/(?:customer-)?archive-api\.open-meteo\.com\/.*/i,
   new CacheFirst({
     cacheName: "open-meteo-historical-weather",
     plugins: [new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 }), new CacheableResponsePlugin({ statuses: [0, 200] })],

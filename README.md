@@ -2,7 +2,7 @@
 
 Multi-model weather forecast comparison with a weighted aggregate and a per-timestep predictability signal.
 
-Frontend-only (Vue 3 + Vite). Forecasts come straight from [open-meteo.com](https://open-meteo.com) — no MeteoCompare backend, no API key.
+Frontend-only (Vue 3 + Vite). Forecasts come straight from [open-meteo.com](https://open-meteo.com) — no MeteoCompare backend, no API key required.
 
 ## Features
 
@@ -13,6 +13,7 @@ Frontend-only (Vue 3 + Vite). Forecasts come straight from [open-meteo.com](http
 - **Window toggle** — 24 h / 3 d / 7 d on both charts.
 - **Locations** — open-meteo geocoding search, browser geolocation, URL-shareable state, favourites and recent-search in localStorage.
 - **Units** — °C ⇄ °F, mm ⇄ in, km/h ⇄ mph; persisted.
+- **Commercial API key** (optional) — paste an open-meteo key in Settings to route all requests (forecast, single-runs, archive, geocoding) through the paid `customer-*.open-meteo.com` endpoints; stored in localStorage, cleared with one button. Empty = free tier.
 
 ## How the aggregation works
 
@@ -121,7 +122,7 @@ The badge maps the result to one of three tiers — high (≥70 %, emerald), mid
 
 The **domain layer** is pure TS, unit-tested with Vitest. The UI sits on top of it via the
 composables. There is no global store — the URL is the source of truth for the location, and
-localStorage holds units, favourites, and recent searches.
+localStorage holds units, favourites, recent searches, and the optional open-meteo API key.
 
 ## Develop
 
