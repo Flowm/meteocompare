@@ -15,12 +15,16 @@ const props = defineProps<{
 const { prefs } = useUnits();
 
 const hasRows = computed(() => props.rows.length > 0);
+// When a tuned aggregate is shown too, qualify both so neither claims the bare
+// "Aggregate" — which elsewhere (chart, forecast page) means the active weighting.
+const hasTuned = computed(() => props.rows.some((r) => r.id === AGGREGATE_TUNED_ROW_ID));
 
 const tempUnit = computed(() => unitLabel("temperature_2m", prefs.value));
 const precipUnit = computed(() => unitLabel("precipitation", prefs.value));
 const unitOf = (kind: "temp" | "precip"): string => (kind === "temp" ? tempUnit.value : precipUnit.value);
 
-const label = (id: string): string => (id === AGGREGATE_ROW_ID ? "Aggregate" : id === AGGREGATE_TUNED_ROW_ID ? "Aggregate (tuned)" : (getModel(id)?.label ?? id));
+const label = (id: string): string =>
+  id === AGGREGATE_ROW_ID ? (hasTuned.value ? "Aggregate (default)" : "Aggregate") : id === AGGREGATE_TUNED_ROW_ID ? "Aggregate (tuned)" : (getModel(id)?.label ?? id);
 const accent = (row: ScorecardRow): string => (row.isAggregate ? AGG_COLOR : paletteFor(row.id));
 
 const fmtComposite = (c: number): string => (Number.isFinite(c) ? String(Math.round(c)) : "—");

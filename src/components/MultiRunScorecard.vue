@@ -16,11 +16,13 @@ const props = defineProps<{
 const { prefs } = useUnits();
 
 const hasRows = computed(() => props.stats.length > 0);
+const hasTuned = computed(() => props.stats.some((s) => s.id === AGGREGATE_TUNED_ROW_ID));
 const tempUnit = computed(() => unitLabel("temperature_2m", prefs.value));
 const precipUnit = computed(() => unitLabel("precipitation", prefs.value));
 const bandLabels = LEAD_BANDS.map((b) => b.label);
 
-const label = (id: string): string => (id === AGGREGATE_ROW_ID ? "Aggregate" : id === AGGREGATE_TUNED_ROW_ID ? "Aggregate (tuned)" : (getModel(id)?.label ?? id));
+const label = (id: string): string =>
+  id === AGGREGATE_ROW_ID ? (hasTuned.value ? "Aggregate (default)" : "Aggregate") : id === AGGREGATE_TUNED_ROW_ID ? "Aggregate (tuned)" : (getModel(id)?.label ?? id);
 const accent = (s: ModelSampleStats): string => (s.isAggregate ? AGG_COLOR : paletteFor(s.id));
 
 const fmtScore = (c: number): string => (Number.isFinite(c) ? String(Math.round(c)) : "—");
