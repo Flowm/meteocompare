@@ -134,6 +134,19 @@ A coarse lead-hour bucket (0–48 h / 48–96 h / 96–168 h) the scorecard scor
 **Coverage**:
 The hours a model actually returned data for within the window — a runtime fact (retention varies per model and run date). Sub-full-coverage models are flagged `*` and still ranked; their empty lead bands show the gap. Distinct from **Available models**, which is the binary did-it-return-anything set.
 
+### Training
+
+**Trained weights**:
+Per-model weight **multipliers** fitted on top of the heuristic weighting from a location's stored verification sample (ADR 0007), persisted on-device and applied to the aggregate only when the user opts in via the settings toggle. A multiplier of 1 leaves the heuristic unchanged. **Training** is the act of fitting; **trained weights** are the stored result. The per-model scorecard scores these as the **Aggregate (tuned)** row.
+_Avoid_: _training weights_ (blurs the act and the result); _tuned weights_ as a separate concept (it is the same thing — "tuned" survives only in the scorecard's **Aggregate (tuned)** row label).
+
+**Training location**:
+The gridded location whose stored sample a fit was computed from — and the center of any **reach**. The training page is scoped to one training location at a time; the trained-weights overview at the bottom lists every training location stored on the device.
+
+**Reach** (or **reach radius**):
+The distance around a **training location** within which its **trained weights** also apply to other locations. Uniform within the radius, hard cutoff at the edge — no distance falloff. The default is _this point only_ (no reach: the weights apply solely to the training location's own grid cell). Resolution precedence when several sources could apply: a location's own exact-cell fit always wins; otherwise the nearest training location whose reach covers the point.
+_Avoid_: **coverage** (taken — it means temporal data availability, see "Coverage") and **region** (taken — a model's structural-advantage box, see "Home region") for this spatial concept; reserve **reach** for it.
+
 ## Flagged ambiguities
 
 **"Predictability" / "probability" / "agreement".**
