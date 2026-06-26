@@ -202,19 +202,36 @@ function jumpTo(row: { name: string; detail?: string; latitude?: number; longitu
                 <!-- Train/validation summary -->
                 <div class="border-ink-700 bg-ink-700/60 grid grid-cols-2 gap-px border sm:grid-cols-4">
                   <div class="bg-ink-900 p-3">
-                    <p class="text-paper-500 font-mono text-[10px] tracking-wide">Train / val runs</p>
+                    <p
+                      title="Stored runs are split by date: older runs fit the weights, the most recent are held out to validate them."
+                      class="text-paper-500 font-mono text-[10px] tracking-wide"
+                    >
+                      Train / val runs
+                    </p>
                     <p class="text-paper-100 mt-1 font-mono text-sm tabular-nums">{{ result.nTrain }} / {{ result.nVal }}</p>
                   </div>
                   <div class="bg-ink-900 p-3">
-                    <p class="text-paper-500 font-mono text-[10px] tracking-wide">Heuristic (val)</p>
+                    <p
+                      title="Composite score (0–100) of the default heuristic aggregate on the held-out validation runs."
+                      class="text-paper-500 font-mono text-[10px] tracking-wide"
+                    >
+                      Heuristic (val)
+                    </p>
                     <p class="text-paper-100 mt-1 font-mono text-sm tabular-nums">{{ fmt1(result.valBaselineComposite) }}</p>
                   </div>
                   <div class="bg-ink-900 p-3">
-                    <p class="text-paper-500 font-mono text-[10px] tracking-wide">Trained (val)</p>
+                    <p title="Composite score (0–100) of the trained aggregate on the same held-out validation runs." class="text-paper-500 font-mono text-[10px] tracking-wide">
+                      Trained (val)
+                    </p>
                     <p class="text-paper-100 mt-1 font-mono text-sm tabular-nums">{{ fmt1(result.valComposite) }}</p>
                   </div>
                   <div class="bg-ink-900 p-3">
-                    <p class="text-paper-500 font-mono text-[10px] tracking-wide">Improvement</p>
+                    <p
+                      title="Trained minus heuristic composite on the validation runs — positive means the fit helped out-of-sample."
+                      class="text-paper-500 font-mono text-[10px] tracking-wide"
+                    >
+                      Improvement
+                    </p>
                     <p class="mt-1 font-mono text-sm tabular-nums" :class="result.improvement > 0 ? 'text-predictability-high' : 'text-heat-300'">
                       {{ result.improvement >= 0 ? "+" : "" }}{{ fmt1(result.improvement) }}
                     </p>
@@ -320,7 +337,7 @@ function jumpTo(row: { name: string; detail?: string; latitude?: number; longitu
             <tbody>
               <tr v-for="row in overview" :key="row.key" :class="row.isCurrent ? 'bg-sodium-300/5' : ''">
                 <th scope="row" class="border-ink-700/40 border-b px-3 py-1.5 text-left font-normal">
-                  <button v-if="row.latitude != null" type="button" class="text-paper-200 hover:text-sodium-200 text-left transition-colors" @click="jumpTo(row)">
+                  <button v-if="row.latitude != null" type="button" class="text-paper-200 hover:text-sodium-200 cursor-pointer text-left transition-colors" @click="jumpTo(row)">
                     {{ row.name }}<span v-if="row.detail" class="text-paper-500">, {{ row.detail }}</span>
                   </button>
                   <span v-else class="text-paper-300">{{ row.name }}</span>
