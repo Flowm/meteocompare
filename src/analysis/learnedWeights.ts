@@ -12,6 +12,7 @@ import { modelWeight } from "@/domain/weighting";
 
 import type { RunEvaluation } from "./runEvaluation";
 import type { LocationSample } from "./sample";
+import { runKey } from "./sampleStore";
 
 // Tunables.
 export const MIN_TRAIN_RUNS = 8;
@@ -116,8 +117,6 @@ function meanComposite(panels: readonly RunPanel[], m: Record<string, number>): 
   }
   return n ? sum / n : NaN;
 }
-
-const runKey = (r: RunEvaluation): string => `${r.runDate}T${String(r.runHour).padStart(2, "0")}`;
 
 /** Fit per-model multipliers for a location's stored sample. */
 export function fitWeights(sample: LocationSample): FitResult {
