@@ -9,7 +9,7 @@
 // docs/adr/0004-per-model-composite-score.md.
 
 import { aggregateValue, type AggregatePoint } from "./aggregate";
-import { bias, classifyHours, coveredPrecipSums, mae, timingScore, type HourClassification } from "./verification";
+import { bias, classifyHours, coveredPrecipSums, HOURS_PER_DAY, mae, timingScore, type HourClassification } from "./verification";
 
 // ---------------------------------------------------------------------------
 // Fixed reference scales + weights (tunable — see ADR 0004)
@@ -30,8 +30,6 @@ export const AMOUNT_REF_BAD_PER_DAY = 5;
 export const COMPOSITE_WEIGHTS = { tempMae: 1 / 3, amountError: 1 / 3, timingScore: 1 / 3 } as const;
 
 const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
-
-const HOURS_PER_DAY = 24;
 
 // ---------------------------------------------------------------------------
 // Lead-time bands
