@@ -1,5 +1,6 @@
 import type { AggregatePoint } from "./aggregate";
 import { effectiveModelCount } from "./models";
+import { clamp01 } from "./num";
 import { severitySlug } from "./weatherCodes";
 import type { Variable } from "./weighting";
 
@@ -28,8 +29,6 @@ function typicalSpread(variable: Variable, leadHours: number, resolution: "hourl
       return 1; // unused — weather_code uses agreement, not spread
   }
 }
-
-const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
 /** Penalises forecasts built from fewer than ~3 *independent* contributing
  *  models, using the effective (lineage-discounted) count so a cluster of

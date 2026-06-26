@@ -15,7 +15,10 @@ export function sampleKey(lat: number, lon: number): string {
   return `${snap(lat)},${snap(lon)}`;
 }
 
-const runKey = (r: RunEvaluation): string => `${r.runDate}T${String(r.runHour).padStart(2, "0")}`;
+/** A run's identity: ISO run date + zero-padded cycle hour (e.g. `2025-09-01T06`).
+ *  The single source of this convention — sample merging and the trainer's
+ *  train/val split both order runs by it. */
+export const runKey = (r: RunEvaluation): string => `${r.runDate}T${String(r.runHour).padStart(2, "0")}`;
 
 /** Merge incoming runs into existing, de-duplicated by run identity (date +
  *  cycle); incoming wins on conflict. Sorted newest run first. */

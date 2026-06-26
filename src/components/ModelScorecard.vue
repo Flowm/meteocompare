@@ -4,6 +4,7 @@ import { computed, ref } from "vue";
 import { convertDelta, convertVar, signed, unitLabel, useUnits } from "@/composables/useUnits";
 import { getModel } from "@/domain/models";
 import { AGGREGATE_ROW_ID, AGGREGATE_TUNED_ROW_ID, LEAD_BANDS, type ScorecardRow } from "@/domain/scorecard";
+import { HOURS_PER_DAY } from "@/domain/verification";
 
 import { AGG_COLOR, paletteFor } from "./chartOption";
 
@@ -50,7 +51,6 @@ const fmtAmount = (v: number): string => {
 const fmtTiming = (v: number): string => (Number.isFinite(v) ? `${Math.round(v * 100)}%` : "—");
 const fmtCoverage = (row: ScorecardRow): string => `${row.coveredHours}h`;
 
-const HOURS_PER_DAY = 24;
 /** Coverage colour by how much of the 7-day window the model scored: under
  *  4 days is red (too little to read much into the row), under the full 7 days
  *  is amber, full coverage is muted. */
