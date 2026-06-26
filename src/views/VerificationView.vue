@@ -26,7 +26,7 @@ const VERIFY_VARIABLES: ChartViewId[] = ["temperature_2m", "precipitation"];
 
 const route = useRoute();
 const router = useRouter();
-const { current } = useLocation();
+const { current, label: locationLabel } = useLocation();
 
 // Date bounds (see ADR 0001 + grilling notes):
 // - max = today − 12 days: ERA5-Seamless ~5-day lag + 7-day forward window
@@ -93,11 +93,6 @@ function runGather(): void {
 function runStore(): void {
   void store();
 }
-
-const locationLabel = computed(() => {
-  const loc = current.value;
-  return loc.detail ? `${loc.name}, ${loc.detail}` : loc.name;
-});
 
 const missingModelCount = computed(() => MODELS.length - availableModels.value.length);
 </script>

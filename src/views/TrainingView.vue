@@ -15,7 +15,7 @@ import { useLocation } from "@/composables/useLocation";
 import { useSettings } from "@/composables/useSettings";
 import { getModel } from "@/domain/models";
 
-const { current, setLocation } = useLocation();
+const { current, label: locationLabel, setLocation } = useLocation();
 const { useTrainedWeights } = useSettings();
 
 const MIN_RUNS = MIN_TRAIN_RUNS + MIN_VAL_RUNS;
@@ -27,10 +27,6 @@ const training = ref(false);
 const justSaved = ref(false);
 const entries = ref<WeightEntry[]>([]);
 
-const locationLabel = computed(() => {
-  const loc = current.value;
-  return loc.detail ? `${loc.name}, ${loc.detail}` : loc.name;
-});
 const runCount = computed(() => sample.value?.runs.length ?? 0);
 const currentKey = computed(() => sampleKey(current.value.latitude, current.value.longitude));
 

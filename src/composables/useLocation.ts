@@ -87,14 +87,24 @@ export function useLocation() {
     { immediate: true },
   );
 
+  /** The current location's display label — `"Name, Detail"` (or bare name). */
+  const label = computed(() => locationLabel(current.value));
+
   return {
     current: current as Readonly<Ref<Location>>,
+    label,
     favourites,
     recent,
     setLocation,
     isFavourite,
     toggleFavourite,
   };
+}
+
+/** A location's display label: `"Name, Detail"`, or the bare name when it has
+ *  no admin detail. The single home of the join the views share. */
+export function locationLabel(loc: Location): string {
+  return loc.detail ? `${loc.name}, ${loc.detail}` : loc.name;
 }
 
 export function sameLocation(a: Location, b: Location): boolean {

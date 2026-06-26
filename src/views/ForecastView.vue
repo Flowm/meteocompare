@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { computed } from "vue";
-
 import AppFooter from "@/components/AppFooter.vue";
 import { type ChartViewId } from "@/components/chartHelpers";
 import CollapsibleSection from "@/components/CollapsibleSection.vue";
@@ -14,7 +12,7 @@ import WindyMap from "@/components/WindyMap.vue";
 import { useForecast } from "@/composables/useForecast";
 import { useLocation } from "@/composables/useLocation";
 
-const { current } = useLocation();
+const { current, label: locationLabel } = useLocation();
 const { loading, error, raw, hourly, daily, solar } = useForecast(current);
 
 // Full variable set: the composite Temp+Precip overview plus the five
@@ -23,11 +21,6 @@ const { loading, error, raw, hourly, daily, solar } = useForecast(current);
 // composite "Temp + Precip" view is the default but no longer a standalone
 // button — see HourlySeriesChart's variable toggle logic.
 const FORECAST_VARIABLES: ChartViewId[] = ["temperature_2m", "precipitation", "precipitation_probability", "wind_speed_10m", "cloud_cover"];
-
-const locationLabel = computed(() => {
-  const loc = current.value;
-  return loc.detail ? `${loc.name}, ${loc.detail}` : loc.name;
-});
 </script>
 
 <template>
