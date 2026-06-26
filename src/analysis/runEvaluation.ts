@@ -9,10 +9,18 @@
 import { extractHourly as extractTruthHourly, type HistoricalWeatherResponse } from "@/api/omHistoricalWeather";
 import { extractDailyByModel, extractHourlyByModel, type SingleRunsResponse } from "@/api/omSingleRuns";
 import type { DataVarId, HourlySeries } from "@/composables/hourlySeries";
-import { aggregateVariables } from "@/domain/aggregateVariables";
+import { aggregateVariables, type VarSpec } from "@/domain/aggregateVariables";
 import { MODEL_IDS, MODELS, type ModelDef } from "@/domain/models";
 import { buildModelScorecard, type ScorecardRow } from "@/domain/scorecard";
 import { buildDailyVerification, type DailyVerification } from "@/domain/verification";
+
+/** The two variables the verification path aggregates + scores — temperature and
+ *  precipitation, the only ones ERA5-Seamless provides truth for (ADR 0001).
+ *  Shared by the default and tuned aggregation passes below. */
+const VERIFY_VARS = [
+  { key: "temperature_2m", family: "temperature_2m" },
+  { key: "precipitation", family: "precipitation" },
+] as const satisfies readonly VarSpec[];
 
 /** Conforms to the unified chart contract (HourlySeries) — temperature and
  *  precipitation only, the two variables we currently verify. ERA5-Seamless
@@ -72,10 +80,7 @@ export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tuned
   const { aggregate, predictability } = aggregateVariables({
     times,
     perModel,
-    vars: [
-      { key: "temperature_2m", family: "temperature_2m" },
-      { key: "precipitation", family: "precipitation" },
-    ],
+    vars: VERIFY_VARS,
     models: MODELS,
     lat,
     lon,
@@ -92,10 +97,7 @@ export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tuned
     ? aggregateVariables({
         times,
         perModel,
-        vars: [
-          { key: "temperature_2m", family: "temperature_2m" },
-          { key: "precipitation", family: "precipitation" },
-        ],
+        vars: VERIFY_VARS,
         models: MODELS,
         lat,
         lon,
