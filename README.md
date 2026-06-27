@@ -127,33 +127,33 @@ localStorage holds units, favourites, recent searches, and the optional open-met
 ## Develop
 
 ```bash
-mise install         # provision Node + prek (see mise.toml); or use your own Node 24
+mise install         # provision Node 24 + pnpm 11 + prek (see mise.toml); or bring your own
 mise run setup       # install the git hooks (one-time; runs `prek install`)
 
-npm install
-npm run dev          # http://localhost:5173
+pnpm install
+pnpm dev             # http://localhost:5173
 ```
 
-[mise](https://mise.jdx.dev) pins the toolchain (Node 24, matching CI). Git hooks are run by
+[mise](https://mise.jdx.dev) pins the toolchain (Node 24 + pnpm 11, matching CI). Git hooks are run by
 [prek](https://prek.j178.dev), a pre-commit-compatible runner — on every **commit**,
 `.pre-commit-config.yaml` auto-fixes with oxlint/oxfmt and runs the type-check + tests, the same gate
-as CI. mise is optional: any Node 24 works, but you'll then install prek yourself to get the hooks.
+as CI. mise is optional: any Node 24 + pnpm 11 works, but you'll then install prek yourself to get the hooks.
 
 ### Scripts
 
 ```bash
-npm run dev          # Vite dev server
-npm run build        # type-check + production build to ./dist
-npm run preview      # serve ./dist locally
+pnpm dev             # Vite dev server
+pnpm build           # type-check + production build to ./dist
+pnpm preview         # serve ./dist locally
 
-npm test             # Vitest unit tests
-npm run test:watch   # interactive
+pnpm test            # Vitest unit tests
+pnpm test:watch      # interactive
 
-npm run lint         # oxlint + oxfmt --check + vue-tsc (CI gate)
-npm run lint:fix     # oxlint --fix + oxfmt --write (local autofix)
+pnpm lint            # oxlint + oxfmt --check + vue-tsc (CI gate)
+pnpm lint:fix        # oxlint --fix + oxfmt --write (local autofix)
 
-npm run deploy       # build + wrangler deploy (Cloudflare Workers)
-npm run deploy:preview  # build + upload a preview version aliased to the current commit
+pnpm deploy          # build + wrangler deploy (Cloudflare Workers)
+pnpm deploy:preview  # build + upload a preview version aliased to the current commit
 ```
 
 The lint script is the single quality gate — it runs the linter, asserts formatting, and type-checks in one command.
@@ -167,14 +167,14 @@ The app is shipped as static assets via Cloudflare Workers. Configuration lives 
 
 ```bash
 npx wrangler login   # one-time
-npm run deploy
+pnpm deploy
 ```
 
 Pushes to `main` deploy to production automatically via the `deploy` job in CI.
 
 ### PR previews
 
-Every pull request gets its own preview deployment. The `preview` job in CI uploads a new Worker version with `wrangler versions upload` (without promoting it to production), aliased to the first 8 chars of the head commit, and posts a sticky comment with the URL — `<sha>-meteocompare.<subdomain>.workers.dev`. The alias is derived from the commit, so `npm run deploy:preview` mints the same URL from your machine.
+Every pull request gets its own preview deployment. The `preview` job in CI uploads a new Worker version with `wrangler versions upload` (without promoting it to production), aliased to the first 8 chars of the head commit, and posts a sticky comment with the URL — `<sha>-meteocompare.<subdomain>.workers.dev`. The alias is derived from the commit, so `pnpm deploy:preview` mints the same URL from your machine.
 
 Requirements (one-time):
 
