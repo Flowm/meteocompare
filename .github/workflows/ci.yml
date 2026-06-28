@@ -54,32 +54,28 @@ jobs:
       - id: meta
         env:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          echo "sha=${HEAD_SHA:0:8}" >> "$GITHUB_OUTPUT"
-          echo "alias=preview-${HEAD_SHA:0:8}" >> "$GITHUB_OUTPUT"
+        run: echo "sha=${HEAD_SHA:0:8}" >> "$GITHUB_OUTPUT"
       # Upload a new Worker version without promoting it to production. The
-      # --preview-alias mints a stable URL (<sha>-meteocompare.<subdomain>.workers.dev).
+      # --preview-alias mints a stable URL (preview-<sha>-meteocompare.<subdomain>.workers.dev).
       - id: preview
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           packageManager: pnpm
-          command: versions upload --preview-alias ${{ steps.meta.outputs.alias }}
+          command: versions upload --preview-alias preview-${{ steps.meta.outputs.sha }}
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           PREVIEW_URL: ${{ steps.preview.outputs.deployment-url }}
-          ALIAS: ${{ steps.meta.outputs.alias }}
           SHA: ${{ steps.meta.outputs.sha }}
         with:
           script: |
             const marker = '<!-- meteocompare-preview -->';
             // wrangler-action returns the per-version URL (https://<8-hex>-<worker>.<sub>.workers.dev);
             // swap the version prefix for our commit alias to get the URL deploy:preview reproduces.
-            const versionUrl = process.env.PREVIEW_URL;
-            const alias = process.env.ALIAS;
             const sha = process.env.SHA;
-            const aliasUrl = versionUrl && alias
-              ? versionUrl.replace(/^https:\/\/[0-9a-f]{8}-/, `https://${alias}-`)
+            const versionUrl = process.env.PREVIEW_URL;
+            const aliasUrl = versionUrl
+              ? versionUrl.replace(/^https:\/\/[0-9a-f]{8}-/, `https://preview-${sha}-`)
               : '';
             const body = [
               marker,
