@@ -46,11 +46,11 @@ function idbAvailable(): boolean {
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = () => {
+    req.addEventListener("upgradeneeded", () => {
       if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE, { keyPath: "key" });
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error ?? new Error("indexedDB open failed"));
+    });
+    req.addEventListener("success", () => resolve(req.result));
+    req.addEventListener("error", () => reject(req.error ?? new Error("indexedDB open failed")));
   });
 }
 
@@ -61,8 +61,8 @@ export async function loadSample(key: string): Promise<LocationSample | null> {
   try {
     return await new Promise<LocationSample | null>((resolve, reject) => {
       const req = db.transaction(STORE, "readonly").objectStore(STORE).get(key);
-      req.onsuccess = () => resolve((req.result as StoredRecord | undefined)?.sample ?? null);
-      req.onerror = () => reject(req.error ?? new Error("indexedDB get failed"));
+      req.addEventListener("success", () => resolve((req.result as StoredRecord | undefined)?.sample ?? null));
+      req.addEventListener("error", () => reject(req.error ?? new Error("indexedDB get failed")));
     });
   } finally {
     db.close();
@@ -78,8 +78,8 @@ export async function saveSample(key: string, sample: LocationSample): Promise<v
       const tx = db.transaction(STORE, "readwrite");
       const record: StoredRecord = { key, sample };
       tx.objectStore(STORE).put(record);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error ?? new Error("indexedDB put failed"));
+      tx.addEventListener("complete", () => resolve());
+      tx.addEventListener("error", () => reject(tx.error ?? new Error("indexedDB put failed")));
     });
   } finally {
     db.close();
@@ -93,8 +93,8 @@ export async function listSamples(): Promise<LocationSample[]> {
   try {
     return await new Promise<LocationSample[]>((resolve, reject) => {
       const req = db.transaction(STORE, "readonly").objectStore(STORE).getAll();
-      req.onsuccess = () => resolve((req.result as StoredRecord[]).map((r) => r.sample));
-      req.onerror = () => reject(req.error ?? new Error("indexedDB getAll failed"));
+      req.addEventListener("success", () => resolve((req.result as StoredRecord[]).map((r) => r.sample)));
+      req.addEventListener("error", () => reject(req.error ?? new Error("indexedDB getAll failed")));
     });
   } finally {
     db.close();
