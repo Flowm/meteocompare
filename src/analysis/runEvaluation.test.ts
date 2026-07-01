@@ -18,11 +18,6 @@ const runs = {
     temperature_2m_gfs_seamless: flat(12),
     precipitation_gfs_seamless: flat(0),
   },
-  daily: {
-    time: ["2026-05-20"],
-    weather_code_ecmwf_ifs: [3],
-    weather_code_gfs_seamless: [3],
-  },
 } as unknown as SingleRunsResponse;
 
 const truth = {
@@ -34,7 +29,7 @@ const truth = {
 } as unknown as HistoricalWeatherResponse;
 
 describe("evaluateRun", () => {
-  it("wires runs + truth into hourly, daily, scorecard, weather codes and availability", () => {
+  it("wires runs + truth into hourly, daily, scorecard and availability", () => {
     const ev = evaluateRun({ runs, truth, lat: 48, lon: 11, runDate: "2026-05-20" });
     expect(ev).not.toBeNull();
     if (!ev) return;
@@ -47,11 +42,10 @@ describe("evaluateRun", () => {
     // Two per-model rows plus the aggregate ranked inline.
     expect(ev.scorecard.length).toBeGreaterThanOrEqual(2);
     expect(ev.availableModels.map((m) => m.id).toSorted()).toEqual(["ecmwf_ifs", "gfs_seamless"]);
-    expect(ev.weatherCodes).toHaveLength(1);
   });
 
   it("returns null when the run carried no hours", () => {
-    const empty = { hourly: { time: [] }, daily: { time: [] } } as unknown as SingleRunsResponse;
+    const empty = { hourly: { time: [] } } as unknown as SingleRunsResponse;
     expect(evaluateRun({ runs: empty, truth, lat: 48, lon: 11, runDate: "2026-05-20" })).toBeNull();
   });
 

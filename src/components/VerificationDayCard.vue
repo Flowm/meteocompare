@@ -6,13 +6,9 @@ import type { DailyVerification } from "@/domain/verification";
 
 import HitMissStrip from "./HitMissStrip.vue";
 import PredictabilityBadge from "./PredictabilityBadge.vue";
-import WeatherIcon from "./WeatherIcon.vue";
 
 const props = defineProps<{
   day: DailyVerification;
-  /** Aggregate weather_code for this day (icon only, no scoring — see CONTEXT.md
-   *  "Weather code on truth"). Optional: omit to skip the icon entirely. */
-  weatherCode?: number;
 }>();
 
 const { formatTemp, formatPrecip } = useUnits();
@@ -44,15 +40,12 @@ const leadLabel = computed(() => `Day ${props.day.dayIndex} · ${props.day.leadH
       <div class="space-y-1.5 font-mono text-sm tabular-nums">
         <div v-if="day.aggregate.temperature" class="flex items-center gap-2">
           <span class="text-aggregate-400 w-16 text-[10px] tracking-wide">Forecast</span>
-          <WeatherIcon v-if="weatherCode != null" :code="weatherCode" size="1.25rem" />
-          <span v-else class="text-paper-500 inline-flex size-5 items-center justify-center text-xs">·</span>
           <span class="text-heat-300">{{ formatTemp(day.aggregate.temperature.forecastMax, 0) }}</span>
           <span class="text-cold-300">{{ formatTemp(day.aggregate.temperature.forecastMin, 0) }}</span>
           <span class="text-rain-300 ml-auto">{{ day.aggregate.precipitation ? formatPrecip(day.aggregate.precipitation.forecastSum, 1) : "—" }}</span>
         </div>
         <div v-if="day.aggregate.temperature" class="flex items-center gap-2">
           <span class="text-truth-400 w-16 text-[10px] tracking-wide">Truth</span>
-          <span class="text-paper-500 inline-flex size-5 items-center justify-center text-xs">—</span>
           <span class="text-heat-300/70">{{ formatTemp(day.aggregate.temperature.truthMax, 0) }}</span>
           <span class="text-cold-300/70">{{ formatTemp(day.aggregate.temperature.truthMin, 0) }}</span>
           <span class="text-rain-300/70 ml-auto">{{ day.aggregate.precipitation ? formatPrecip(day.aggregate.precipitation.truthSum, 1) : "—" }}</span>

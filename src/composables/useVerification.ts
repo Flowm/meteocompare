@@ -2,8 +2,7 @@ import { computed, type Ref } from "vue";
 
 import { loadWeights } from "@/analysis/learnedWeightsStore";
 import { evaluateRun, type RunEvaluation, type VerificationHourly } from "@/analysis/runEvaluation";
-import { solarFrom } from "@/api/omForecast";
-import { fetchHistoricalWeather } from "@/api/omHistoricalWeather";
+import { extractSolar, fetchHistoricalWeather } from "@/api/omHistoricalWeather";
 import { fetchSingleRuns } from "@/api/omSingleRuns";
 import type { ModelDef } from "@/domain/models";
 import type { ScorecardRow } from "@/domain/scorecard";
@@ -28,10 +27,6 @@ export interface UseVerificationReturn {
    *  The per-model lens of the verification page — see CONTEXT.md "Per-model
    *  scorecard". Distinct from `daily`, which scores only the aggregate per day. */
   scorecard: Ref<ScorecardRow[] | null>;
-  /** Per-day aggregate WMO weather codes, indexed by dayIndex. Used purely for
-   *  the forecast-row icon on each card; never scored against truth (CONTEXT.md
-   *  flags this — ERA5-Seamless has no weather_code). */
-  weatherCodes: Ref<number[]>;
   /** Subset of MODELS that returned non-null data (temp or precip) for this run date. */
   availableModels: Ref<ModelDef[]>;
   /** Sunrise/sunset (astronomical, location-local) for the chart's day/night
@@ -87,9 +82,10 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>, r
   const hourly = computed<VerificationHourly | null>(() => evaluation.value?.hourly ?? null);
   const daily = computed<DailyVerification[] | null>(() => evaluation.value?.daily ?? null);
   const scorecard = computed<ScorecardRow[] | null>(() => evaluation.value?.scorecard ?? null);
-  const weatherCodes = computed<number[]>(() => evaluation.value?.weatherCodes ?? []);
   const availableModels = computed<ModelDef[]>(() => evaluation.value?.availableModels ?? []);
-  const solar = computed(() => solarFrom(data.value?.runs ?? null));
+  // Sunrise/sunset ride along on the truth (archive) response — single-runs
+  // can't serve daily solar under our run-cycle timezone (see omSingleRuns).
+  const solar = computed(() => (data.value?.truth ? extractSolar(data.value.truth) : null));
 
-  return { loading, error, hourly, daily, scorecard, weatherCodes, availableModels, solar, refresh };
+  return { loading, error, hourly, daily, scorecard, availableModels, solar, refresh };
 }

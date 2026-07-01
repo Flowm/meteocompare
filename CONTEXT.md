@@ -107,7 +107,7 @@ Per-hour categorical outcomes for precipitation, with a ±1 h timing tolerance:
 - **Correct dry** — both dry.
 
 **Weather code on truth**:
-Not provided. ERA5-Seamless has no WMO weather code, so the verification page shows the forecast aggregate's weather icon but no truth-side icon. Deliberately not derived from precipitation + cloud + temperature — that would score the forecast against our own derivation rule, not against truth.
+Not provided. ERA5-Seamless has no WMO weather code, so the verification page shows no truth-side icon. The forecast-side icon was dropped too: it needed the single-runs `daily=` block, whose aggregation requires the run to start at 00:00 in the requested timezone — unsatisfiable for our UTC run cycles (00/06/12/18Z) at a location-local timezone. A code was also deliberately never derived from precipitation + cloud + temperature — that would score the forecast against our own derivation rule, not against truth.
 
 **Timing score**:
 The "did rain fall at roughly the right time, without crying wolf?" score, as the **Critical Success Index** (threat score) `hits / (hits + misses + false_alarms)` — so it penalises both missed rain and false alarms, not just misses. `NaN` only when nothing happened on either side (all correct-dry). Supersedes the earlier "timing hit rate" (a bare hit rate / POD that ignored false alarms — see ADR 0002).

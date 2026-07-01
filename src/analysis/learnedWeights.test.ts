@@ -34,7 +34,6 @@ function mkRun(runDate: string): RunEvaluation {
     },
     daily: [],
     scorecard: [],
-    weatherCodes: [],
     availableModels: [],
   } as unknown as RunEvaluation;
 }

@@ -73,7 +73,7 @@ const cyclesPerDay = ref<1 | 4>(1);
 
 const showModels = ref(false);
 
-const { loading, error, hourly, daily, scorecard, weatherCodes, availableModels, solar } = useVerification(current, runDate, runCycle);
+const { loading, error, hourly, daily, scorecard, availableModels, solar } = useVerification(current, runDate, runCycle);
 
 const {
   stats: sampleStats,
@@ -283,7 +283,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
                  beside measured error). The per-model lens lives in the scorecard above. -->
             <CollapsibleSection v-if="daily && daily.length" title="Daily breakdown">
               <div class="-mx-2 flex snap-x gap-2 overflow-x-auto px-2 pt-1 pb-3">
-                <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" :weather-code="weatherCodes[d.dayIndex]" />
+                <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" />
               </div>
             </CollapsibleSection>
           </div>

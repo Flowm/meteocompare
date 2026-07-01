@@ -9,7 +9,7 @@
 import { MODELS } from "@/domain/models";
 
 import type { ForecastResponse } from "./omForecast";
-import { extractDailyByModel, extractHourlyByModel } from "./omForecast";
+import { extractHourlyByModel } from "./omForecast";
 import { buildOpenMeteoUrl } from "./openMeteo";
 
 const SINGLE_RUNS_URL = "https://single-runs-api.open-meteo.com/v1/forecast";
@@ -64,17 +64,15 @@ const PROVIDER_PREFIX_TO_SEAMLESS_ID: ReadonlyArray<readonly [string, string]> =
   ["meteoswiss_", "meteoswiss_icon_seamless"],
 ];
 
+// This API serves hourly cleanly, but its `daily=` aggregation requires the run
+// to start at 00:00 in the *requested* timezone — which our UTC run cycles
+// (00/06/12/18Z) at a location-local timezone can never satisfy. So we request
+// hourly only: daily verification is recomputed from these series downstream,
+// and the chart's day/night solar comes from the archive/truth call instead
+// (see extractSolar in omHistoricalWeather).
 const HOURLY_VARS = ["temperature_2m", "precipitation"] as const;
 
-const DAILY_VARS = ["temperature_2m_max", "temperature_2m_min", "precipitation_sum", "weather_code"] as const;
-
-// Astronomical values — ISO local-time strings, not per-model numbers. Kept
-// out of DAILY_VARS (which types as numeric) and consumed via extractDailySolar
-// to drive the chart's day/night shading. Same split the forecast API uses.
-const DAILY_SOLAR_VARS = ["sunrise", "sunset"] as const;
-
 export type SingleRunsHourlyVar = (typeof HOURLY_VARS)[number];
-export type SingleRunsDailyVar = (typeof DAILY_VARS)[number];
 
 export interface SingleRunsRequest {
   lat: number;
@@ -100,7 +98,6 @@ function buildUrl(models: string[], req: SingleRunsRequest): string {
     longitude: String(req.lon),
     run: `${req.runDate}T${String(req.runHour ?? 0).padStart(2, "0")}:00`,
     hourly: HOURLY_VARS.join(","),
-    daily: [...DAILY_VARS, ...DAILY_SOLAR_VARS].join(","),
     models: models.join(","),
     forecast_days: String(req.forecastDays ?? 7),
     timezone: "auto",
@@ -179,4 +176,4 @@ export async function fetchSingleRuns(req: SingleRunsRequest, signal?: AbortSign
   }
 }
 
-export { HOURLY_VARS, DAILY_VARS, extractHourlyByModel, extractDailyByModel };
+export { HOURLY_VARS, extractHourlyByModel };

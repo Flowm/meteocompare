@@ -2,12 +2,12 @@
 // decoupled "analysis unit" (docs/plans/frontend-model-training.md, Phase 1).
 // Given an already-fetched single-runs response and its ERA5-Seamless truth,
 // it produces the aggregate + predictability hourly view-model, the per-day
-// verification, the per-model scorecard, the daily weather-code icons, and the
-// available-model set — with no Vue. useVerification is now a thin reactive
-// wrapper over this, and the multi-run sampler (later phases) calls it per run.
+// verification, the per-model scorecard, and the available-model set — with no
+// Vue. useVerification is now a thin reactive wrapper over this, and the
+// multi-run sampler (later phases) calls it per run.
 
 import { extractHourly as extractTruthHourly, type HistoricalWeatherResponse } from "@/api/omHistoricalWeather";
-import { extractDailyByModel, extractHourlyByModel, type SingleRunsResponse } from "@/api/omSingleRuns";
+import { extractHourlyByModel, type SingleRunsResponse } from "@/api/omSingleRuns";
 import type { DataVarId, HourlySeries } from "@/composables/hourlySeries";
 import { aggregateVariables, type VarSpec } from "@/domain/aggregateVariables";
 import { MODEL_IDS, MODELS, type ModelDef } from "@/domain/models";
@@ -41,7 +41,6 @@ export interface RunEvaluation {
   hourly: VerificationHourly;
   daily: DailyVerification[];
   scorecard: ScorecardRow[];
-  weatherCodes: number[];
   availableModels: ModelDef[];
 }
 
@@ -165,31 +164,8 @@ export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tuned
     hourly,
     daily,
     scorecard,
-    weatherCodes: aggregateWeatherCodes(runs, lat, lon, applyTuned ? tunedMultipliers : undefined),
     availableModels: availableModelsOf(runs),
   };
-}
-
-/** Per-day aggregate WMO weather codes for the forecast-row icon. Same
- *  severity-weighted-mode aggregation as the forecast view; predictability is
- *  agreement-based (lead-independent) and dropped here. */
-function aggregateWeatherCodes(runs: SingleRunsResponse, lat: number, lon: number, multipliers?: Record<string, number>): number[] {
-  const dailyTimes = runs.daily.time;
-  const firstDailyTime = dailyTimes[0];
-  if (!firstDailyTime) return [];
-  const baseTime = new Date(firstDailyTime);
-  const { aggregate } = aggregateVariables({
-    times: dailyTimes,
-    perModel: { weather_code: extractDailyByModel(runs, "weather_code", MODEL_IDS) },
-    vars: [{ key: "weather_code", family: "weather_code" }],
-    models: MODELS,
-    lat,
-    lon,
-    baseTime,
-    cadence: "daily",
-    multipliers,
-  });
-  return (aggregate.weather_code ?? []).map((p) => Math.round(p.value));
 }
 
 /** Models that returned a non-null value (temperature OR precipitation) for this run. */
