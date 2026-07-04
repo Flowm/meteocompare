@@ -1,7 +1,7 @@
 // Open-meteo geocoding API client.
 // Docs: https://open-meteo.com/en/docs/geocoding-api
 
-import { buildOpenMeteoUrl } from "./openMeteo";
+import { buildOpenMeteoUrl, fetchOpenMeteo } from "./openMeteo";
 
 const GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search";
 
@@ -32,7 +32,7 @@ export async function searchLocations(query: string, signal?: AbortSignal, langu
     language,
     format: "json",
   });
-  const res = await fetch(buildOpenMeteoUrl(GEOCODING_URL, params), { signal });
+  const res = await fetchOpenMeteo(buildOpenMeteoUrl(GEOCODING_URL, params), signal);
   if (!res.ok) {
     throw new Error(`open-meteo geocoding ${res.status}: ${res.statusText}`);
   }

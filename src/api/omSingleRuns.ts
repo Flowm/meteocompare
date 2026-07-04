@@ -10,7 +10,7 @@ import { MODELS } from "@/domain/models";
 
 import type { ForecastResponse } from "./omForecast";
 import { extractHourlyByModel } from "./omForecast";
-import { buildOpenMeteoUrl } from "./openMeteo";
+import { buildOpenMeteoUrl, fetchOpenMeteo } from "./openMeteo";
 
 const SINGLE_RUNS_URL = "https://single-runs-api.open-meteo.com/v1/forecast";
 
@@ -117,7 +117,7 @@ function buildUrl(models: string[], req: SingleRunsRequest): string {
 }
 
 async function fetchModels(models: string[], req: SingleRunsRequest, signal?: AbortSignal): Promise<SingleRunsResponse> {
-  const res = await fetch(buildUrl(models, req), { signal });
+  const res = await fetchOpenMeteo(buildUrl(models, req), signal);
   const text = await res.text().catch(() => "");
   if (res.ok) {
     try {

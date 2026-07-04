@@ -3,7 +3,7 @@
 
 import { MODEL_IDS } from "@/domain/models";
 
-import { buildOpenMeteoUrl } from "./openMeteo";
+import { buildOpenMeteoUrl, fetchOpenMeteo } from "./openMeteo";
 
 const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 
@@ -93,7 +93,7 @@ export async function fetchForecast(req: ForecastRequest, signal?: AbortSignal):
   });
 
   const url = buildOpenMeteoUrl(FORECAST_URL, params);
-  const res = await fetch(url, { signal });
+  const res = await fetchOpenMeteo(url, signal);
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`open-meteo forecast ${res.status}: ${text || res.statusText}`);
