@@ -5,7 +5,7 @@
 
 import { fetchHistoricalWeather } from "@/api/omHistoricalWeather";
 import { ARCHIVED_MODEL_IDS, fetchSingleRuns } from "@/api/omSingleRuns";
-import { addDaysIso } from "@/utils/date";
+import { addDaysIso, daysBetweenIso } from "@/utils/date";
 
 import { evaluateRun, type RunEvaluation } from "./runEvaluation";
 
@@ -53,6 +53,11 @@ export interface GatherOptions {
   onProgress?: (done: number, total: number) => void;
 }
 
+/** How often, walking newest-first, to re-attempt the full model set for a cycle
+ *  instead of trusting the accumulated "unavailable" set. Re-confirms availability
+ *  as we scroll back and bounds how long a transient gap can suppress a model. */
+const RECHECK_WINDOW_DAYS = 7;
+
 /** Fetch + evaluate every planned run, capped at `concurrency` in flight. A run
  *  that fails (e.g. every model aged out of the archive) is skipped, not fatal.
  *  Returns the successful evaluations; order is not guaranteed. */
@@ -63,16 +68,20 @@ export async function gatherRuns(refs: readonly RunRef[], opts: GatherOptions, d
   let next = 0;
   let done = 0;
 
-  // Models the single-runs API has already reported unavailable, keyed by run
-  // cycle. planRuns yields newest-first, so a model missing from a cycle's newer
-  // run has aged out for every older run of that cycle too — skip it up front
-  // instead of re-eating a 400 per run. Keying by cycle also keeps a model that
-  // simply doesn't publish, say, 06Z from being dropped at 00Z. The map is
-  // add-only, so the concurrent workers can share it without races.
-  const unavailable = new Map<number, Set<string>>();
-  const markUnavailable = (runHour: number, id: string): void => {
-    let set = unavailable.get(runHour);
-    if (!set) unavailable.set(runHour, (set = new Set()));
+  // Models the single-runs API has reported unavailable, keyed by run cycle *and*
+  // 7-day window (RECHECK_WINDOW_DAYS). planRuns walks newest-first and archive
+  // retention is monotonic in date, so within a window a model gone from a newer
+  // run is gone from every older one — prune it up front instead of re-eating a
+  // 400 per run. Keying by cycle also keeps a model that skips, say, 06Z from
+  // being dropped at 00Z. Re-probing the full set once per window re-confirms
+  // availability as we scroll back and bounds how long a transient one-off gap
+  // can suppress a model. Add-only within a window, so workers share it race-free.
+  const anchorDate = refs[0]?.runDate ?? "";
+  const unavailable = new Map<string, Set<string>>();
+  const windowKey = (ref: RunRef): string => `${ref.runHour}:${Math.floor(daysBetweenIso(ref.runDate, anchorDate) / RECHECK_WINDOW_DAYS)}`;
+  const markUnavailable = (key: string, id: string): void => {
+    let set = unavailable.get(key);
+    if (!set) unavailable.set(key, (set = new Set()));
     set.add(id);
   };
 
@@ -81,16 +90,18 @@ export async function gatherRuns(refs: readonly RunRef[], opts: GatherOptions, d
       if (opts.signal?.aborted) return;
       const ref = refs[next++];
       if (!ref) return;
-      const skip = unavailable.get(ref.runHour);
+      const key = windowKey(ref);
+      const skip = unavailable.get(key);
       const models = skip ? ARCHIVED_MODEL_IDS.filter((id) => !skip.has(id)) : ARCHIVED_MODEL_IDS;
-      // Every model has aged out for this cycle: no request is worth making — for
-      // the run or its truth. Older runs of the cycle fall here too and cost nothing.
+      // Every model is unavailable for this cycle in this window: no request is
+      // worth making — for the run or its truth. Older runs in the window fall
+      // here too and cost nothing; the next window re-probes from scratch.
       if (models.length > 0) {
         try {
           const truthEnd = addDaysIso(ref.runDate, 7);
           // eslint-disable-next-line no-await-in-loop -- a worker pulls jobs sequentially; the pool supplies the parallelism.
           const [runs, truth] = await Promise.all([
-            deps.fetchRuns({ lat, lon, runDate: ref.runDate, runHour: ref.runHour, models }, { signal: opts.signal, onModelUnavailable: (id) => markUnavailable(ref.runHour, id) }),
+            deps.fetchRuns({ lat, lon, runDate: ref.runDate, runHour: ref.runHour, models }, { signal: opts.signal, onModelUnavailable: (id) => markUnavailable(key, id) }),
             deps.fetchTruth({ lat, lon, startDate: ref.runDate, endDate: truthEnd }, opts.signal),
           ]);
           const ev = deps.evaluate({ runs, truth, lat, lon, runDate: ref.runDate, runHour: ref.runHour });

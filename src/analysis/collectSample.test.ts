@@ -80,6 +80,25 @@ describe("gatherRuns", () => {
     expect(seen.get("2026-06-01")).not.toContain("ecmwf_ifs");
   });
 
+  it("re-probes the full model set once past the 7-day window", async () => {
+    // 9 days back, one cycle → day 0-6 fall in window 0, day 7-8 in window 1.
+    const spanning = planRuns({ endDate: "2026-06-10", durationDays: 9, cycles: [0], floorDate: "2026-01-01" });
+    const seen = new Map<string, string[]>();
+    const deps: GatherDeps = {
+      ...okDeps(),
+      fetchRuns: (req, opts) => {
+        seen.set(req.runDate, req.models ?? []);
+        opts?.onModelUnavailable?.("ecmwf_ifs"); // every run reports it gone
+        return Promise.resolve({} as never);
+      },
+    };
+    await gatherRuns(spanning, { location: { latitude: 1, longitude: 2 }, concurrency: 1 }, deps);
+
+    expect(seen.get("2026-06-10")).toContain("ecmwf_ifs"); // window 0 opens with the full set
+    expect(seen.get("2026-06-09")).not.toContain("ecmwf_ifs"); // carried forward within window 0
+    expect(seen.get("2026-06-03")).toContain("ecmwf_ifs"); // day 7 → window 1 re-probes from scratch
+  });
+
   it("keeps the unavailability memo independent per run cycle", async () => {
     const twoCycles = planRuns({ endDate: "2026-06-03", durationDays: 2, cycles: [0, 6], floorDate: "2026-01-01" });
     const seen: { runDate: string; runHour: number; models: string[] }[] = [];
