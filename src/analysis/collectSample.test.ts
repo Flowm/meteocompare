@@ -80,9 +80,10 @@ describe("gatherRuns", () => {
     expect(seen.get("2026-06-01")).not.toContain("ecmwf_ifs");
   });
 
-  it("re-probes the full model set once past the 7-day window", async () => {
-    // 9 days back, one cycle → day 0-6 fall in window 0, day 7-8 in window 1.
-    const spanning = planRuns({ endDate: "2026-06-10", durationDays: 9, cycles: [0], floorDate: "2026-01-01" });
+  it("re-probes the full model set once past the re-check window", async () => {
+    // 35 days back, one cycle → day 0-29 fall in window 0, day 30-34 in window 1
+    // (RECHECK_WINDOW_DAYS is 30, so a default 30-day gather never crosses a boundary).
+    const spanning = planRuns({ endDate: "2026-06-20", durationDays: 35, cycles: [0], floorDate: "2026-01-01" });
     const seen = new Map<string, string[]>();
     const deps: GatherDeps = {
       ...okDeps(),
@@ -94,9 +95,30 @@ describe("gatherRuns", () => {
     };
     await gatherRuns(spanning, { location: { latitude: 1, longitude: 2 }, concurrency: 1 }, deps);
 
-    expect(seen.get("2026-06-10")).toContain("ecmwf_ifs"); // window 0 opens with the full set
-    expect(seen.get("2026-06-09")).not.toContain("ecmwf_ifs"); // carried forward within window 0
-    expect(seen.get("2026-06-03")).toContain("ecmwf_ifs"); // day 7 → window 1 re-probes from scratch
+    expect(seen.get("2026-06-20")).toContain("ecmwf_ifs"); // window 0 opens with the full set
+    expect(seen.get("2026-06-19")).not.toContain("ecmwf_ifs"); // carried forward within window 0
+    expect(seen.get("2026-05-21")).toContain("ecmwf_ifs"); // day 30 → window 1 re-probes from scratch
+  });
+
+  it("warms up a window's memo before fanning out, so concurrent siblings don't re-probe", async () => {
+    // Without the warm-up gate, all 3 runs (concurrency 3, one window) would start
+    // on an empty memo and each re-request the dropped model. The gate lets the
+    // first run seed the memo first, so only it requests the model.
+    const asked: string[][] = [];
+    const deps: GatherDeps = {
+      ...okDeps(),
+      fetchRuns: async (req, opts) => {
+        asked.push(req.models ?? []);
+        await Promise.resolve(); // the miss surfaces only after the request settles
+        if (req.runDate === "2026-06-03") opts?.onModelUnavailable?.("ecmwf_ifs");
+        return {} as never;
+      },
+    };
+    await gatherRuns(refs, { location: { latitude: 1, longitude: 2 }, concurrency: 3 }, deps);
+
+    // Exactly one run (the window's first) still carried ecmwf_ifs.
+    expect(asked.filter((m) => m.includes("ecmwf_ifs"))).toHaveLength(1);
+    expect(asked).toHaveLength(3);
   });
 
   it("keeps the unavailability memo independent per run cycle", async () => {
