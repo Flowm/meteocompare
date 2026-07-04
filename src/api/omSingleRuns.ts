@@ -19,7 +19,7 @@ const SINGLE_RUNS_URL = "https://single-runs-api.open-meteo.com/v1/forecast";
 // rather than pre-filtering on the static core/partial split — retention is a
 // moving window, so a model that's archived this far back today may not be next
 // week, and only the API knows for a given run date.
-const ARCHIVED_MODEL_IDS: string[] = MODELS.filter((m) => m.singleRunAvailability !== "never").map((m) => m.id);
+export const ARCHIVED_MODEL_IDS: string[] = MODELS.filter((m) => m.singleRunAvailability !== "never").map((m) => m.id);
 
 // open-meteo's single-runs API expands several of our registry ids into a
 // differently-named *internal* component, and a "model run is not available"
@@ -92,6 +92,14 @@ export interface SingleRunsRequest {
  *  `_<modelId>` when `models=` carries multiple ids. */
 export type SingleRunsResponse = ForecastResponse;
 
+export interface FetchSingleRunsOptions {
+  signal?: AbortSignal;
+  /** Called with each registry id the retry loop prunes as unavailable for this
+   *  run. Lets a multi-run gather carry the miss forward to older runs of the
+   *  same cycle instead of rediscovering it (and eating a 400) every time. */
+  onModelUnavailable?: (id: string) => void;
+}
+
 function buildUrl(models: string[], req: SingleRunsRequest): string {
   const params = new URLSearchParams({
     latitude: String(req.lat),
@@ -159,18 +167,23 @@ function resolveMissingId(named: string, requested: readonly string[]): string |
 // model, drop it, and retry. Each retry removes at least one id so the loop is
 // bounded by the request size; we keep at least one model in the batch. Errors
 // that name no model (network failure, unexpected body) propagate unchanged.
-// A caller-supplied subset gets the same treatment.
-export async function fetchSingleRuns(req: SingleRunsRequest, signal?: AbortSignal): Promise<SingleRunsResponse> {
+// A caller-supplied subset gets the same treatment. Every pruned model is
+// reported through `opts.onModelUnavailable` — including the last one standing,
+// which we can't drop but a caller can still carry forward — so a multi-run
+// gather learns each miss once instead of per run (see collectSample.gatherRuns).
+export async function fetchSingleRuns(req: SingleRunsRequest, opts: FetchSingleRunsOptions = {}): Promise<SingleRunsResponse> {
   let ids = req.models ?? ARCHIVED_MODEL_IDS;
   for (;;) {
     try {
       // eslint-disable-next-line no-await-in-loop -- retries are inherently sequential: each one drops the model the previous attempt reported missing.
-      return await fetchModels(ids, req, signal);
+      return await fetchModels(ids, req, opts.signal);
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") throw e;
       const named = e instanceof Error ? parseMissingModel(e.message) : null;
       const drop = named ? resolveMissingId(named, ids) : null;
-      if (!drop || ids.length <= 1) throw e;
+      if (!drop) throw e; // can't attribute the failure to a requested model
+      opts.onModelUnavailable?.(drop); // learn it whether or not we can retry further
+      if (ids.length <= 1) throw e;
       ids = ids.filter((id) => id !== drop);
     }
   }

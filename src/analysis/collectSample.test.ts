@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 
+import { ARCHIVED_MODEL_IDS } from "@/api/omSingleRuns";
+
 import { gatherRuns, planRuns, type GatherDeps } from "./collectSample";
 import type { RunEvaluation } from "./runEvaluation";
 
@@ -57,5 +59,69 @@ describe("gatherRuns", () => {
     const deps: GatherDeps = { ...okDeps(), fetchRuns: (req) => (req.runDate === "2026-06-02" ? Promise.reject(new Error("aged out")) : Promise.resolve({} as never)) };
     const out = await gatherRuns(refs, { location: { latitude: 1, longitude: 2 } }, deps);
     expect(out).toHaveLength(2);
+  });
+
+  it("carries a model dropped on a newer run forward to older runs of the same cycle", async () => {
+    const seen = new Map<string, string[]>();
+    const deps: GatherDeps = {
+      ...okDeps(),
+      fetchRuns: (req, opts) => {
+        seen.set(req.runDate, req.models ?? []);
+        // The newest run discovers ecmwf_ifs has aged out of the archive.
+        if (req.runDate === "2026-06-03") opts?.onModelUnavailable?.("ecmwf_ifs");
+        return Promise.resolve({} as never);
+      },
+    };
+    // concurrency 1 → strict newest-first, so the drop is known before older runs start.
+    await gatherRuns(refs, { location: { latitude: 1, longitude: 2 }, concurrency: 1 }, deps);
+
+    expect(seen.get("2026-06-03")).toContain("ecmwf_ifs");
+    expect(seen.get("2026-06-02")).not.toContain("ecmwf_ifs");
+    expect(seen.get("2026-06-01")).not.toContain("ecmwf_ifs");
+  });
+
+  it("keeps the unavailability memo independent per run cycle", async () => {
+    const twoCycles = planRuns({ endDate: "2026-06-03", durationDays: 2, cycles: [0, 6], floorDate: "2026-01-01" });
+    const seen: { runDate: string; runHour: number; models: string[] }[] = [];
+    const deps: GatherDeps = {
+      ...okDeps(),
+      fetchRuns: (req, opts) => {
+        seen.push({ runDate: req.runDate, runHour: req.runHour ?? 0, models: req.models ?? [] });
+        // Only the 06Z cycle loses the model; 00Z must be unaffected.
+        if (req.runDate === "2026-06-03" && req.runHour === 6) opts?.onModelUnavailable?.("ecmwf_ifs");
+        return Promise.resolve({} as never);
+      },
+    };
+    await gatherRuns(twoCycles, { location: { latitude: 1, longitude: 2 }, concurrency: 1 }, deps);
+
+    const models = (runDate: string, runHour: number) => seen.find((s) => s.runDate === runDate && s.runHour === runHour)?.models ?? [];
+    expect(models("2026-06-02", 6)).not.toContain("ecmwf_ifs"); // carried forward within 06Z
+    expect(models("2026-06-02", 0)).toContain("ecmwf_ifs"); // 00Z stays untouched
+  });
+
+  it("makes no request for a run once every model is unavailable for its cycle", async () => {
+    let runFetches = 0;
+    let truthFetches = 0;
+    const progress: number[] = [];
+    const deps: GatherDeps = {
+      ...okDeps(),
+      fetchRuns: (req, opts) => {
+        runFetches += 1;
+        // The newest run reports every model gone, exhausting the cycle.
+        if (req.runDate === "2026-06-03") for (const id of ARCHIVED_MODEL_IDS) opts?.onModelUnavailable?.(id);
+        return Promise.resolve({} as never);
+      },
+      fetchTruth: () => {
+        truthFetches += 1;
+        return Promise.resolve({} as never);
+      },
+    };
+    await gatherRuns(refs, { location: { latitude: 1, longitude: 2 }, concurrency: 1, onProgress: (d) => progress.push(d) }, deps);
+
+    // Only the newest run hit the network; the two older runs were skipped outright.
+    expect(runFetches).toBe(1);
+    expect(truthFetches).toBe(1);
+    // Progress still advances for the skipped runs so the bar completes.
+    expect(progress.at(-1)).toBe(3);
   });
 });

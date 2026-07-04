@@ -137,4 +137,45 @@ describe("fetchSingleRuns adaptive retry", () => {
     await expect(fetchSingleRuns(REQ)).rejects.toThrow(/abort/i);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it("reports each pruned model through onModelUnavailable (clean 4xx)", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(res({ ok: false, model: "jma_gsm" }))
+      .mockResolvedValueOnce(res({ ok: false, model: "dwd_icon" })) // icon_global's component
+      .mockResolvedValueOnce(res({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    const onModelUnavailable = vi.fn();
+
+    await fetchSingleRuns(REQ, { onModelUnavailable });
+
+    // The resolved registry ids, in drop order — so a gather can carry them forward.
+    expect(onModelUnavailable.mock.calls.map((c) => c[0])).toEqual(["jma_seamless", "icon_global"]);
+  });
+
+  it("reports a pruned model from the streamed 200 abort shape", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(res({ ok: false, stream: true, model: "jma_gsm" }))
+      .mockResolvedValueOnce(res({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    const onModelUnavailable = vi.fn();
+
+    await fetchSingleRuns(REQ, { onModelUnavailable });
+
+    expect(onModelUnavailable).toHaveBeenCalledTimes(1);
+    expect(onModelUnavailable).toHaveBeenCalledWith("jma_seamless");
+  });
+
+  it("reports the last remaining model before giving up", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(res({ ok: false, model: "ecmwf_ifs" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const onModelUnavailable = vi.fn();
+
+    // Can't retry past the last model, but the miss is still learned so older
+    // runs of this cycle skip it too.
+    await expect(fetchSingleRuns({ ...REQ, models: ["ecmwf_ifs"] }, { onModelUnavailable })).rejects.toThrow();
+    expect(onModelUnavailable).toHaveBeenCalledTimes(1);
+    expect(onModelUnavailable).toHaveBeenCalledWith("ecmwf_ifs");
+  });
 });

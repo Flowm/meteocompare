@@ -48,7 +48,7 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>, r
       // TZ-shifted forecast window is fully covered regardless of UTC offset.
       const truthEndDate = addDaysIso(runDate.value, 7);
       const [runs, truth] = await Promise.all([
-        fetchSingleRuns({ lat: location.value.latitude, lon: location.value.longitude, runDate: runDate.value, runHour: runCycle.value }, signal),
+        fetchSingleRuns({ lat: location.value.latitude, lon: location.value.longitude, runDate: runDate.value, runHour: runCycle.value }, { signal }),
         fetchHistoricalWeather({ lat: location.value.latitude, lon: location.value.longitude, startDate: runDate.value, endDate: truthEndDate }, signal),
       ]);
       return { runs, truth };
