@@ -68,6 +68,30 @@ export interface DailyVerification {
 }
 
 // ---------------------------------------------------------------------------
+// Scored (verified) variables
+// ---------------------------------------------------------------------------
+
+/** The variables the verification path scores. Today temperature and
+ *  precipitation — the only two ERA5-Seamless provides truth for (CONTEXT.md
+ *  "Truth", ADR 0001). Wind and cloud-cover truth exist; scoring them is now a
+ *  genuine data-only change — add the id here and route it through a channel,
+ *  no new field pairs. `runEvaluation`'s VERIFY_VARS aligns with this. */
+export type VerifiedVariable = "temperature_2m" | "precipitation";
+
+/** One verified variable's inputs for a single (run, location): the aggregate
+ *  best-estimate surface, every model's raw hourly series, and the aligned
+ *  ERA5-Seamless truth. Replaces the flat `…Temp`/`…Precip` field pairs so a
+ *  new variable is a new key, not two new fields at every call site. */
+export interface VerifyChannel {
+  /** Aggregate forecast points, one per hour; `value` is already `number | null`. */
+  aggregate: readonly AggregatePoint[];
+  /** Per-model raw hourly forecast values, keyed by model id. */
+  perModel: Readonly<Record<string, readonly (number | null)[]>>;
+  /** ERA5-Seamless truth, one entry per hour. */
+  truth: readonly (number | null)[];
+}
+
+// ---------------------------------------------------------------------------
 // Pure stat primitives
 // ---------------------------------------------------------------------------
 
@@ -276,22 +300,22 @@ function scorePrecipitation(forecast: readonly (number | null)[], truth: readonl
 // Daily orchestrator
 // ---------------------------------------------------------------------------
 
+/** A verify channel plus the per-hour aggregate predictability the daily card
+ *  pairs each day's error with — the calibration lens (CONTEXT.md "Daily
+ *  breakdown"). Predictability rides on the channel because it is defined only
+ *  over the aggregate and only the daily builder consumes it. */
+export interface DailyChannel extends VerifyChannel {
+  /** Per-hour aggregate-level per-variable predictability, one per hour. */
+  predictability: readonly number[];
+}
+
 export interface BuildDailyOptions {
   runDate: string;
   /** Hourly time axis covering the full run window (e.g. 168 entries for 7 days). */
   times: readonly string[];
-  /** Aggregate forecast points for temperature, one per hour. */
-  aggregateTemp: readonly AggregatePoint[];
-  aggregatePrecip: readonly AggregatePoint[];
-  /** Per-hour aggregate-level per-variable predictability, one per hour. */
-  predictabilityTemp: readonly number[];
-  predictabilityPrecip: readonly number[];
-  /** Per-model raw hourly forecast values, keyed by model id. */
-  perModelTemp: Readonly<Record<string, readonly (number | null)[]>>;
-  perModelPrecip: Readonly<Record<string, readonly (number | null)[]>>;
-  /** ERA5-Seamless truth, one entry per hour. */
-  truthTemp: readonly (number | null)[];
-  truthPrecip: readonly (number | null)[];
+  /** One channel per verified variable. Read explicitly per variable below —
+   *  the scoring stays temperature-vs-precipitation specific. */
+  channels: Record<VerifiedVariable, DailyChannel>;
 }
 
 /** Reduce the hourly run window to one verification record per 24 h day.
@@ -301,17 +325,22 @@ export function buildDailyVerification(opts: BuildDailyOptions): DailyVerificati
   const numDays = Math.floor(opts.times.length / HOURS_PER_DAY);
   const out: DailyVerification[] = [];
 
+  // Scoring is deliberately per-variable-specific (scoreTemperature vs
+  // scorePrecipitation): read each channel by its known key, don't genericise.
+  const temp = opts.channels.temperature_2m;
+  const precip = opts.channels.precipitation;
+
   for (let day = 0; day < numDays; day++) {
     const start = day * HOURS_PER_DAY;
     const end = start + HOURS_PER_DAY;
 
-    const aggT = opts.aggregateTemp.slice(start, end).map((p) => p.value);
-    const aggP = opts.aggregatePrecip.slice(start, end).map((p) => p.value);
-    const truthT = opts.truthTemp.slice(start, end);
-    const truthP = opts.truthPrecip.slice(start, end);
+    const aggT = temp.aggregate.slice(start, end).map((p) => p.value);
+    const aggP = precip.aggregate.slice(start, end).map((p) => p.value);
+    const truthT = temp.truth.slice(start, end);
+    const truthP = precip.truth.slice(start, end);
 
-    const dailyPredT = meanFinite(opts.predictabilityTemp.slice(start, end));
-    const dailyPredP = meanFinite(opts.predictabilityPrecip.slice(start, end));
+    const dailyPredT = meanFinite(temp.predictability.slice(start, end));
+    const dailyPredP = meanFinite(precip.predictability.slice(start, end));
 
     const aggregate: VariableScores = {
       temperature: scoreTemperature(aggT, truthT, dailyPredT),
@@ -319,10 +348,10 @@ export function buildDailyVerification(opts: BuildDailyOptions): DailyVerificati
     };
 
     const perModel: Record<string, VariableScores> = {};
-    const modelIds = new Set<string>([...Object.keys(opts.perModelTemp), ...Object.keys(opts.perModelPrecip)]);
+    const modelIds = new Set<string>([...Object.keys(temp.perModel), ...Object.keys(precip.perModel)]);
     for (const id of modelIds) {
-      const fT = (opts.perModelTemp[id] ?? []).slice(start, end);
-      const fP = (opts.perModelPrecip[id] ?? []).slice(start, end);
+      const fT = (temp.perModel[id] ?? []).slice(start, end);
+      const fP = (precip.perModel[id] ?? []).slice(start, end);
       perModel[id] = {
         temperature: scoreTemperature(fT, truthT, NaN),
         precipitation: scorePrecipitation(fP, truthP, NaN),

@@ -199,14 +199,20 @@ describe("buildDailyVerification", () => {
     const result = buildDailyVerification({
       runDate: "2026-05-11",
       times: array(hours, (i) => `t${i}`).map(String),
-      aggregateTemp: array(hours, () => 20).map(aggregate),
-      aggregatePrecip: array(hours, () => 0).map(aggregate),
-      predictabilityTemp: array(hours, () => 0.8),
-      predictabilityPrecip: array(hours, () => 0.5),
-      perModelTemp: { ecmwf_ifs: array(hours, () => 21) },
-      perModelPrecip: { ecmwf_ifs: array(hours, () => 0) },
-      truthTemp: array(hours, () => 19),
-      truthPrecip: array(hours, () => 0),
+      channels: {
+        temperature_2m: {
+          aggregate: array(hours, () => 20).map(aggregate),
+          perModel: { ecmwf_ifs: array(hours, () => 21) },
+          truth: array(hours, () => 19),
+          predictability: array(hours, () => 0.8),
+        },
+        precipitation: {
+          aggregate: array(hours, () => 0).map(aggregate),
+          perModel: { ecmwf_ifs: array(hours, () => 0) },
+          truth: array(hours, () => 0),
+          predictability: array(hours, () => 0.5),
+        },
+      },
     });
     expect(result).toHaveLength(7);
     expect(result[0]?.dayIndex).toBe(0);
@@ -221,14 +227,20 @@ describe("buildDailyVerification", () => {
     const result = buildDailyVerification({
       runDate: "2026-05-11",
       times: array(hours, (i) => String(i)),
-      aggregateTemp: array(hours, () => 21).map(aggregate), // forecast 21
-      aggregatePrecip: array(hours, () => 0).map(aggregate),
-      predictabilityTemp: array(hours, () => 0.8),
-      predictabilityPrecip: array(hours, () => 0.5),
-      perModelTemp: {},
-      perModelPrecip: {},
-      truthTemp: array(hours, () => 19), // truth 19 → bias +2, mae 2
-      truthPrecip: array(hours, () => 0),
+      channels: {
+        temperature_2m: {
+          aggregate: array(hours, () => 21).map(aggregate), // forecast 21
+          perModel: {},
+          truth: array(hours, () => 19), // truth 19 → bias +2, mae 2
+          predictability: array(hours, () => 0.8),
+        },
+        precipitation: {
+          aggregate: array(hours, () => 0).map(aggregate),
+          perModel: {},
+          truth: array(hours, () => 0),
+          predictability: array(hours, () => 0.5),
+        },
+      },
     });
     const t = result[0]?.aggregate.temperature;
     expect(t?.bias).toBeCloseTo(2);
@@ -249,14 +261,20 @@ describe("buildDailyVerification", () => {
     const result = buildDailyVerification({
       runDate: "2026-05-11",
       times: array(hours, (i) => String(i)),
-      aggregateTemp: array(hours, () => 20).map(aggregate),
-      aggregatePrecip: forecastP.map(aggregate),
-      predictabilityTemp: array(hours, () => 0.5),
-      predictabilityPrecip: array(hours, () => 0.5),
-      perModelTemp: {},
-      perModelPrecip: {},
-      truthTemp: array(hours, () => 20),
-      truthPrecip: truthP,
+      channels: {
+        temperature_2m: {
+          aggregate: array(hours, () => 20).map(aggregate),
+          perModel: {},
+          truth: array(hours, () => 20),
+          predictability: array(hours, () => 0.5),
+        },
+        precipitation: {
+          aggregate: forecastP.map(aggregate),
+          perModel: {},
+          truth: truthP,
+          predictability: array(hours, () => 0.5),
+        },
+      },
     });
     const p = result[0]?.aggregate.precipitation;
     expect(p?.amountError).toBeCloseTo(0);
@@ -271,20 +289,26 @@ describe("buildDailyVerification", () => {
     const result = buildDailyVerification({
       runDate: "2026-05-11",
       times: array(hours, (i) => String(i)),
-      aggregateTemp: array(hours, () => 20).map(aggregate),
-      aggregatePrecip: array(hours, () => 0).map(aggregate),
-      predictabilityTemp: array(hours, () => 0.8),
-      predictabilityPrecip: array(hours, () => 0.5),
-      perModelTemp: {
-        ecmwf_ifs: array(hours, () => 22),
-        gfs_seamless: array(hours, () => 18),
+      channels: {
+        temperature_2m: {
+          aggregate: array(hours, () => 20).map(aggregate),
+          perModel: {
+            ecmwf_ifs: array(hours, () => 22),
+            gfs_seamless: array(hours, () => 18),
+          },
+          truth: array(hours, () => 20),
+          predictability: array(hours, () => 0.8),
+        },
+        precipitation: {
+          aggregate: array(hours, () => 0).map(aggregate),
+          perModel: {
+            ecmwf_ifs: array(hours, () => 0),
+            gfs_seamless: array(hours, () => 0),
+          },
+          truth: array(hours, () => 0),
+          predictability: array(hours, () => 0.5),
+        },
       },
-      perModelPrecip: {
-        ecmwf_ifs: array(hours, () => 0),
-        gfs_seamless: array(hours, () => 0),
-      },
-      truthTemp: array(hours, () => 20),
-      truthPrecip: array(hours, () => 0),
     });
     const day = result[0];
     expect(day).toBeDefined();
@@ -299,14 +323,20 @@ describe("buildDailyVerification", () => {
     const result = buildDailyVerification({
       runDate: "2026-05-11",
       times: array(hours, (i) => String(i)),
-      aggregateTemp: array(hours, () => 20).map(aggregate),
-      aggregatePrecip: array(hours, () => null).map(aggregate), // no contributing models → null
-      predictabilityTemp: array(hours, () => 0.8),
-      predictabilityPrecip: array(hours, () => 0.5),
-      perModelTemp: {},
-      perModelPrecip: {},
-      truthTemp: array(hours, () => 20),
-      truthPrecip: Array.from({ length: hours }, () => null),
+      channels: {
+        temperature_2m: {
+          aggregate: array(hours, () => 20).map(aggregate),
+          perModel: {},
+          truth: array(hours, () => 20),
+          predictability: array(hours, () => 0.8),
+        },
+        precipitation: {
+          aggregate: array(hours, () => null).map(aggregate), // no contributing models → null
+          perModel: {},
+          truth: Array.from({ length: hours }, () => null),
+          predictability: array(hours, () => 0.5),
+        },
+      },
     });
     expect(result[0]?.aggregate.precipitation).toBeNull();
     expect(result[0]?.aggregate.temperature).not.toBeNull();
@@ -317,16 +347,22 @@ describe("buildDailyVerification", () => {
     const result = buildDailyVerification({
       runDate: "2026-05-11",
       times: array(hours, (i) => String(i)),
-      aggregateTemp: array(hours, () => 20).map(aggregate),
-      aggregatePrecip: array(hours, () => null).map(aggregate),
-      predictabilityTemp: array(hours, () => 0.8),
-      predictabilityPrecip: array(hours, () => 0.5),
-      perModelTemp: {},
-      // Model with no precipitation data at all — used to be scored as
-      // amountError = −truthSum, which was misleading.
-      perModelPrecip: { ghost_model: Array.from({ length: hours }, () => null) },
-      truthTemp: array(hours, () => 20),
-      truthPrecip: array(hours, (i) => (i >= 10 && i <= 13 ? 2 : 0)),
+      channels: {
+        temperature_2m: {
+          aggregate: array(hours, () => 20).map(aggregate),
+          perModel: {},
+          truth: array(hours, () => 20),
+          predictability: array(hours, () => 0.8),
+        },
+        precipitation: {
+          aggregate: array(hours, () => null).map(aggregate),
+          // Model with no precipitation data at all — used to be scored as
+          // amountError = −truthSum, which was misleading.
+          perModel: { ghost_model: Array.from({ length: hours }, () => null) },
+          truth: array(hours, (i) => (i >= 10 && i <= 13 ? 2 : 0)),
+          predictability: array(hours, () => 0.5),
+        },
+      },
     });
     expect(result[0]?.aggregate.precipitation).toBeNull();
     expect(result[0]?.perModel.ghost_model?.precipitation).toBeNull();

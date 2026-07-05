@@ -12,15 +12,16 @@ import type { DataVarId, HourlySeries } from "@/composables/hourlySeries";
 import { aggregateVariables, type VarSpec } from "@/domain/aggregateVariables";
 import { MODEL_IDS, MODELS, type ModelDef } from "@/domain/models";
 import { buildModelScorecard, type ScorecardRow } from "@/domain/scorecard";
-import { buildDailyVerification, type DailyVerification } from "@/domain/verification";
+import { buildDailyVerification, type DailyVerification, type VerifiedVariable } from "@/domain/verification";
 
 /** The two variables the verification path aggregates + scores — temperature and
  *  precipitation, the only ones ERA5-Seamless provides truth for (ADR 0001).
- *  Shared by the default and tuned aggregation passes below. */
+ *  Shared by the default and tuned aggregation passes below. Keys are the domain
+ *  `VerifiedVariable` set, so adding a scored variable starts here and in that type. */
 const VERIFY_VARS = [
   { key: "temperature_2m", family: "temperature_2m" },
   { key: "precipitation", family: "precipitation" },
-] as const satisfies readonly VarSpec[];
+] as const satisfies readonly VarSpec<VerifiedVariable>[];
 
 /** Conforms to the unified chart contract (HourlySeries) — temperature and
  *  precipitation only, the two variables we currently verify. ERA5-Seamless
@@ -134,28 +135,31 @@ export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tuned
   const daily = buildDailyVerification({
     runDate,
     times,
-    aggregateTemp: active.aggregate.temperature_2m ?? [],
-    aggregatePrecip: active.aggregate.precipitation ?? [],
-    predictabilityTemp: active.predictability.temperature_2m ?? [],
-    predictabilityPrecip: active.predictability.precipitation ?? [],
-    perModelTemp: perModel.temperature_2m ?? {},
-    perModelPrecip: perModel.precipitation ?? {},
-    truthTemp,
-    truthPrecip,
+    channels: {
+      temperature_2m: {
+        aggregate: active.aggregate.temperature_2m ?? [],
+        perModel: perModel.temperature_2m ?? {},
+        truth: truthTemp,
+        predictability: active.predictability.temperature_2m ?? [],
+      },
+      precipitation: {
+        aggregate: active.aggregate.precipitation ?? [],
+        perModel: perModel.precipitation ?? {},
+        truth: truthPrecip,
+        predictability: active.predictability.precipitation ?? [],
+      },
+    },
   });
 
   // Scorecard: the default-weight aggregate row, plus a tuned row (when stored)
   // for the inline comparison — independent of applyTuned.
   const scorecard = buildModelScorecard({
     times,
-    aggregateTemp: aggregate.temperature_2m ?? [],
-    aggregatePrecip: aggregate.precipitation ?? [],
-    tunedAggregateTemp: tuned?.aggregate.temperature_2m,
-    tunedAggregatePrecip: tuned?.aggregate.precipitation,
-    perModelTemp: perModel.temperature_2m ?? {},
-    perModelPrecip: perModel.precipitation ?? {},
-    truthTemp,
-    truthPrecip,
+    channels: {
+      temperature_2m: { aggregate: aggregate.temperature_2m ?? [], perModel: perModel.temperature_2m ?? {}, truth: truthTemp },
+      precipitation: { aggregate: aggregate.precipitation ?? [], perModel: perModel.precipitation ?? {}, truth: truthPrecip },
+    },
+    tuned: tuned ? { temperature_2m: tuned.aggregate.temperature_2m ?? [], precipitation: tuned.aggregate.precipitation ?? [] } : undefined,
   });
 
   return {

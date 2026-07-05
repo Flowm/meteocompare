@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { AggregatePoint } from "./aggregate";
 import { AGGREGATE_ROW_ID, AMOUNT_REF_BAD_PER_DAY, buildModelScorecard, LEAD_BANDS, TEMP_MAE_REF_BAD, type ScorecardInput } from "./scorecard";
+import type { VerifyChannel } from "./verification";
 
 const N = 168; // a full 7-day window
 
@@ -10,17 +11,16 @@ function array<T>(n: number, fn: (i: number) => T): T[] {
 }
 const aggPt = (value: number): AggregatePoint => ({ time: "", value, stdDev: 0, weights: {}, perModel: {} });
 
-/** A baseline input: dry truth, flat 20 °C truth, no models — caller overrides. */
-function makeInput(over: Partial<ScorecardInput> = {}): ScorecardInput {
+/** A baseline input: dry truth, flat 20 °C truth, no models — caller overrides
+ *  the channels via `over` (a partial per variable, merged onto the defaults). */
+function makeInput(over: { temperature_2m?: Partial<VerifyChannel>; precipitation?: Partial<VerifyChannel>; tuned?: ScorecardInput["tuned"] } = {}): ScorecardInput {
   return {
     times: array(N, (i) => `t${i}`),
-    aggregateTemp: array(N, () => aggPt(20)),
-    aggregatePrecip: array(N, () => aggPt(0)),
-    perModelTemp: {},
-    perModelPrecip: {},
-    truthTemp: array(N, () => 20),
-    truthPrecip: array(N, () => 0),
-    ...over,
+    channels: {
+      temperature_2m: { aggregate: array(N, () => aggPt(20)), perModel: {}, truth: array(N, () => 20), ...over.temperature_2m },
+      precipitation: { aggregate: array(N, () => aggPt(0)), perModel: {}, truth: array(N, () => 0), ...over.precipitation },
+    },
+    tuned: over.tuned,
   };
 }
 
@@ -32,8 +32,8 @@ describe("buildModelScorecard — composite math + dry renormalisation", () => {
     // matching dry truth (amount error 0 → goodness 1); timing undefined → dropped.
     // Composite = mean(0.6, 1) × 100 = 80.
     const input = makeInput({
-      perModelTemp: { m: array(N, () => 22) },
-      perModelPrecip: { m: array(N, () => 0) },
+      temperature_2m: { perModel: { m: array(N, () => 22) } },
+      precipitation: { perModel: { m: array(N, () => 0) } },
     });
     const row = rowFor(input, "m")!;
     expect(row.overall.tempMae).toBeCloseTo(2);
@@ -47,9 +47,8 @@ describe("buildModelScorecard — composite math + dry renormalisation", () => {
     // Wet every hour, forecast matches → all hits → timing 1; amount error 0 →
     // goodness 1; temp MAE 2 → 0.6. Composite = mean(0.6,1,1)×100 = 86.667.
     const input = makeInput({
-      truthPrecip: array(N, () => 1),
-      perModelTemp: { m: array(N, () => 22) },
-      perModelPrecip: { m: array(N, () => 1) },
+      temperature_2m: { perModel: { m: array(N, () => 22) } },
+      precipitation: { perModel: { m: array(N, () => 1) }, truth: array(N, () => 1) },
     });
     const row = rowFor(input, "m")!;
     expect(row.overall.timingScore).toBeCloseTo(1);
@@ -58,9 +57,8 @@ describe("buildModelScorecard — composite math + dry renormalisation", () => {
 
   it("a perfect forecast scores 100", () => {
     const input = makeInput({
-      truthPrecip: array(N, () => 1),
-      perModelTemp: { m: array(N, () => 20) },
-      perModelPrecip: { m: array(N, () => 1) },
+      temperature_2m: { perModel: { m: array(N, () => 20) } },
+      precipitation: { perModel: { m: array(N, () => 1) }, truth: array(N, () => 1) },
     });
     expect(rowFor(input, "m")!.overall.composite).toBeCloseTo(100);
   });
@@ -74,9 +72,8 @@ describe("buildModelScorecard — amount normalised per covered day", () => {
     // Composite = mean(temp 1, amount 0, timing 1) × 100 = 66.67.
     const fPrecip = array(N, (i) => (i < 48 ? (i === 0 ? 15 : 0) : null)); // 48 covered h, sum 15
     const input = makeInput({
-      truthPrecip: array(N, (i) => (i === 0 ? 5 : 0)), // sum 5 → amount error 10
-      perModelTemp: { m: array(N, (i) => (i < 48 ? 20 : null)) },
-      perModelPrecip: { m: fPrecip },
+      temperature_2m: { perModel: { m: array(N, (i) => (i < 48 ? 20 : null)) } },
+      precipitation: { perModel: { m: fPrecip }, truth: array(N, (i) => (i === 0 ? 5 : 0)) }, // sum 5 → amount error 10
     });
     const row = rowFor(input, "m")!;
     expect(row.overall.amountError).toBeCloseTo(10);
@@ -95,9 +92,8 @@ describe("buildModelScorecard — missing forecast hours are ignored, not penali
     // clean amount error (0) and an undefined timing score (no scorable events).
     const fPrecip = array(N, (i) => (i < 48 ? 0 : null));
     const input = makeInput({
-      truthPrecip: array(N, (i) => (i < 48 ? 0 : 5)),
-      perModelTemp: { m: array(N, (i) => (i < 48 ? 20 : null)) },
-      perModelPrecip: { m: fPrecip },
+      temperature_2m: { perModel: { m: array(N, (i) => (i < 48 ? 20 : null)) } },
+      precipitation: { perModel: { m: fPrecip }, truth: array(N, (i) => (i < 48 ? 0 : 5)) },
     });
     const row = rowFor(input, "m")!;
     expect(row.overall.amountError).toBeCloseTo(0);
@@ -115,8 +111,8 @@ describe("buildModelScorecard — false alarms are penalised", () => {
     // amount = 168 mm over 7 covered days = 24 mm/day → goodness 0.
     // Composite = mean(temp 1, amount 0, timing 0) × 100 ≈ 33, not a full score.
     const input = makeInput({
-      perModelTemp: { m: array(N, () => 20) },
-      perModelPrecip: { m: array(N, () => 1) },
+      temperature_2m: { perModel: { m: array(N, () => 20) } },
+      precipitation: { perModel: { m: array(N, () => 1) } },
     });
     const row = rowFor(input, "m")!;
     expect(row.overall.timingScore).toBeCloseTo(0); // scored, not NaN
@@ -129,8 +125,8 @@ describe("buildModelScorecard — lead-time bands + coverage", () => {
   it("fills only the bands a partial-coverage model has data for", () => {
     // Temp data only for the first 48 h (band 0). No precip data anywhere.
     const input = makeInput({
-      perModelTemp: { m: array(N, (i) => (i < 48 ? 21 : null)) },
-      perModelPrecip: { m: array(N, () => null) },
+      temperature_2m: { perModel: { m: array(N, (i) => (i < 48 ? 21 : null)) } },
+      precipitation: { perModel: { m: array(N, () => null) } },
     });
     const row = rowFor(input, "m")!;
     expect(LEAD_BANDS).toHaveLength(3);
@@ -143,7 +139,7 @@ describe("buildModelScorecard — lead-time bands + coverage", () => {
   });
 
   it("marks a full-window model as not partial", () => {
-    const input = makeInput({ perModelTemp: { m: array(N, () => 21) }, perModelPrecip: { m: array(N, () => 0) } });
+    const input = makeInput({ temperature_2m: { perModel: { m: array(N, () => 21) } }, precipitation: { perModel: { m: array(N, () => 0) } } });
     const row = rowFor(input, "m")!;
     expect(row.partial).toBe(false);
     expect(row.coveredHours).toBe(N);
@@ -154,9 +150,8 @@ describe("buildModelScorecard — aggregate ranked inline", () => {
   it("includes the aggregate as a distinct, ranked row and sorts by composite desc", () => {
     // Good model (temp perfect), worse model (temp off by 4), aggregate in between.
     const input = makeInput({
-      perModelTemp: { good: array(N, () => 20), bad: array(N, () => 24) },
-      perModelPrecip: { good: array(N, () => 0), bad: array(N, () => 0) },
-      aggregateTemp: array(N, () => aggPt(22)),
+      temperature_2m: { perModel: { good: array(N, () => 20), bad: array(N, () => 24) }, aggregate: array(N, () => aggPt(22)) },
+      precipitation: { perModel: { good: array(N, () => 0), bad: array(N, () => 0) } },
     });
     const rows = buildModelScorecard(input);
     const agg = rows.find((r) => r.id === AGGREGATE_ROW_ID)!;
@@ -171,7 +166,7 @@ describe("buildModelScorecard — aggregate ranked inline", () => {
   });
 
   it("exposes the full-window per-hour classification for the timing matrix", () => {
-    const input = makeInput({ perModelTemp: { m: array(N, () => 20) }, perModelPrecip: { m: array(N, () => 0) } });
+    const input = makeInput({ temperature_2m: { perModel: { m: array(N, () => 20) } }, precipitation: { perModel: { m: array(N, () => 0) } } });
     expect(rowFor(input, "m")!.hourlyClassification).toHaveLength(N);
     expect(TEMP_MAE_REF_BAD).toBe(5); // guards the composite arithmetic in other tests
   });

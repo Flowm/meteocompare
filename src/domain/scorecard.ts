@@ -10,7 +10,7 @@
 
 import { type AggregatePoint } from "./aggregate";
 import { clamp01 } from "./num";
-import { bias, classifyHours, coveredPrecipSums, HOURS_PER_DAY, mae, timingScore, type HourClassification } from "./verification";
+import { bias, classifyHours, coveredPrecipSums, HOURS_PER_DAY, mae, timingScore, type HourClassification, type VerifiedVariable, type VerifyChannel } from "./verification";
 
 // ---------------------------------------------------------------------------
 // Fixed reference scales + weights (tunable — see ADR 0004)
@@ -96,20 +96,16 @@ export interface ScorecardRow {
 export interface ScorecardInput {
   /** Lead-hour axis covering the full window (e.g. 168 entries). */
   times: readonly string[];
-  /** Aggregate forecast points; a point's `value` is already `number | null`
-   *  (null = no contributing models), read straight through like verification.ts. */
-  aggregateTemp: readonly AggregatePoint[];
-  aggregatePrecip: readonly AggregatePoint[];
-  /** Optional second aggregate computed with the location's tuned weights — when
-   *  present, scored as an extra "Aggregate (tuned)" row for comparison. */
-  tunedAggregateTemp?: readonly AggregatePoint[];
-  tunedAggregatePrecip?: readonly AggregatePoint[];
-  /** Per-model raw hourly forecast values, keyed by model id. */
-  perModelTemp: Readonly<Record<string, readonly (number | null)[]>>;
-  perModelPrecip: Readonly<Record<string, readonly (number | null)[]>>;
-  /** ERA5-Seamless truth, one entry per hour. */
-  truthTemp: readonly (number | null)[];
-  truthPrecip: readonly (number | null)[];
+  /** One channel per verified variable (aggregate + per-model + truth). A
+   *  channel aggregate point's `value` is already `number | null` (null = no
+   *  contributing models), read straight through. No predictability: it is
+   *  defined only over the aggregate and the scorecard carries none (CONTEXT.md
+   *  "Per-model scorecard"). */
+  channels: Record<VerifiedVariable, VerifyChannel>;
+  /** Optional second aggregate per variable computed with the location's tuned
+   *  weights — when present, scored as an extra "Aggregate (tuned)" row for
+   *  comparison against the default-weight aggregate. */
+  tuned?: Record<VerifiedVariable, readonly AggregatePoint[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -202,25 +198,29 @@ const rankKey = (c: number): number => (Number.isFinite(c) ? c : -Infinity);
  *  like a model — the UI marks it distinctly (CONTEXT.md: it is not a Model). */
 export function buildModelScorecard(input: ScorecardInput): ScorecardRow[] {
   const n = input.times.length;
-  const truthTemp = input.truthTemp.slice(0, n);
-  const truthPrecip = input.truthPrecip.slice(0, n);
+  // Scoring is deliberately per-variable-specific: read each channel by its
+  // known key, don't genericise.
+  const temp = input.channels.temperature_2m;
+  const precip = input.channels.precipitation;
+  const truthTemp = temp.truth.slice(0, n);
+  const truthPrecip = precip.truth.slice(0, n);
 
   const rows: ScorecardRow[] = [];
 
-  const modelIds = new Set<string>([...Object.keys(input.perModelTemp), ...Object.keys(input.perModelPrecip)]);
+  const modelIds = new Set<string>([...Object.keys(temp.perModel), ...Object.keys(precip.perModel)]);
   for (const id of modelIds) {
-    const fTemp = (input.perModelTemp[id] ?? []).slice(0, n);
-    const fPrecip = (input.perModelPrecip[id] ?? []).slice(0, n);
+    const fTemp = (temp.perModel[id] ?? []).slice(0, n);
+    const fPrecip = (precip.perModel[id] ?? []).slice(0, n);
     rows.push(buildRow(id, false, fTemp, fPrecip, truthTemp, truthPrecip, n));
   }
 
-  const aggTemp = input.aggregateTemp.slice(0, n).map((p) => p.value);
-  const aggPrecip = input.aggregatePrecip.slice(0, n).map((p) => p.value);
+  const aggTemp = temp.aggregate.slice(0, n).map((p) => p.value);
+  const aggPrecip = precip.aggregate.slice(0, n).map((p) => p.value);
   rows.push(buildRow(AGGREGATE_ROW_ID, true, aggTemp, aggPrecip, truthTemp, truthPrecip, n));
 
-  if (input.tunedAggregateTemp && input.tunedAggregatePrecip) {
-    const tunedTemp = input.tunedAggregateTemp.slice(0, n).map((p) => p.value);
-    const tunedPrecip = input.tunedAggregatePrecip.slice(0, n).map((p) => p.value);
+  if (input.tuned) {
+    const tunedTemp = input.tuned.temperature_2m.slice(0, n).map((p) => p.value);
+    const tunedPrecip = input.tuned.precipitation.slice(0, n).map((p) => p.value);
     rows.push(buildRow(AGGREGATE_TUNED_ROW_ID, true, tunedTemp, tunedPrecip, truthTemp, truthPrecip, n));
   }
 
