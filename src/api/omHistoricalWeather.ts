@@ -4,7 +4,7 @@
 // We always request ERA5-Seamless as the truth source — see
 // docs/adr/0001-era5-seamless-as-sole-ground-truth.md.
 
-import { buildOpenMeteoUrl, fetchOpenMeteo } from "./openMeteo";
+import { baseParams, buildOpenMeteoUrl, fetchOpenMeteoJson } from "./openMeteo";
 
 const HISTORICAL_WEATHER_URL = "https://archive-api.open-meteo.com/v1/archive";
 
@@ -47,26 +47,16 @@ export interface HistoricalWeatherResponse {
 }
 
 export async function fetchHistoricalWeather(req: HistoricalWeatherRequest, signal?: AbortSignal): Promise<HistoricalWeatherResponse> {
-  const params = new URLSearchParams({
-    latitude: String(req.lat),
-    longitude: String(req.lon),
+  const params = baseParams(req.lat, req.lon, {
     start_date: req.startDate,
     end_date: req.endDate,
     hourly: HOURLY_VARS.join(","),
     daily: DAILY_SOLAR_VARS.join(","),
     models: TRUTH_MODEL_ID,
-    timezone: "auto",
-    temperature_unit: "celsius",
-    precipitation_unit: "mm",
   });
 
   const url = buildOpenMeteoUrl(HISTORICAL_WEATHER_URL, params);
-  const res = await fetchOpenMeteo(url, signal);
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`open-meteo historical-weather ${res.status}: ${text || res.statusText}`);
-  }
-  return (await res.json()) as HistoricalWeatherResponse;
+  return fetchOpenMeteoJson<HistoricalWeatherResponse>(url, "historical-weather", signal);
 }
 
 /** Pull an hourly truth series for one variable. */

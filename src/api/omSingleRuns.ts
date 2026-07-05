@@ -10,7 +10,7 @@ import { MODELS } from "@/domain/models";
 
 import type { ForecastResponse } from "./omForecast";
 import { extractHourlyByModel } from "./omForecast";
-import { buildOpenMeteoUrl, fetchOpenMeteo } from "./openMeteo";
+import { baseParams, buildOpenMeteoUrl, fetchOpenMeteo } from "./openMeteo";
 
 const SINGLE_RUNS_URL = "https://single-runs-api.open-meteo.com/v1/forecast";
 
@@ -101,17 +101,11 @@ export interface FetchSingleRunsOptions {
 }
 
 function buildUrl(models: string[], req: SingleRunsRequest): string {
-  const params = new URLSearchParams({
-    latitude: String(req.lat),
-    longitude: String(req.lon),
+  const params = baseParams(req.lat, req.lon, {
     run: `${req.runDate}T${String(req.runHour ?? 0).padStart(2, "0")}:00`,
     hourly: HOURLY_VARS.join(","),
     models: models.join(","),
     forecast_days: String(req.forecastDays ?? 7),
-    timezone: "auto",
-    wind_speed_unit: "kmh",
-    temperature_unit: "celsius",
-    precipitation_unit: "mm",
   });
   return buildOpenMeteoUrl(SINGLE_RUNS_URL, params);
 }

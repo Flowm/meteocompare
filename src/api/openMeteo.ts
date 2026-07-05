@@ -92,3 +92,41 @@ export async function fetchOpenMeteo(url: string, signal?: AbortSignal): Promise
     await sleep(retryAfterMs(res) ?? backoffMs(attempt), signal);
   }
 }
+
+// Every data endpoint (forecast, single-runs, archive) shares the same unit
+// contract so downstream code never has to convert: metric everywhere, with
+// display units applied in the UI layer. Kept here as the single source so the
+// three request builders can't drift apart.
+export const UNIT_PARAMS: Readonly<Record<string, string>> = {
+  temperature_unit: "celsius",
+  precipitation_unit: "mm",
+  wind_speed_unit: "kmh",
+};
+
+/** The latitude/longitude + `timezone:"auto"` + shared unit params common to
+ *  every data request, plus any endpoint-specific `extra` (which wins on a key
+ *  clash). Callers add their own variable/model/day params on top. */
+export function baseParams(lat: number, lon: number, extra?: Record<string, string>): URLSearchParams {
+  return new URLSearchParams({
+    latitude: String(lat),
+    longitude: String(lon),
+    timezone: "auto",
+    ...UNIT_PARAMS,
+    ...extra,
+  });
+}
+
+/** fetchOpenMeteo + the standard error-and-parse shape shared by the forecast,
+ *  historical-weather and geocoding clients: on a non-ok response read the body
+ *  (best-effort) and throw `open-meteo <label> <status>: <body|statusText>`,
+ *  otherwise parse the JSON as `T`. omSingleRuns keeps its own body handling —
+ *  it must inspect a 200 with an unparseable (streamed-failure) body, which this
+ *  ok/not-ok split can't express. */
+export async function fetchOpenMeteoJson<T>(url: string, label: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetchOpenMeteo(url, signal);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`open-meteo ${label} ${res.status}: ${text || res.statusText}`);
+  }
+  return (await res.json()) as T;
+}

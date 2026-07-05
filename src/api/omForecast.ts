@@ -3,7 +3,7 @@
 
 import { MODEL_IDS } from "@/domain/models";
 
-import { buildOpenMeteoUrl, fetchOpenMeteo } from "./openMeteo";
+import { baseParams, buildOpenMeteoUrl, fetchOpenMeteoJson } from "./openMeteo";
 
 const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 
@@ -78,27 +78,16 @@ export async function fetchForecast(req: ForecastRequest, signal?: AbortSignal):
     forecastDays: req.forecastDays ?? 10,
   };
 
-  const params = new URLSearchParams({
-    latitude: String(full.lat),
-    longitude: String(full.lon),
+  const params = baseParams(full.lat, full.lon, {
     hourly: HOURLY_VARS.join(","),
     daily: [...DAILY_VARS, ...DAILY_SOLAR_VARS].join(","),
     current: CURRENT_VARS.join(","),
     models: full.models.join(","),
     forecast_days: String(full.forecastDays),
-    timezone: "auto",
-    wind_speed_unit: "kmh",
-    temperature_unit: "celsius",
-    precipitation_unit: "mm",
   });
 
   const url = buildOpenMeteoUrl(FORECAST_URL, params);
-  const res = await fetchOpenMeteo(url, signal);
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`open-meteo forecast ${res.status}: ${text || res.statusText}`);
-  }
-  return (await res.json()) as ForecastResponse;
+  return fetchOpenMeteoJson<ForecastResponse>(url, "forecast", signal);
 }
 
 /** Pull a per-model hourly series for one base variable.
