@@ -7,7 +7,7 @@ import HourlySeriesChart from "@/components/HourlySeriesChart.vue";
 import LoadingVeil from "@/components/LoadingVeil.vue";
 import LocationBanner from "@/components/LocationBanner.vue";
 import LocationBar from "@/components/LocationBar.vue";
-import RadarSpinner from "@/components/RadarSpinner.vue";
+import StateBlock from "@/components/StateBlock.vue";
 import WindyMap from "@/components/WindyMap.vue";
 import { useForecast } from "@/composables/useForecast";
 import { useLocation } from "@/composables/useLocation";
@@ -28,12 +28,9 @@ const FORECAST_VARIABLES: ChartViewId[] = ["temperature_2m", "precipitation", "p
     <LocationBar />
 
     <main class="mx-auto w-full max-w-5xl flex-1 space-y-3 px-4 py-3 sm:space-y-8 sm:px-6 sm:py-8">
-      <div v-if="error" class="border-heat-500/40 bg-heat-500/5 text-heat-300 border p-4 font-mono text-xs tracking-wide"><span class="text-heat-400">[err]</span> {{ error }}</div>
+      <StateBlock v-if="error" kind="error">{{ error }}</StateBlock>
 
-      <div v-if="loading && !raw" class="grid place-items-center gap-4 py-32">
-        <RadarSpinner />
-        <p class="text-paper-400 font-mono text-[11px] tracking-wide">Fetching observations…</p>
-      </div>
+      <StateBlock v-if="loading && !raw" kind="loading" caption="Fetching observations…" />
 
       <!-- LoadingVeil dims the forecast and shows an "Updating…" indicator while
            a location change re-fetches, instead of leaving stale data on screen. -->

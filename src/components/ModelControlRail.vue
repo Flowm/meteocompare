@@ -4,6 +4,8 @@ import { computed, ref } from "vue";
 import type { ModelDef } from "@/domain/models";
 
 import { paletteFor } from "./chartOption";
+import ChevronIcon from "./ChevronIcon.vue";
+import Swatch from "./Swatch.vue";
 
 const props = defineProps<{
   models: ModelDef[];
@@ -45,9 +47,7 @@ const enabledCount = computed(() => props.models.filter((m) => props.enabledMode
       >
         <span v-if="enabledCount > 0 && !allModelsActive" class="text-paper-200">{{ enabledCount }}/{{ models.length }} on</span>
         <span v-else>{{ models.length }} models</span>
-        <svg class="text-paper-300 size-3 transition-transform" :class="{ 'rotate-180': expanded }" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-          <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
+        <ChevronIcon class="text-paper-300 size-3" :open="expanded" />
       </button>
       <template v-if="expanded">
         <button
@@ -66,7 +66,7 @@ const enabledCount = computed(() => props.models.filter((m) => props.enabledMode
           :title="modelHasData[m.id] ? `${m.provider} · ${m.description}` : `${m.provider} · no data for this variable`"
           @click="emit('toggleModel', m.id)"
         >
-          <span class="inline-block size-2" :style="{ backgroundColor: paletteFor(m.id) }" />{{ m.label }}
+          <Swatch :color="paletteFor(m.id)" />{{ m.label }}
         </button>
       </template>
     </div>

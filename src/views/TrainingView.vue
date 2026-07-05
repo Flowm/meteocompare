@@ -10,7 +10,8 @@ import { paletteFor } from "@/components/chartOption";
 import CollapsibleSection from "@/components/CollapsibleSection.vue";
 import LocationBar from "@/components/LocationBar.vue";
 import LocationLabel from "@/components/LocationLabel.vue";
-import RadarSpinner from "@/components/RadarSpinner.vue";
+import StateBlock from "@/components/StateBlock.vue";
+import Swatch from "@/components/Swatch.vue";
 import { useLocation } from "@/composables/useLocation";
 import { useSettings } from "@/composables/useSettings";
 import { getModel } from "@/domain/models";
@@ -158,16 +159,13 @@ function jumpTo(row: { name: string; detail?: string; latitude?: number; longitu
             </p>
           </div>
 
-          <div v-if="sampleLoading" class="grid place-items-center gap-4 py-24">
-            <RadarSpinner />
-            <p class="text-paper-400 font-mono text-[11px] tracking-wide">Loading stored data…</p>
-          </div>
+          <StateBlock v-if="sampleLoading" kind="loading" loading-py="py-24" caption="Loading stored data…" />
 
-          <div v-else-if="runCount === 0" class="border-ink-700 bg-ink-900/40 text-paper-400 border p-6 text-center font-mono text-[11px] leading-relaxed tracking-wide">
+          <StateBlock v-else-if="runCount === 0" kind="empty" text-size="text-[11px]" relaxed>
             No stored runs for this location yet. Open
             <RouterLink to="/verify" class="text-sodium-200 hover:text-sodium-100">Verify → Multi-run</RouterLink>, gather a window of runs, and press
             <span class="text-paper-200">Store data</span>.
-          </div>
+          </StateBlock>
 
           <div v-else class="space-y-6">
             <div class="border-ink-700 bg-ink-900/40 flex flex-wrap items-center gap-x-5 gap-y-3 border p-4">
@@ -184,15 +182,10 @@ function jumpTo(row: { name: string; detail?: string; latitude?: number; longitu
               </button>
             </div>
 
-            <div v-if="training" class="grid place-items-center gap-4 py-16">
-              <RadarSpinner />
-              <p class="text-paper-400 font-mono text-[11px] tracking-wide">Fitting weights…</p>
-            </div>
+            <StateBlock v-if="training" kind="loading" loading-py="py-16" caption="Fitting weights…" />
 
             <template v-else-if="result">
-              <div v-if="!result.ok" class="border-heat-500/40 bg-heat-500/5 text-heat-300 border p-4 font-mono text-[11px] tracking-wide">
-                <span class="text-heat-400">[err]</span> {{ result.reason }}
-              </div>
+              <StateBlock v-if="!result.ok" kind="error" text-size="text-[11px]">{{ result.reason }}</StateBlock>
 
               <template v-else>
                 <!-- Train/validation summary -->
@@ -253,7 +246,7 @@ function jumpTo(row: { name: string; detail?: string; latitude?: number; longitu
                       <tr v-for="row in rows" :key="row.id">
                         <th scope="row" class="border-ink-700/40 border-b px-3 py-1.5 text-left font-normal">
                           <span class="flex items-center gap-2">
-                            <span class="inline-block size-2 shrink-0" :style="{ backgroundColor: row.color }" />
+                            <Swatch :color="row.color" class="shrink-0" />
                             <span class="text-paper-200">{{ row.label }}</span>
                           </span>
                         </th>

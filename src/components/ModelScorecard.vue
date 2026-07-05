@@ -6,6 +6,7 @@ import { AGGREGATE_TUNED_ROW_ID, LEAD_BANDS, type ScorecardRow } from "@/domain/
 import { HOURS_PER_DAY } from "@/domain/verification";
 
 import { accent, fmtScore as fmtComposite, fmtTiming, label as labelOf, scoreTone, useScorecardFormat } from "./scorecardFormat";
+import Swatch from "./Swatch.vue";
 
 const props = defineProps<{
   /** Rows to score; the aggregate is one of them, ranked inline. */
@@ -248,7 +249,7 @@ const caretClass = (key: SortKey): string => (sortKey.value === key ? "text-sodi
                w-px + nowrap shrinks it to just past the widest label. -->
           <th scope="row" class="border-ink-700/40 bg-ink-900 sticky left-0 z-10 w-px border-b px-3 py-1.5 text-left font-normal whitespace-nowrap">
             <span class="flex items-center gap-2">
-              <span class="inline-block size-2 shrink-0" :style="{ backgroundColor: accent(row.id, row.isAggregate) }" />
+              <Swatch :color="accent(row.id, row.isAggregate)" class="shrink-0" />
               <span :class="row.isAggregate ? 'text-aggregate-400 font-semibold' : 'text-paper-200'">{{ label(row.id) }}</span>
             </span>
           </th>

@@ -12,7 +12,8 @@ import LocationLabel from "@/components/LocationLabel.vue";
 import ModelScorecard from "@/components/ModelScorecard.vue";
 import ModelTimingMatrix from "@/components/ModelTimingMatrix.vue";
 import MultiRunScorecard from "@/components/MultiRunScorecard.vue";
-import RadarSpinner from "@/components/RadarSpinner.vue";
+import SegmentedToggle from "@/components/SegmentedToggle.vue";
+import StateBlock from "@/components/StateBlock.vue";
 import VerificationDayCard from "@/components/VerificationDayCard.vue";
 import { useLocation } from "@/composables/useLocation";
 import { useSampleCollection } from "@/composables/useSampleCollection";
@@ -71,6 +72,15 @@ const mode = ref<"single" | "multi">("single");
 const durationDays = ref(30);
 const cyclesPerDay = ref<1 | 4>(1);
 
+const MODE_OPTIONS = [
+  { value: "single", label: "Single run" },
+  { value: "multi", label: "Multi-run" },
+] as const;
+const CYCLES_OPTIONS = [
+  { value: 1, label: "00Z only" },
+  { value: 4, label: "All cycles" },
+] as const;
+
 const showModels = ref(false);
 
 const { loading, error, hourly, daily, scorecard, availableModels, solar } = useVerification(current, runDate, runCycle);
@@ -108,24 +118,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
         <section class="registration border-ink-700 bg-ink-900/60 relative border p-5 sm:p-6">
           <!-- Single-run vs multi-run mode. -->
           <div class="mb-4 flex items-center gap-3">
-            <div class="border-ink-700 inline-flex border font-mono text-xs tracking-wide">
-              <button
-                type="button"
-                class="px-3 py-1 transition-colors"
-                :class="mode === 'single' ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
-                @click="mode = 'single'"
-              >
-                Single run
-              </button>
-              <button
-                type="button"
-                class="border-ink-700 border-l px-3 py-1 transition-colors"
-                :class="mode === 'multi' ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
-                @click="mode = 'multi'"
-              >
-                Multi-run
-              </button>
-            </div>
+            <SegmentedToggle v-model="mode" :options="MODE_OPTIONS" inline divided class="font-mono text-xs tracking-wide" />
           </div>
 
           <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
@@ -174,24 +167,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
               </label>
               <div class="text-paper-300 flex items-center gap-2.5 font-mono text-[11px] tracking-wide">
                 <span>Runs / day</span>
-                <div class="border-ink-700 inline-flex border">
-                  <button
-                    type="button"
-                    class="px-2.5 py-1 transition-colors"
-                    :class="cyclesPerDay === 1 ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
-                    @click="cyclesPerDay = 1"
-                  >
-                    00Z only
-                  </button>
-                  <button
-                    type="button"
-                    class="border-ink-700 border-l px-2.5 py-1 transition-colors"
-                    :class="cyclesPerDay === 4 ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
-                    @click="cyclesPerDay = 4"
-                  >
-                    All cycles
-                  </button>
-                </div>
+                <SegmentedToggle v-model="cyclesPerDay" :options="CYCLES_OPTIONS" inline divided padding="px-2.5 py-1" />
               </div>
               <button
                 type="button"
@@ -234,14 +210,9 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
 
       <!-- Single-run analysis -->
       <template v-if="mode === 'single'">
-        <div v-if="error" class="border-heat-500/40 bg-heat-500/5 text-heat-300 border p-4 font-mono text-xs tracking-wide">
-          <span class="text-heat-400">[err]</span> {{ error }}
-        </div>
+        <StateBlock v-if="error" kind="error">{{ error }}</StateBlock>
 
-        <div v-if="loading && !hourly" class="grid place-items-center gap-4 py-32">
-          <RadarSpinner />
-          <p class="text-paper-400 font-mono text-[11px] tracking-wide">Loading run…</p>
-        </div>
+        <StateBlock v-if="loading && !hourly" kind="loading" caption="Loading run…" />
 
         <LoadingVeil v-if="hourly" :loading="loading">
           <div class="space-y-8">
@@ -301,14 +272,11 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
             <MultiRunScorecard :stats="sampleStats" />
           </div>
         </CollapsibleSection>
-        <div v-else-if="gathering" class="grid place-items-center gap-4 py-32">
-          <RadarSpinner />
-          <p class="text-paper-400 font-mono text-[11px] tracking-wide">Gathering {{ progress.done }}/{{ progress.total }} runs…</p>
-        </div>
-        <div v-else class="border-ink-700 bg-ink-900/40 text-paper-400 border p-6 text-center font-mono text-[11px] tracking-wide">
+        <StateBlock v-else-if="gathering" kind="loading" :caption="`Gathering ${progress.done}/${progress.total} runs…`" />
+        <StateBlock v-else kind="empty" text-size="text-[11px]">
           Set a duration and press <span class="text-sodium-200">Gather</span> to sample this location's runs, then <span class="text-paper-200">Store data</span> to keep them for
           training.
-        </div>
+        </StateBlock>
       </template>
     </main>
 

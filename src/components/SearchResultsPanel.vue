@@ -4,6 +4,8 @@ import { nextTick, ref, watch } from "vue";
 import { formatLocation, type GeocodingResult } from "@/api/geocoding";
 import type { Location } from "@/composables/useLocation";
 
+import PopoverPanel from "./PopoverPanel.vue";
+
 const props = defineProps<{
   query: string;
   results: GeocodingResult[];
@@ -22,7 +24,9 @@ const emit = defineEmits<{
   hover: [index: number];
 }>();
 
-const root = ref<HTMLElement | null>(null);
+// PopoverPanel is a single-root component, so its instance ref exposes the panel
+// DOM node as `$el` — used to scroll the keyboard-highlighted row into view.
+const root = ref<{ $el: HTMLElement } | null>(null);
 
 // Keep the highlighted row visible as the user arrows through the scrollable list.
 watch(
@@ -30,7 +34,7 @@ watch(
   async (i) => {
     if (i < 0) return;
     await nextTick();
-    root.value?.querySelector(`#location-option-${i}`)?.scrollIntoView({ block: "nearest" });
+    root.value?.$el.querySelector(`#location-option-${i}`)?.scrollIntoView({ block: "nearest" });
   },
 );
 
@@ -40,12 +44,7 @@ const ACTIVE_CLASS = "bg-ink-800 shadow-[inset_2px_0_0_var(--color-sodium-300)]"
 </script>
 
 <template>
-  <div
-    id="location-results"
-    ref="root"
-    role="listbox"
-    class="panel-in border-ink-700 bg-ink-900 absolute top-full right-0 left-0 z-40 col-span-full mt-1 overflow-hidden border shadow-2xl shadow-black/60 sm:col-[2/3]"
-  >
+  <PopoverPanel id="location-results" ref="root" role="listbox" class="top-full right-0 left-0 col-span-full sm:col-[2/3]">
     <div v-if="isSearching" class="text-paper-400 flex items-center gap-2 px-3 py-2 font-mono text-[11px] tracking-wide">
       <span class="bg-sodium-300 size-1 animate-pulse rounded-full" /> Searching…
     </div>
@@ -111,5 +110,5 @@ const ACTIVE_CLASS = "bg-ink-800 shadow-[inset_2px_0_0_var(--color-sodium-300)]"
         >
       </button>
     </template>
-  </div>
+  </PopoverPanel>
 </template>

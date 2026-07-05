@@ -5,6 +5,7 @@ import { AGGREGATE_TUNED_ROW_ID, type ScorecardRow } from "@/domain/scorecard";
 
 import HitMissStrip from "./HitMissStrip.vue";
 import { accent, label as labelOf } from "./scorecardFormat";
+import Swatch from "./Swatch.vue";
 
 const props = defineProps<{
   /** Same rows (and order) as the scorecard table. */
@@ -41,7 +42,7 @@ const label = (id: string): string => labelOf(id, hasTuned.value);
 
         <div v-for="row in rows" :key="row.id" class="flex items-center py-0.5">
           <div class="bg-ink-900 sticky left-0 z-10 flex w-40 shrink-0 items-center gap-1.5 pr-2 font-mono text-[10px]">
-            <span class="inline-block size-2 shrink-0" :style="{ backgroundColor: accent(row.id, row.isAggregate) }" />
+            <Swatch :color="accent(row.id, row.isAggregate)" class="shrink-0" />
             <span class="truncate" :class="row.isAggregate ? 'text-aggregate-400' : 'text-paper-300'">{{ label(row.id) }}</span>
           </div>
           <div class="flex-1">

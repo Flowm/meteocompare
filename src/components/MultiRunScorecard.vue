@@ -6,6 +6,7 @@ import { unitLabel, useUnits } from "@/composables/useUnits";
 import { AGGREGATE_TUNED_ROW_ID, LEAD_BANDS } from "@/domain/scorecard";
 
 import { accent, fmtScore, fmtTiming, label as labelOf, scoreTone, useScorecardFormat } from "./scorecardFormat";
+import Swatch from "./Swatch.vue";
 
 const props = defineProps<{
   /** Per-model performance across the sample, pre-sorted best-first. */
@@ -58,7 +59,7 @@ const fmtRange = (s: ModelSampleStats): string =>
         <tr v-for="s in props.stats" :key="s.id" :class="s.isAggregate ? 'bg-aggregate-400/5' : ''">
           <th scope="row" class="border-ink-700/40 bg-ink-900 sticky left-0 z-10 border-b px-3 py-1.5 text-left font-normal whitespace-nowrap">
             <span class="flex items-center gap-2">
-              <span class="inline-block size-2 shrink-0" :style="{ backgroundColor: accent(s.id, s.isAggregate) }" />
+              <Swatch :color="accent(s.id, s.isAggregate)" class="shrink-0" />
               <span :class="s.isAggregate ? 'text-aggregate-400 font-semibold' : 'text-paper-200'">{{ label(s.id) }}</span>
             </span>
           </th>

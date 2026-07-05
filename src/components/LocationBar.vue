@@ -6,6 +6,7 @@ import { useRoute } from "vue-router";
 import { searchLocations, type GeocodingResult } from "@/api/geocoding";
 import { useLocation, type Location } from "@/composables/useLocation";
 
+import PopoverPanel from "./PopoverPanel.vue";
 import SearchResultsPanel from "./SearchResultsPanel.vue";
 import SettingsMenu from "./SettingsMenu.vue";
 
@@ -204,15 +205,9 @@ function geolocate(): void {
             <span class="bg-sodium-300 size-1 rounded-full" aria-hidden="true" />
             <span class="sm:hidden">{{ currentViewShort }}</span>
             <span class="hidden sm:inline">{{ currentView }}</span>
-            <svg class="text-paper-300 size-3 transition-transform" :class="{ 'rotate-180': viewOpen }" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
+            <ChevronIcon class="text-paper-300 size-3" :open="viewOpen" />
           </button>
-          <div
-            v-if="viewOpen"
-            role="menu"
-            class="panel-in border-ink-700 bg-ink-900 absolute top-full left-0 z-40 mt-1 min-w-[10rem] overflow-hidden border shadow-2xl shadow-black/60"
-          >
+          <PopoverPanel v-if="viewOpen" role="menu" class="top-full left-0 min-w-[10rem]">
             <RouterLink
               :to="{ path: '/', query: preservedQuery }"
               role="menuitem"
@@ -249,7 +244,7 @@ function geolocate(): void {
             >
               · About
             </RouterLink>
-          </div>
+          </PopoverPanel>
         </div>
       </div>
 

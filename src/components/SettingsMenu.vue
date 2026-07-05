@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { onClickOutside } from "@vueuse/core";
-import { ref } from "vue";
+import { computed, ref } from "vue";
 
 import { useApiKey } from "@/composables/useApiKey";
 import { useSettings } from "@/composables/useSettings";
 import { useUnits, type PrecipitationUnit, type TemperatureUnit } from "@/composables/useUnits";
+
+import PopoverPanel from "./PopoverPanel.vue";
+import SegmentedToggle from "./SegmentedToggle.vue";
 
 const { temp, precip } = useUnits();
 const { useTrainedWeights } = useSettings();
@@ -23,6 +26,18 @@ const precipOptions: { value: PrecipitationUnit; label: string }[] = [
   { value: "mm", label: "mm" },
   { value: "in", label: "in" },
 ];
+
+// SegmentedToggle models a string/number; bridge it to the boolean setting.
+const trainedWeightsMode = computed<"off" | "on">({
+  get: () => (useTrainedWeights.value ? "on" : "off"),
+  set: (v) => {
+    useTrainedWeights.value = v === "on";
+  },
+});
+const trainedWeightsOptions = [
+  { value: "off", label: "Off" },
+  { value: "on", label: "On" },
+] as const;
 </script>
 
 <template>
@@ -54,70 +69,23 @@ const precipOptions: { value: PrecipitationUnit; label: string }[] = [
       <span class="sr-only">Settings</span>
     </button>
 
-    <div v-if="isOpen" class="panel-in border-ink-700 bg-ink-900 absolute right-0 z-40 mt-1 w-60 overflow-hidden border shadow-2xl shadow-black/60" role="menu">
+    <PopoverPanel v-if="isOpen" role="menu" class="right-0 w-60">
       <div class="border-ink-700 text-paper-400 border-b px-3 py-2 font-mono text-[11px] tracking-wide"><span class="text-sodium-300">·</span> Units</div>
 
       <div class="flex items-center justify-between px-3 py-2.5 text-sm">
         <span class="text-paper-200 font-mono text-xs tracking-wide">Temperature</span>
-        <div class="border-ink-700 flex border" role="radiogroup" aria-label="Temperature unit">
-          <button
-            v-for="opt in tempOptions"
-            :key="opt.value"
-            type="button"
-            role="radio"
-            :aria-checked="temp === opt.value"
-            class="px-3 py-1 font-mono text-[11px] tabular-nums transition-colors"
-            :class="temp === opt.value ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
-            @click="temp = opt.value"
-          >
-            {{ opt.label }}
-          </button>
-        </div>
+        <SegmentedToggle v-model="temp" :options="tempOptions" role="radiogroup" aria-label="Temperature unit" class="font-mono text-[11px] tabular-nums" />
       </div>
 
       <div class="border-ink-700/60 flex items-center justify-between border-t px-3 py-2.5 text-sm">
         <span class="text-paper-200 font-mono text-xs tracking-wide">Precipitation</span>
-        <div class="border-ink-700 flex border" role="radiogroup" aria-label="Precipitation unit">
-          <button
-            v-for="opt in precipOptions"
-            :key="opt.value"
-            type="button"
-            role="radio"
-            :aria-checked="precip === opt.value"
-            class="px-3 py-1 font-mono text-[11px] transition-colors"
-            :class="precip === opt.value ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
-            @click="precip = opt.value"
-          >
-            {{ opt.label }}
-          </button>
-        </div>
+        <SegmentedToggle v-model="precip" :options="precipOptions" role="radiogroup" aria-label="Precipitation unit" class="font-mono text-[11px]" />
       </div>
 
       <div class="border-ink-700 text-paper-400 border-t px-3 py-2 font-mono text-[11px] tracking-wide"><span class="text-sodium-300">·</span> Forecast</div>
       <div class="flex items-center justify-between px-3 py-2.5 text-sm">
         <span class="text-paper-200 font-mono text-xs tracking-wide" title="Apply per-location trained weights to the aggregate where available">Trained weights</span>
-        <div class="border-ink-700 flex border" role="radiogroup" aria-label="Use trained weights">
-          <button
-            type="button"
-            role="radio"
-            :aria-checked="!useTrainedWeights"
-            class="px-3 py-1 font-mono text-[11px] transition-colors"
-            :class="!useTrainedWeights ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
-            @click="useTrainedWeights = false"
-          >
-            Off
-          </button>
-          <button
-            type="button"
-            role="radio"
-            :aria-checked="useTrainedWeights"
-            class="px-3 py-1 font-mono text-[11px] transition-colors"
-            :class="useTrainedWeights ? 'bg-sodium-300/15 text-sodium-200' : 'text-paper-300 hover:bg-ink-800 hover:text-paper-50'"
-            @click="useTrainedWeights = true"
-          >
-            On
-          </button>
-        </div>
+        <SegmentedToggle v-model="trainedWeightsMode" :options="trainedWeightsOptions" role="radiogroup" aria-label="Use trained weights" class="font-mono text-[11px]" />
       </div>
 
       <div class="border-ink-700 text-paper-400 border-t border-b px-3 py-2 font-mono text-[11px] tracking-wide"><span class="text-sodium-300">·</span> Open-Meteo API key</div>
@@ -146,6 +114,6 @@ const precipOptions: { value: PrecipitationUnit; label: string }[] = [
         </div>
         <p class="text-paper-400 mt-2 font-mono text-[10px] leading-relaxed">Optional: with a key the commercial endpoints are used, otherwise the free ones.</p>
       </div>
-    </div>
+    </PopoverPanel>
   </div>
 </template>

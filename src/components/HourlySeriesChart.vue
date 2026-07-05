@@ -14,7 +14,10 @@ import { MODELS, type ModelDef } from "@/domain/models";
 import { CHART_VIEWS, isVarActive as isVarActiveFor, nextCombinableView, type ChartViewId } from "./chartHelpers";
 import { AGG_COLOR, BAND_SWATCH, buildHourlyChartOption, TRUTH_COLOR, visibilityPatches } from "./chartOption";
 import { buildTooltipFormatter } from "./chartTooltip";
+import ChevronIcon from "./ChevronIcon.vue";
 import ModelControlRail from "./ModelControlRail.vue";
+import PopoverPanel from "./PopoverPanel.vue";
+import Swatch from "./Swatch.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -339,15 +342,9 @@ watch(option, () => {
           @click="varOpen = !varOpen"
         >
           {{ CHART_VIEWS[view].label }}
-          <svg class="text-paper-300 size-3 transition-transform" :class="{ 'rotate-180': varOpen }" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
+          <ChevronIcon class="text-paper-300 size-3" :open="varOpen" />
         </button>
-        <div
-          v-if="varOpen"
-          role="menu"
-          class="panel-in border-ink-700 bg-ink-900 absolute top-full left-0 z-40 mt-1 min-w-[12rem] overflow-hidden border shadow-2xl shadow-black/60"
-        >
+        <PopoverPanel v-if="varOpen" role="menu" class="top-full left-0 min-w-[12rem]">
           <button
             v-for="vid in variables"
             :key="vid"
@@ -360,7 +357,7 @@ watch(option, () => {
           >
             {{ CHART_VIEWS[vid].label }}
           </button>
-        </div>
+        </PopoverPanel>
       </div>
 
       <!-- Window selector (right-aligned) -->
@@ -401,7 +398,7 @@ watch(option, () => {
             :class="showAggregate ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
             @click="toggleAggregate"
           >
-            <span class="inline-block size-2" :style="{ backgroundColor: AGG_COLOR }" />Aggregate
+            <Swatch :color="AGG_COLOR" />Aggregate
           </button>
           <!-- The ±1σ spread is drawn for every view — a shaded band on line
                views, error-bar whiskers on the precipitation bars — so the
@@ -413,7 +410,7 @@ watch(option, () => {
             title="Model spread (±1σ)"
             @click="toggleBand"
           >
-            <span class="inline-block size-2" :style="{ backgroundColor: BAND_SWATCH }" />Spread ±1σ
+            <Swatch :color="BAND_SWATCH" />Spread ±1σ
           </button>
           <button
             v-if="hasTruth"
@@ -422,7 +419,7 @@ watch(option, () => {
             :class="showTruth ? 'border-ink-600 bg-ink-800 text-paper-50' : 'border-ink-700 bg-ink-950 text-paper-400 hover:text-paper-200'"
             @click="toggleTruth"
           >
-            <span class="inline-block size-2" :style="{ backgroundColor: TRUTH_COLOR }" />Truth
+            <Swatch :color="TRUTH_COLOR" />Truth
           </button>
         </div>
       </div>
