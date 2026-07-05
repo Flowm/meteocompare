@@ -107,6 +107,24 @@ describe("aggregateVariables — weather_code is lead-independent", () => {
   });
 });
 
+describe("aggregateVariables — trained multipliers pass through", () => {
+  it("forwards multipliers to aggregateSeries so the aggregate shifts toward the up-weighted model", () => {
+    const times = makeTimes(1, "2026-05-20T00:00:00Z");
+    // ecmwf 10, the rest 20 → equal-weight mean 17.5.
+    const byModel = { ecmwf_ifs: [10], gfs_seamless: [20], icon_global: [20], meteofrance_seamless: [20] };
+    const vars = [{ key: "temperature_2m", family: "temperature_2m" as const }];
+    const base = { times, perModel: { temperature_2m: byModel }, vars, models: subset, lat: PARIS.lat, lon: PARIS.lon, baseTime, cadence: "hourly" as const };
+
+    const plain = aggregateVariables(base).aggregate.temperature_2m![0]!.value!;
+    const boosted = aggregateVariables({ ...base, multipliers: { ecmwf_ifs: 5 } }).aggregate.temperature_2m![0]!.value!;
+    // The wrapper matches a direct aggregateSeries call with the same multipliers.
+    const direct = aggregateSeries(times, byModel, { variable: "temperature_2m", models: subset, lat: PARIS.lat, lon: PARIS.lon, baseTime, multipliers: { ecmwf_ifs: 5 } })[0]!
+      .value!;
+    expect(boosted).toBeCloseTo(direct, 10);
+    expect(boosted).toBeLessThan(plain); // dragged toward the cool ecmwf
+  });
+});
+
 describe("aggregateVariables — degenerate input", () => {
   it("yields a null aggregate value and zero predictability when every model is null", () => {
     const times = makeTimes(1, "2026-05-20T00:00:00Z");

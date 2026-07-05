@@ -76,3 +76,40 @@ describe("normalizedWeights", () => {
     expect(sydneyW.get("bom_access_global")!).toBeGreaterThan(parisW.get("bom_access_global")!);
   });
 });
+
+describe("trained multipliers", () => {
+  const ecmwf = getModel("ecmwf_ifs")!;
+
+  it("scales the heuristic weight linearly", () => {
+    const base = modelWeight(ecmwf, 24, PARIS.lat, PARIS.lon, "temperature_2m");
+    const doubled = modelWeight(ecmwf, 24, PARIS.lat, PARIS.lon, "temperature_2m", { ecmwf_ifs: 2 });
+    const halved = modelWeight(ecmwf, 24, PARIS.lat, PARIS.lon, "temperature_2m", { ecmwf_ifs: 0.5 });
+    expect(doubled).toBeCloseTo(base * 2, 10);
+    expect(halved).toBeCloseTo(base * 0.5, 10);
+  });
+
+  it("treats an absent model or a multiplier of 1 as exactly the heuristic", () => {
+    const base = modelWeight(ecmwf, 24, PARIS.lat, PARIS.lon, "temperature_2m");
+    expect(modelWeight(ecmwf, 24, PARIS.lat, PARIS.lon, "temperature_2m", {})).toBeCloseTo(base, 10);
+    expect(modelWeight(ecmwf, 24, PARIS.lat, PARIS.lon, "temperature_2m", { ecmwf_ifs: 1 })).toBeCloseTo(base, 10);
+    // A multiplier for a *different* model leaves this one untouched.
+    expect(modelWeight(ecmwf, 24, PARIS.lat, PARIS.lon, "temperature_2m", { gfs_seamless: 3 })).toBeCloseTo(base, 10);
+  });
+
+  it("drops a model entirely with a 0 multiplier", () => {
+    expect(modelWeight(ecmwf, 24, PARIS.lat, PARIS.lon, "temperature_2m", { ecmwf_ifs: 0 })).toBe(0);
+    // …and normalizedWeights then excludes it, so the survivors renormalise to 1.
+    const w = normalizedWeights(MODELS, 24, PARIS.lat, PARIS.lon, "temperature_2m", { ecmwf_ifs: 0 });
+    expect(w.has("ecmwf_ifs")).toBe(false);
+    const sum = Array.from(w.values()).reduce((a, b) => a + b, 0);
+    expect(sum).toBeCloseTo(1, 10);
+  });
+
+  it("shifts a model's normalised share up when its multiplier rises", () => {
+    const plain = normalizedWeights(MODELS, 24, PARIS.lat, PARIS.lon, "temperature_2m");
+    const boosted = normalizedWeights(MODELS, 24, PARIS.lat, PARIS.lon, "temperature_2m", { ecmwf_ifs: 3 });
+    expect(boosted.get("ecmwf_ifs")!).toBeGreaterThan(plain.get("ecmwf_ifs")!);
+    // Both still sum to 1 — a raised share is other models ceding, not new mass.
+    expect(Array.from(boosted.values()).reduce((a, b) => a + b, 0)).toBeCloseTo(1, 10);
+  });
+});

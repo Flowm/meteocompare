@@ -195,3 +195,63 @@ describe("aggregateSeries (weather_code)", () => {
     expect(out[0]?.value).toBeNull();
   });
 });
+
+describe("aggregateSeries (weather_code) — severity-weighted mode tie-break", () => {
+  // A mid-Atlantic point where none of the four models has a home-region bonus,
+  // so every weight is exactly 0.25 and the two-stage selection is exact rather
+  // than "somewhere in the group".
+  const OCEAN = { lat: 0, lon: -30 };
+  const baseTime = new Date("2026-05-20T00:00:00Z");
+  const times = makeTimes(1, "2026-05-20T00:00:00Z");
+  const code = (series: Record<string, number[]>): number | null =>
+    aggregateSeries(times, series, { variable: "weather_code", models: subset, lat: OCEAN.lat, lon: OCEAN.lon, baseTime })[0]?.value ?? null;
+
+  it("picks the modal severity slug, then the modal code within it", () => {
+    // Slugs: rain 0.75 (61, 63, 63) vs snow 0.25 (71) → rain wins. Within rain:
+    // code 63 has 0.5, code 61 has 0.25 → 63. Both stages are pinned: the winner
+    // is neither the highest-weight *slug*'s first code nor a plain global mode.
+    expect(code({ ecmwf_ifs: [61], gfs_seamless: [63], icon_global: [63], meteofrance_seamless: [71] })).toBe(63);
+  });
+
+  it("resolves a slug tie to the first-encountered slug, then that slug's modal code", () => {
+    // Rain 0.5 (61, 63) ties snow 0.5 (71, 73). The strict `>` keeps the
+    // first-seen slug — rain, via ecmwf_ifs=61 leading the subset — so the winner
+    // is a rain code, never a snow one, even though snow has equal total weight.
+    expect([61, 63]).toContain(code({ ecmwf_ifs: [61], gfs_seamless: [63], icon_global: [71], meteofrance_seamless: [73] }));
+  });
+
+  it("resolves a within-slug code tie to the first-encountered code", () => {
+    // Rain slug wins outright (0.75). Inside it, 61 and 63 tie at 0.25 each while
+    // 80 also has 0.25 — the strict `>` keeps the first code that reached the max
+    // in model-iteration order (ecmwf_ifs=61 leads the subset).
+    expect(code({ ecmwf_ifs: [61], gfs_seamless: [63], icon_global: [80], meteofrance_seamless: [71] })).toBe(61);
+  });
+});
+
+describe("aggregateSeries — trained multipliers pass through", () => {
+  const baseTime = new Date("2026-05-20T00:00:00Z");
+  const times = makeTimes(1, "2026-05-20T00:00:00Z");
+  // ecmwf says 10, the other three say 20. The equal-weight mean is 17.5.
+  const series = { ecmwf_ifs: [10], gfs_seamless: [20], icon_global: [20], meteofrance_seamless: [20] };
+  const tempAt = (multipliers?: Record<string, number>): number =>
+    aggregateSeries(times, series, { variable: "temperature_2m", models: subset, lat: PARIS.lat, lon: PARIS.lon, baseTime, multipliers })[0]?.value ?? NaN;
+
+  it("leaves the aggregate unchanged for an all-ones (or empty) multiplier map", () => {
+    const plain = tempAt();
+    expect(tempAt({})).toBeCloseTo(plain, 10);
+    expect(tempAt({ ecmwf_ifs: 1, gfs_seamless: 1 })).toBeCloseTo(plain, 10);
+  });
+
+  it("pulls the aggregate toward an up-weighted model", () => {
+    const plain = tempAt();
+    // Heavily up-weighting the cool ecmwf drags the mean below the plain value.
+    const boosted = tempAt({ ecmwf_ifs: 5 });
+    expect(boosted).toBeLessThan(plain);
+    expect(boosted).toBeGreaterThan(10); // but never past the model's own value
+  });
+
+  it("removes an up-weighted-to-zero model from the blend", () => {
+    // Drop ecmwf entirely → the mean is the other three, all 20.
+    expect(tempAt({ ecmwf_ifs: 0 })).toBeCloseTo(20, 10);
+  });
+});
