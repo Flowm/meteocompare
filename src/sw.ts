@@ -6,6 +6,8 @@ import { cleanupOutdatedCaches, precacheAndRoute } from "workbox-precaching";
 import { registerRoute } from "workbox-routing";
 import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from "workbox-strategies";
 
+import { FORECAST_UPDATE_CHANNEL, type ForecastCacheUpdatedMessage } from "./swMessages";
+
 declare const self: ServiceWorkerGlobalScope;
 
 // Allow the client (virtual:pwa-register) to trigger activation of a waiting SW.
@@ -34,9 +36,10 @@ const forecastBroadcastPlugin: WorkboxPlugin = {
 
     if (oldJson?.current?.time === newJson?.current?.time) return; // data unchanged
 
-    const channel = new BroadcastChannel("open-meteo-forecast-update");
+    const channel = new BroadcastChannel(FORECAST_UPDATE_CHANNEL);
+    const message: ForecastCacheUpdatedMessage = { type: "CACHE_UPDATED", payload: { updatedURL: request.url } };
     // eslint-disable-next-line unicorn/require-post-message-target-origin -- BroadcastChannel.postMessage takes no targetOrigin
-    channel.postMessage({ type: "CACHE_UPDATED", payload: { updatedURL: request.url } });
+    channel.postMessage(message);
     channel.close();
   },
 };

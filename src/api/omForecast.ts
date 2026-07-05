@@ -54,6 +54,14 @@ export interface ForecastRequest {
   forecastDays?: number;
 }
 
+// The forecast `daily` block. Numeric per-model columns keyed by `<var>_<id>`,
+// plus the astronomical solar columns — which are ISO-time `string[]`, bare or
+// suffixed per model when `models=` is set. The solar keys are typed via
+// template-literal + explicit-key records intersected with the numeric one, so
+// extractDailySolar reads them as `string[]` without a widening cast while
+// numeric callers (extractDailyByModel) keep their `(number | null)[]` columns.
+type DailyBlock = { time: string[] } & Partial<Record<`sunrise_${string}` | `sunset_${string}` | "sunrise" | "sunset", string[]>> & Partial<Record<string, (number | null)[]>>;
+
 export interface ForecastResponse {
   latitude: number;
   longitude: number;
@@ -64,7 +72,7 @@ export interface ForecastResponse {
   timezone_abbreviation: string;
   hourly: { time: string[] } & Partial<Record<string, (number | null)[]>>;
   hourly_units: Record<string, string>;
-  daily: { time: string[] } & Partial<Record<string, (number | null)[]>>;
+  daily: DailyBlock;
   daily_units: Record<string, string>;
   current: { time: string; interval: number } & Partial<Record<string, number | null>>;
   current_units: Record<string, string>;
@@ -115,14 +123,13 @@ export function extractDailyByModel(resp: ForecastResponse, variable: DailyVar, 
 /** Astronomical sunrise/sunset are identical across models (computed from lat/lon),
  *  but open-meteo suffixes them per model when `models=` is set. Pick any. */
 export function extractDailySolar(resp: ForecastResponse, modelIds: string[]): { sunrise: string[]; sunset: string[] } | null {
-  const daily = resp.daily as { [key: string]: string[] | (number | null)[] | undefined };
+  const daily = resp.daily;
   for (const id of modelIds) {
-    const sunrise = daily[`sunrise_${id}`] as string[] | undefined;
-    const sunset = daily[`sunset_${id}`] as string[] | undefined;
+    const sunrise = daily[`sunrise_${id}`];
+    const sunset = daily[`sunset_${id}`];
     if (sunrise && sunset) return { sunrise, sunset };
   }
-  const sunrise = daily.sunrise as string[] | undefined;
-  const sunset = daily.sunset as string[] | undefined;
+  const { sunrise, sunset } = daily;
   if (sunrise && sunset) return { sunrise, sunset };
   return null;
 }

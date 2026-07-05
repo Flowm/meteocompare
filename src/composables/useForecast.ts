@@ -17,6 +17,7 @@ import { aggregateVariables } from "@/domain/aggregateVariables";
 import { MODELS, MODEL_IDS } from "@/domain/models";
 import { overallPredictability } from "@/domain/predictability";
 import type { Variable } from "@/domain/weighting";
+import { FORECAST_UPDATE_CHANNEL, type ForecastCacheUpdatedMessage } from "@/swMessages";
 
 import { useAbortableResource } from "./useAbortableResource";
 import { useApiKey } from "./useApiKey";
@@ -117,9 +118,9 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
   // the stale response (or nothing on cold cache), and the SW broadcasts when the
   // background revalidation produces fresher data. Re-run refresh so the UI swaps in.
   if (typeof BroadcastChannel !== "undefined") {
-    const channel = new BroadcastChannel("open-meteo-forecast-update");
+    const channel = new BroadcastChannel(FORECAST_UPDATE_CHANNEL);
     channel.addEventListener("message", (event: MessageEvent) => {
-      const data = event.data as { type?: string; payload?: { updatedURL?: string } } | null;
+      const data = event.data as ForecastCacheUpdatedMessage | null;
       if (data?.type !== "CACHE_UPDATED") return;
       const url = data.payload?.updatedURL ?? "";
       const lat = location.value.latitude.toString();
