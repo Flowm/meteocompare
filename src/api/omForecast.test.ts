@@ -1,8 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 
 import { MODEL_IDS } from "@/domain/models";
+import { fakeResponse } from "@/test/fixtures";
 
-import { extractHourlyByModel, extractDailyByModel, FETCH_MODEL_IDS, type ForecastResponse } from "./omForecast";
+import { extractHourlyByModel, extractDailyByModel, fetchForecast, FETCH_MODEL_IDS, type ForecastResponse } from "./omForecast";
 
 function makeResponse(hourly: Record<string, (number | null)[]>, daily: Record<string, (number | null)[]> = {}): ForecastResponse {
   return {
@@ -21,6 +22,56 @@ function makeResponse(hourly: Record<string, (number | null)[]>, daily: Record<s
     current_units: {},
   };
 }
+
+afterEach(() => vi.unstubAllGlobals());
+
+/** Stub fetch to capture the requested URL, returning a trivial 200 body. */
+function captureUrl(): { urlOf: () => URL } {
+  const mock = vi.fn().mockResolvedValue(fakeResponse({ status: 200, body: "{}" }));
+  vi.stubGlobal("fetch", mock);
+  return { urlOf: () => new URL(mock.mock.calls[0]?.[0] as string) };
+}
+
+describe("fetchForecast URL assembly", () => {
+  it("defaults models to the full fetch set — the registry plus the icon_seamless graft source", async () => {
+    const { urlOf } = captureUrl();
+    await fetchForecast({ lat: 48.2, lon: 16.4 });
+    const models = (urlOf().searchParams.get("models") ?? "").split(",");
+    expect(models.toSorted()).toEqual([...FETCH_MODEL_IDS].toSorted());
+    expect(models).toContain("icon_seamless"); // the graft source is fetched…
+    expect(MODEL_IDS).not.toContain("icon_seamless"); // …but is not a registered model
+  });
+
+  it("defaults forecast_days to 10 and honours an override", async () => {
+    const a = captureUrl();
+    await fetchForecast({ lat: 0, lon: 0 });
+    expect(a.urlOf().searchParams.get("forecast_days")).toBe("10");
+
+    vi.unstubAllGlobals();
+    const b = captureUrl();
+    await fetchForecast({ lat: 0, lon: 0, forecastDays: 3 });
+    expect(b.urlOf().searchParams.get("forecast_days")).toBe("3");
+  });
+
+  it("passes an explicit model subset straight through", async () => {
+    const { urlOf } = captureUrl();
+    await fetchForecast({ lat: 0, lon: 0, models: ["ecmwf_ifs", "gfs_seamless"] });
+    expect(urlOf().searchParams.get("models")).toBe("ecmwf_ifs,gfs_seamless");
+  });
+
+  it("carries the shared baseParams (coords, timezone, metric units)", async () => {
+    const { urlOf } = captureUrl();
+    await fetchForecast({ lat: 48.2, lon: 16.4 });
+    const p = urlOf().searchParams;
+    expect(p.get("latitude")).toBe("48.2");
+    expect(p.get("longitude")).toBe("16.4");
+    expect(p.get("timezone")).toBe("auto");
+    expect(p.get("temperature_unit")).toBe("celsius");
+    expect(p.get("wind_speed_unit")).toBe("kmh");
+    expect(p.get("hourly")).toContain("temperature_2m");
+    expect(p.get("daily")).toContain("sunrise");
+  });
+});
 
 describe("FETCH_MODEL_IDS", () => {
   it("adds icon_seamless as a fetch-only source, not an aggregation vote", () => {
