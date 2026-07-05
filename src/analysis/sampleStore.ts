@@ -3,6 +3,7 @@
 // I/O touches IndexedDB and is browser-only (guarded); the helpers are pure and
 // unit-tested.
 
+import { createIdbKeyedStore } from "./keyedStore";
 import type { RunEvaluation } from "./runEvaluation";
 import type { LocationSample } from "./sample";
 
@@ -30,73 +31,45 @@ export function mergeRuns(existing: readonly RunEvaluation[], incoming: readonly
 }
 
 // --- IndexedDB I/O (browser only) -----------------------------------------
+//
+// The openDb / transaction / close boilerplate and the availability guard live
+// in keyedStore. Record versioning: v1 is the first *enveloped* shape. Records
+// written before versioning stored the payload under a `sample` field
+// (`{ key, sample }`); the v0 migration below lifts that field into the new
+// envelope so existing installs keep loading.
 
 const DB_NAME = "meteocompare";
 const STORE = "samples";
 
-interface StoredRecord {
-  key: string;
-  sample: LocationSample;
-}
+/** Record schema version (separate from the IDB database version, which is 1). */
+const SAMPLE_VERSION = 1;
 
-function idbAvailable(): boolean {
-  return typeof indexedDB !== "undefined";
-}
-
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.addEventListener("upgradeneeded", () => {
-      if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE, { keyPath: "key" });
-    });
-    req.addEventListener("success", () => resolve(req.result));
-    req.addEventListener("error", () => reject(req.error ?? new Error("indexedDB open failed")));
-  });
-}
+const store = createIdbKeyedStore<LocationSample>({
+  dbName: DB_NAME,
+  storeName: STORE,
+  version: SAMPLE_VERSION,
+  migrate: (data, fromVersion) => {
+    if (fromVersion === 0) {
+      // Legacy `{ key, sample }` record — lift `.sample` out. Structurally
+      // identical payload, so no field remapping beyond unwrapping.
+      const legacy = data as { sample?: LocationSample } | null;
+      return legacy?.sample ?? null;
+    }
+    return data as LocationSample;
+  },
+});
 
 /** Load the stored sample for a location key, or null when none / no IndexedDB. */
-export async function loadSample(key: string): Promise<LocationSample | null> {
-  if (!idbAvailable()) return null;
-  const db = await openDb();
-  try {
-    return await new Promise<LocationSample | null>((resolve, reject) => {
-      const req = db.transaction(STORE, "readonly").objectStore(STORE).get(key);
-      req.addEventListener("success", () => resolve((req.result as StoredRecord | undefined)?.sample ?? null));
-      req.addEventListener("error", () => reject(req.error ?? new Error("indexedDB get failed")));
-    });
-  } finally {
-    db.close();
-  }
+export function loadSample(key: string): Promise<LocationSample | null> {
+  return store.get(key);
 }
 
 /** Persist a sample under a location key (overwrites). No-op without IndexedDB. */
-export async function saveSample(key: string, sample: LocationSample): Promise<void> {
-  if (!idbAvailable()) return;
-  const db = await openDb();
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE, "readwrite");
-      const record: StoredRecord = { key, sample };
-      tx.objectStore(STORE).put(record);
-      tx.addEventListener("complete", () => resolve());
-      tx.addEventListener("error", () => reject(tx.error ?? new Error("indexedDB put failed")));
-    });
-  } finally {
-    db.close();
-  }
+export function saveSample(key: string, sample: LocationSample): Promise<void> {
+  return store.set(key, sample);
 }
 
 /** All stored samples (for a future "manage stored data" view). [] without IndexedDB. */
-export async function listSamples(): Promise<LocationSample[]> {
-  if (!idbAvailable()) return [];
-  const db = await openDb();
-  try {
-    return await new Promise<LocationSample[]>((resolve, reject) => {
-      const req = db.transaction(STORE, "readonly").objectStore(STORE).getAll();
-      req.addEventListener("success", () => resolve((req.result as StoredRecord[]).map((r) => r.sample)));
-      req.addEventListener("error", () => reject(req.error ?? new Error("indexedDB getAll failed")));
-    });
-  } finally {
-    db.close();
-  }
+export function listSamples(): Promise<LocationSample[]> {
+  return store.list();
 }

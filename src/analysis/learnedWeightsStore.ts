@@ -11,9 +11,15 @@
 
 import { haversineKm } from "@/domain/geo";
 
+import { createLocalKeyedStore } from "./keyedStore";
 import { sampleKey } from "./sampleStore";
 
 const PREFIX = "meteocompare:weights:";
+
+/** Record schema version. v1 is the first *enveloped* shape; bare pre-envelope
+ *  records are migrated forward from v0 unchanged (the payload is structurally
+ *  identical, only the wrapper is new). */
+const WEIGHTS_VERSION = 1;
 
 /** Reach radii offered in the UI (km). 0 = "this point only" (no reach). */
 export const REACH_PRESETS_KM = [0, 25, 50, 100, 250] as const;
@@ -39,14 +45,10 @@ export interface WeightEntry {
   weights: StoredWeights;
 }
 
-function parse(raw: string | null): StoredWeights | null {
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as StoredWeights;
-  } catch {
-    return null;
-  }
-}
+// The synchronous localStorage machinery — availability guard, JSON codec, and
+// record versioning — lives in keyedStore; only the reach-resolution logic below
+// is specific to weights. Bare pre-envelope records migrate forward unchanged.
+const store = createLocalKeyedStore<StoredWeights>({ prefix: PREFIX, version: WEIGHTS_VERSION });
 
 /** The training center to measure reach from: the stored exact coords when
  *  present, else the grid-cell center parsed back from the key. */
@@ -60,8 +62,7 @@ function centerOf(entry: WeightEntry): { lat: number; lon: number } {
 /** Resolve trained weights for a location: the exact grid cell wins; otherwise
  *  the nearest training location whose reach covers the point. null when none. */
 export function loadWeights(lat: number, lon: number): StoredWeights | null {
-  if (typeof localStorage === "undefined") return null;
-  const exact = parse(localStorage.getItem(PREFIX + sampleKey(lat, lon)));
+  const exact = store.get(sampleKey(lat, lon));
   if (exact) return exact;
 
   let best: StoredWeights | null = null;
@@ -81,29 +82,19 @@ export function loadWeights(lat: number, lon: number): StoredWeights | null {
 
 /** Every stored weight set on this device, paired with its grid key. */
 export function listWeights(): WeightEntry[] {
-  if (typeof localStorage === "undefined") return [];
-  const out: WeightEntry[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    if (!k?.startsWith(PREFIX)) continue;
-    const weights = parse(localStorage.getItem(k));
-    if (weights) out.push({ key: k.slice(PREFIX.length), weights });
-  }
-  return out;
+  return store.list().map(({ key, value }) => ({ key, weights: value }));
 }
 
 export function saveWeights(lat: number, lon: number, weights: StoredWeights): void {
-  if (typeof localStorage === "undefined") return;
-  localStorage.setItem(PREFIX + sampleKey(lat, lon), JSON.stringify(weights));
+  store.set(sampleKey(lat, lon), weights);
 }
 
 /** Update only the reach radius of an existing entry (by grid key). No-op when
  *  the entry is gone. */
 export function setReach(key: string, radiusKm: number): void {
-  if (typeof localStorage === "undefined") return;
-  const weights = parse(localStorage.getItem(PREFIX + key));
+  const weights = store.get(key);
   if (!weights) return;
-  localStorage.setItem(PREFIX + key, JSON.stringify({ ...weights, radiusKm }));
+  store.set(key, { ...weights, radiusKm });
 }
 
 export function clearWeights(lat: number, lon: number): void {
@@ -111,6 +102,5 @@ export function clearWeights(lat: number, lon: number): void {
 }
 
 export function clearWeightsByKey(key: string): void {
-  if (typeof localStorage === "undefined") return;
-  localStorage.removeItem(PREFIX + key);
+  store.remove(key);
 }
