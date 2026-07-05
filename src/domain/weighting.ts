@@ -13,12 +13,13 @@ function longRangeDecay(leadHours: number): number {
   return leadHours <= 72 ? 1.0 : Math.max(0.4, 1 - ((leadHours - 72) / 168) * 0.6);
 }
 
-/** Per-model lead-time decay, returning a multiplier in [0, 1]. */
-function leadFactor(model: ModelDef, leadHours: number): number {
+/** The lead-time decay *shape* for a model class, in [0, 1], ignoring the
+ *  per-model archive cutoff. The single source of each class's decay curve —
+ *  modelWeight applies the maxLeadHours cutoff on top, and the About page samples
+ *  this directly to draw the curves so the diagram can't drift from the code. */
+export function leadFactorForKind(kind: ModelDef["kind"], leadHours: number): number {
   if (leadHours < 0) return 0;
-  if (leadHours > model.maxLeadHours) return 0;
-
-  switch (model.kind) {
+  switch (kind) {
     case "regional-cam":
       // Full weight ≤24 h, linear → 0 by 60 h.
       if (leadHours <= 24) return 1;
@@ -38,6 +39,13 @@ function leadFactor(model: ModelDef, leadHours: number): number {
       // supports tuning their weights independently.
       return 0.75 * longRangeDecay(leadHours);
   }
+}
+
+/** Per-model lead-time decay, returning a multiplier in [0, 1]. The class-decay
+ *  shape (leadFactorForKind) gated by the model's own archive cutoff. */
+function leadFactor(model: ModelDef, leadHours: number): number {
+  if (leadHours > model.maxLeadHours) return 0;
+  return leadFactorForKind(model.kind, leadHours);
 }
 
 /** Variable-specific boost — CAMs get a precipitation bonus. The per-variable

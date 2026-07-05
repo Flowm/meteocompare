@@ -9,8 +9,41 @@ import { useRoute } from "vue-router";
 import AppFooter from "@/components/AppFooter.vue";
 import LocationBar from "@/components/LocationBar.vue";
 import { MODELS, type ModelKind } from "@/domain/models";
+import { leadFactorForKind } from "@/domain/weighting";
 
 const GITHUB_URL = "https://github.com/Flowm/meteocompare";
+
+// — §02 · lead-time-decay diagram, generated from the real weighting curves —
+// The plot maps lead 0…MAX_LEAD_H onto x PLOT_X0…PLOT_X1 and multiplier 1…0 onto
+// y PLOT_Y0…PLOT_Y1, so the paths trace leadFactorForKind exactly and can't drift
+// from domain/weighting.ts. The curves are piecewise-linear; sampling at a fixed
+// step keeps every breakpoint on-grid without hand-plotting coordinates.
+const DECAY_MAX_LEAD_H = 240;
+const PLOT_X0 = 40;
+const PLOT_X1 = 472;
+const PLOT_Y0 = 16; // multiplier 1.0
+const PLOT_Y1 = 144; // multiplier 0
+const DECAY_STEP_H = 4;
+
+const decayX = (leadHours: number): number => PLOT_X0 + (leadHours / DECAY_MAX_LEAD_H) * (PLOT_X1 - PLOT_X0);
+const decayY = (mult: number): number => PLOT_Y0 + (1 - mult) * (PLOT_Y1 - PLOT_Y0);
+
+/** SVG polyline points for one model class's decay curve across the plot. */
+function decayPoints(kind: ModelKind): string {
+  const pts: string[] = [];
+  for (let lead = 0; lead <= DECAY_MAX_LEAD_H; lead += DECAY_STEP_H) {
+    pts.push(`${decayX(lead).toFixed(1)},${decayY(leadFactorForKind(kind, lead)).toFixed(1)}`);
+  }
+  return pts.join(" ");
+}
+
+const DECAY_CURVES: { kind: ModelKind; stroke: string; dashed: boolean; points: string }[] = [
+  { kind: "regional-cam", stroke: "var(--color-heat-400)", dashed: false, points: decayPoints("regional-cam") },
+  { kind: "regional-mid", stroke: "var(--color-cold-400)", dashed: false, points: decayPoints("regional-mid") },
+  { kind: "global", stroke: "var(--color-sodium-300)", dashed: false, points: decayPoints("global") },
+  // AI & ensemble-mean share one curve (0.75 × global); shown once, dashed.
+  { kind: "ai", stroke: "var(--color-rain-400)", dashed: true, points: decayPoints("ai") },
+];
 
 const route = useRoute();
 // Same convention as the header's view switcher: keep the location (and any
@@ -182,9 +215,11 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
             </div>
           </div>
 
-          <!-- Lead-time decay: drawn to the exact curves in domain/weighting.ts
-               (CAM 1→0 over 24–60 h; mid 1→0.3 over 48–120 h; global 1→0.4 over
-               72–240 h; AI & ensemble-mean at 0.75 × the global curve). -->
+          <!-- Lead-time decay: the four curves are generated from
+               leadFactorForKind in domain/weighting.ts (see the script above), so
+               the diagram tracks the code — CAM 1→0 over 24–60 h; mid 1→0.3 over
+               48–120 h; global 1→0.4 over 72–240 h; AI & ensemble-mean at 0.75 ×
+               the global curve. Axes, gridline, ticks and labels stay static. -->
           <figure class="registration border-ink-700 bg-ink-900/60 mt-5 border p-4 sm:p-5">
             <figcaption class="eyebrow mb-4">Lead-time decay · weight multiplier vs forecast hour</figcaption>
             <div class="graph-paper">
@@ -192,10 +227,15 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
                 <line x1="40" y1="16" x2="40" y2="144" stroke="var(--color-ink-600)" stroke-width="1" />
                 <line x1="40" y1="144" x2="472" y2="144" stroke="var(--color-ink-600)" stroke-width="1" />
                 <line x1="40" y1="80" x2="472" y2="80" stroke="var(--color-ink-700)" stroke-width="1" stroke-dasharray="2 4" />
-                <path d="M40 16 H83.2 L148 144" fill="none" stroke="var(--color-heat-400)" stroke-width="1.5" />
-                <path d="M40 16 H126.4 L256 105.6 H472" fill="none" stroke="var(--color-cold-400)" stroke-width="1.5" />
-                <path d="M40 16 H169.6 L472 92.8" fill="none" stroke="var(--color-sodium-300)" stroke-width="1.5" />
-                <path d="M40 48 H169.6 L472 105.6" fill="none" stroke="var(--color-rain-400)" stroke-width="1.5" stroke-dasharray="4 3" />
+                <polyline
+                  v-for="c in DECAY_CURVES"
+                  :key="c.kind"
+                  :points="c.points"
+                  fill="none"
+                  :stroke="c.stroke"
+                  stroke-width="1.5"
+                  :stroke-dasharray="c.dashed ? '4 3' : undefined"
+                />
                 <text x="34" y="20" text-anchor="end" class="decay-label">1.0</text>
                 <text x="34" y="84" text-anchor="end" class="decay-label">0.5</text>
                 <text x="34" y="148" text-anchor="end" class="decay-label">0</text>
