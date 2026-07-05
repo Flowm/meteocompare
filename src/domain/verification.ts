@@ -5,7 +5,7 @@
 // bias + MAE for temperature — is documented in
 // docs/adr/0002-two-part-precipitation-score.md.
 
-import { aggregateValue, type AggregatePoint } from "./aggregate";
+import { type AggregatePoint } from "./aggregate";
 import { meanFinite as sharedMeanFinite } from "./num";
 
 /** Threshold above which a precipitation reading counts as "wet" (mm/h). */
@@ -305,8 +305,8 @@ export function buildDailyVerification(opts: BuildDailyOptions): DailyVerificati
     const start = day * HOURS_PER_DAY;
     const end = start + HOURS_PER_DAY;
 
-    const aggT = opts.aggregateTemp.slice(start, end).map(aggregateValue);
-    const aggP = opts.aggregatePrecip.slice(start, end).map(aggregateValue);
+    const aggT = opts.aggregateTemp.slice(start, end).map((p) => p.value);
+    const aggP = opts.aggregatePrecip.slice(start, end).map((p) => p.value);
     const truthT = opts.truthTemp.slice(start, end);
     const truthP = opts.truthPrecip.slice(start, end);
 

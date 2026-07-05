@@ -8,7 +8,7 @@
 // per-metric weights, coverage-fair normalisation — is documented in
 // docs/adr/0004-per-model-composite-score.md.
 
-import { aggregateValue, type AggregatePoint } from "./aggregate";
+import { type AggregatePoint } from "./aggregate";
 import { clamp01 } from "./num";
 import { bias, classifyHours, coveredPrecipSums, HOURS_PER_DAY, mae, timingScore, type HourClassification } from "./verification";
 
@@ -96,8 +96,8 @@ export interface ScorecardRow {
 export interface ScorecardInput {
   /** Lead-hour axis covering the full window (e.g. 168 entries). */
   times: readonly string[];
-  /** Aggregate forecast points; the `NaN` "no contributing models" sentinel is
-   *  mapped back to `null` (same convention as verification.ts). */
+  /** Aggregate forecast points; a point's `value` is already `number | null`
+   *  (null = no contributing models), read straight through like verification.ts. */
   aggregateTemp: readonly AggregatePoint[];
   aggregatePrecip: readonly AggregatePoint[];
   /** Optional second aggregate computed with the location's tuned weights — when
@@ -214,13 +214,13 @@ export function buildModelScorecard(input: ScorecardInput): ScorecardRow[] {
     rows.push(buildRow(id, false, fTemp, fPrecip, truthTemp, truthPrecip, n));
   }
 
-  const aggTemp = input.aggregateTemp.slice(0, n).map(aggregateValue);
-  const aggPrecip = input.aggregatePrecip.slice(0, n).map(aggregateValue);
+  const aggTemp = input.aggregateTemp.slice(0, n).map((p) => p.value);
+  const aggPrecip = input.aggregatePrecip.slice(0, n).map((p) => p.value);
   rows.push(buildRow(AGGREGATE_ROW_ID, true, aggTemp, aggPrecip, truthTemp, truthPrecip, n));
 
   if (input.tunedAggregateTemp && input.tunedAggregatePrecip) {
-    const tunedTemp = input.tunedAggregateTemp.slice(0, n).map(aggregateValue);
-    const tunedPrecip = input.tunedAggregatePrecip.slice(0, n).map(aggregateValue);
+    const tunedTemp = input.tunedAggregateTemp.slice(0, n).map((p) => p.value);
+    const tunedPrecip = input.tunedAggregatePrecip.slice(0, n).map((p) => p.value);
     rows.push(buildRow(AGGREGATE_TUNED_ROW_ID, true, tunedTemp, tunedPrecip, truthTemp, truthPrecip, n));
   }
 

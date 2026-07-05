@@ -64,7 +64,7 @@ describe("aggregateVariables — key vs family", () => {
     expect("temperature_2m" in out.aggregate).toBe(false);
     // …but the value matches weighting under the temperature_2m family.
     const direct = aggregateSeries(times, byModel, { variable: "temperature_2m", models: subset, lat: PARIS.lat, lon: PARIS.lon, baseTime });
-    expect(out.aggregate.temperature_2m_max![0]!.value).toBeCloseTo(direct[0]!.value, 10);
+    expect(out.aggregate.temperature_2m_max![0]!.value).toBeCloseTo(direct[0]!.value!, 10);
   });
 });
 
@@ -113,7 +113,7 @@ describe("aggregateVariables — weather_code is lead-independent", () => {
 });
 
 describe("aggregateVariables — degenerate input", () => {
-  it("yields a NaN aggregate value and zero predictability when every model is null", () => {
+  it("yields a null aggregate value and zero predictability when every model is null", () => {
     const times = makeTimes(1, "2026-05-20T00:00:00Z");
     const perModel = { temperature_2m: { ecmwf_ifs: [null], gfs_seamless: [null], icon_global: [null], meteofrance_seamless: [null] } };
     const out = aggregateVariables({
@@ -126,7 +126,7 @@ describe("aggregateVariables — degenerate input", () => {
       baseTime,
       cadence: "hourly",
     });
-    expect(Number.isNaN(out.aggregate.temperature_2m![0]!.value)).toBe(true);
+    expect(out.aggregate.temperature_2m![0]!.value).toBeNull();
     expect(out.predictability.temperature_2m![0]).toBe(0);
   });
 });

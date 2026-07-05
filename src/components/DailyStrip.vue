@@ -12,7 +12,8 @@ const props = defineProps<{
 
 interface DayRow {
   date: string;
-  code: number;
+  /** null when no model contributed a weather code → fallback icon. */
+  code: number | null;
   high: number;
   low: number;
   precipProb: number | null;
@@ -22,6 +23,10 @@ interface DayRow {
   predictability: number;
   models: ModelRow[];
 }
+
+/** Round a nullable aggregate weather code, preserving null (no contributing
+ *  models) so the day card can show the fallback icon rather than "clear". */
+const roundOrNull = (v: number | null | undefined): number | null => (v == null ? null : Math.round(v));
 
 const days = computed<DayRow[]>(() =>
   props.daily.times.map((date, i) => {
@@ -34,7 +39,7 @@ const days = computed<DayRow[]>(() =>
     }));
     return {
       date,
-      code: Math.round(props.daily.aggregate.weather_code[i]?.value ?? 0),
+      code: roundOrNull(props.daily.aggregate.weather_code[i]?.value),
       high: props.daily.aggregate.temperature_2m_max[i]?.value ?? NaN,
       low: props.daily.aggregate.temperature_2m_min[i]?.value ?? NaN,
       precipProb: props.daily.aggregate.precipitation_probability_max[i]?.value ?? null,

@@ -185,7 +185,7 @@ describe("WET_THRESHOLD_MM_PER_H", () => {
   });
 });
 
-function aggregate(value: number): AggregatePoint {
+function aggregate(value: number | null): AggregatePoint {
   return { time: "ignored", value, stdDev: 0, weights: {}, perModel: {} };
 }
 
@@ -300,7 +300,7 @@ describe("buildDailyVerification", () => {
       runDate: "2026-05-11",
       times: array(hours, (i) => String(i)),
       aggregateTemp: array(hours, () => 20).map(aggregate),
-      aggregatePrecip: array(hours, () => NaN).map(aggregate), // NaN → null at slicing
+      aggregatePrecip: array(hours, () => null).map(aggregate), // no contributing models → null
       predictabilityTemp: array(hours, () => 0.8),
       predictabilityPrecip: array(hours, () => 0.5),
       perModelTemp: {},
@@ -318,7 +318,7 @@ describe("buildDailyVerification", () => {
       runDate: "2026-05-11",
       times: array(hours, (i) => String(i)),
       aggregateTemp: array(hours, () => 20).map(aggregate),
-      aggregatePrecip: array(hours, () => NaN).map(aggregate),
+      aggregatePrecip: array(hours, () => null).map(aggregate),
       predictabilityTemp: array(hours, () => 0.8),
       predictabilityPrecip: array(hours, () => 0.5),
       perModelTemp: {},

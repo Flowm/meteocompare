@@ -20,21 +20,16 @@ function normalizeShares(used: Record<string, number>, totalW: number): Record<s
 export interface AggregatePoint {
   /** ISO-like local timestamp from open-meteo. */
   time: string;
-  /** Weighted mean (for numeric variables) or modal code (for weather_code). */
-  value: number;
+  /** Weighted mean (for numeric variables) or modal code (for weather_code).
+   *  `null` when no model contributed a value at this timestep — the honest
+   *  "no data here" value (there is no in-band NaN sentinel). */
+  value: number | null;
   /** Weighted standard deviation of the contributing model values. 0 for weather_code. */
   stdDev: number;
   /** Weights actually used at this timestep (sum = 1 across contributing models). */
   weights: Record<string, number>;
   /** Raw per-model values (including nulls), for the per-model overlay & predictability math. */
   perModel: ModelSamples;
-}
-
-/** Map an AggregatePoint to a nullable cell value, turning the `NaN`
- *  "no contributing models" sentinel back into `null`. The single home of that
- *  convention — both verification and the scorecard consume it. */
-export function aggregateValue(p: AggregatePoint): number | null {
-  return Number.isNaN(p.value) ? null : p.value;
 }
 
 export interface AggregateOptions {
@@ -56,7 +51,7 @@ function leadHoursAt(time: string, baseTime: Date): number {
   return Math.max(0, (t - baseTime.getTime()) / 3_600_000);
 }
 
-function weightedMean(perModel: ModelSamples, weights: Map<string, number>): { mean: number; stdDev: number; effectiveWeights: Record<string, number> } {
+function weightedMean(perModel: ModelSamples, weights: Map<string, number>): { mean: number | null; stdDev: number; effectiveWeights: Record<string, number> } {
   let sum = 0;
   let totalW = 0;
   const used: Record<string, number> = {};
@@ -68,7 +63,7 @@ function weightedMean(perModel: ModelSamples, weights: Map<string, number>): { m
     used[id] = w;
   }
   if (totalW === 0) {
-    return { mean: NaN, stdDev: 0, effectiveWeights: {} };
+    return { mean: null, stdDev: 0, effectiveWeights: {} };
   }
   const mean = sum / totalW;
   let varSum = 0;
@@ -83,7 +78,7 @@ function weightedMean(perModel: ModelSamples, weights: Map<string, number>): { m
 
 /** Weighted average of angles via unit-vector sum.
  *  stdDev becomes the angular standard deviation in degrees (Mardia / circular). */
-function weightedCircularMean(perModel: ModelSamples, weights: Map<string, number>): { mean: number; stdDev: number; effectiveWeights: Record<string, number> } {
+function weightedCircularMean(perModel: ModelSamples, weights: Map<string, number>): { mean: number | null; stdDev: number; effectiveWeights: Record<string, number> } {
   let x = 0;
   let y = 0;
   let totalW = 0;
@@ -98,7 +93,7 @@ function weightedCircularMean(perModel: ModelSamples, weights: Map<string, numbe
     used[id] = w;
   }
   if (totalW === 0) {
-    return { mean: NaN, stdDev: 0, effectiveWeights: {} };
+    return { mean: null, stdDev: 0, effectiveWeights: {} };
   }
   const mx = x / totalW;
   const my = y / totalW;
@@ -111,21 +106,25 @@ function weightedCircularMean(perModel: ModelSamples, weights: Map<string, numbe
   return { mean, stdDev, effectiveWeights: normalizeShares(used, totalW) };
 }
 
-function severityWeightedMode(perModel: ModelSamples, weights: Map<string, number>): { code: number; effectiveWeights: Record<string, number> } {
+function severityWeightedMode(perModel: ModelSamples, weights: Map<string, number>): { code: number | null; effectiveWeights: Record<string, number> } {
   const slugTotals = new Map<SeveritySlug, number>();
   const codeTotals = new Map<number, number>();
   const used: Record<string, number> = {};
   let totalW = 0;
   for (const [id, w] of weights) {
     const v = perModel[id];
-    if (v == null) continue;
+    // Guard NaN as well as null (its two sibling reducers do): a NaN code would
+    // otherwise flow into severitySlug(NaN) → "cloudy" and be voted for.
+    if (v == null || Number.isNaN(v)) continue;
     const slug = severitySlug(v);
     slugTotals.set(slug, (slugTotals.get(slug) ?? 0) + w);
     codeTotals.set(v, (codeTotals.get(v) ?? 0) + w);
     used[id] = w;
     totalW += w;
   }
-  if (totalW === 0) return { code: 0, effectiveWeights: {} };
+  // No contributing models → null (the honest value). Previously returned code
+  // 0, which reads as a real "clear sky" forecast.
+  if (totalW === 0) return { code: null, effectiveWeights: {} };
 
   let bestSlug: SeveritySlug = "clear";
   let bestSlugW = -Infinity;

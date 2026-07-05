@@ -30,12 +30,14 @@ export function predictabilityFor(point: AggregatePoint, variable: Variable, lea
     // and it skips the numeric-mean's NaN/spreadScore-clamp path.
     return clamp01((1 - point.stdDev / typicalSpread("wind_direction_10m", leadHours, "hourly")) * mcf);
   }
-  if (Number.isNaN(point.value)) return 0;
+  // No contributing models at this timestep → nothing to be predictable about.
+  if (point.value === null) return 0;
   const spreadScore = clamp01(1 - point.stdDev / typicalSpread(variable, leadHours, resolution));
   return clamp01(spreadScore * mcf);
 }
 
 function weatherCodePredictability(point: AggregatePoint): number {
+  if (point.value === null) return 0;
   const aggSlug = severitySlug(point.value);
   let agreementW = 0;
   for (const [id, w] of Object.entries(point.weights)) {

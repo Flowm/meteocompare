@@ -100,7 +100,7 @@ describe("aggregateSeries (wind_direction_10m)", () => {
     // Allow either side of the wrap.
     const p0 = out[0];
     expect(p0).toBeDefined();
-    if (!p0) return;
+    if (!p0 || p0.value === null) return;
     const v = p0.value;
     const distFromNorth = Math.min(v, 360 - v);
     expect(distFromNorth).toBeLessThan(2);
@@ -169,5 +169,34 @@ describe("aggregateSeries (weather_code)", () => {
     });
     // Should land somewhere in the rain group.
     expect([61, 63, 80]).toContain(out[0]?.value);
+  });
+
+  it("returns a null code — not 0 (clear) — when no model contributes", () => {
+    const baseTime = new Date("2026-05-20T00:00:00Z");
+    const times = makeTimes(1, "2026-05-20T00:00:00Z");
+    const series = { ecmwf_ifs: [null], gfs_seamless: [null], icon_global: [null], meteofrance_seamless: [null] };
+    const out = aggregateSeries(times, series, {
+      variable: "weather_code",
+      models: subset,
+      lat: PARIS.lat,
+      lon: PARIS.lon,
+      baseTime,
+    });
+    expect(out[0]?.value).toBeNull();
+  });
+
+  it("guards NaN codes so they never vote (would have slugged to 'cloudy')", () => {
+    const baseTime = new Date("2026-05-20T00:00:00Z");
+    const times = makeTimes(1, "2026-05-20T00:00:00Z");
+    // Only a NaN code present → treated as no contributor, so value is null.
+    const series = { ecmwf_ifs: [NaN], gfs_seamless: [null], icon_global: [null], meteofrance_seamless: [null] };
+    const out = aggregateSeries(times, series, {
+      variable: "weather_code",
+      models: subset,
+      lat: PARIS.lat,
+      lon: PARIS.lon,
+      baseTime,
+    });
+    expect(out[0]?.value).toBeNull();
   });
 });

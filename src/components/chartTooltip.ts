@@ -58,7 +58,7 @@ export function buildTooltipFormatter(ctx: TooltipContext): (params: unknown) =>
 
     for (const dv of vars) {
       const aggPt = data.aggregate[dv]?.[idx];
-      if (showAggregate && aggPt && !Number.isNaN(aggPt.value)) {
+      if (showAggregate && aggPt && aggPt.value !== null) {
         // ±1σ shown whenever the spread is on — bars carry it as error-bar
         // whiskers, line views as the shaded band, but the tooltip reads alike.
         const std = showBand && Number.isFinite(aggPt.stdDev) ? ` <span style="color:${STD_LABEL}">± ${fmtVar(dv, aggPt.stdDev).replace(/[°a-zA-Z%/ ]+$/, "")}</span>` : "";

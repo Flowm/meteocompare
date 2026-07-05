@@ -250,7 +250,7 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
 
     // Band (±1σ). Always built — even in overlay mode — so the spread can be
     // toggled independently and stays visible behind the per-model lines.
-    const lower = pts.map((p) => convertVar(p.value - p.stdDev, dv, units));
+    const lower = pts.map((p) => convertVar(p.value === null ? null : p.value - p.stdDev, dv, units));
     const delta = pts.map((p) => (Number.isFinite(p.stdDev) ? convertDelta(p.stdDev * 2, dv, units) : 0));
     series.push({
       id: "band-base",

@@ -8,14 +8,16 @@ import { iconFor } from "@/domain/weatherCodes";
 // what we want for daily summaries. `withDefaults` keeps it day by default.
 const props = withDefaults(
   defineProps<{
-    code: number;
+    /** null → no data; routed to iconFor's fallback ("n/a") glyph via NaN,
+     *  which no WMO code maps to. */
+    code: number | null;
     size?: number | string;
     isDay?: boolean;
   }>(),
   { isDay: true },
 );
 
-const icon = computed(() => iconFor(props.code));
+const icon = computed(() => iconFor(props.code ?? Number.NaN));
 const cls = computed(() => (props.isDay ? icon.value.day : icon.value.night));
 
 const sizeStyle = computed(() => {

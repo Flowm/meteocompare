@@ -17,7 +17,8 @@ export interface ModelRow {
 
 const props = defineProps<{
   date: string;
-  code: number;
+  /** null → no contributing models; render the fallback icon and no label. */
+  code: number | null;
   high: number;
   low: number;
   precipProb: number | null;
@@ -45,6 +46,10 @@ const dayLabel = computed(() => {
 
 const dateLabel = computed(() => new Date(props.date).toLocaleDateString([], { day: "numeric", month: "short" }));
 
+// null code (no contributing models) → no descriptive label; the icon falls
+// back to the "n/a" glyph via WeatherIcon.
+const codeLabel = computed(() => (props.code == null ? "–" : weatherLabel(props.code)));
+
 const visibleModels = computed(() => props.models?.filter((m) => m.high != null || m.low != null) ?? []);
 </script>
 
@@ -67,8 +72,8 @@ const visibleModels = computed(() => props.models?.filter((m) => m.high != null 
       <div class="flex justify-center">
         <WeatherIcon :code="code" size="2rem" />
       </div>
-      <div class="text-paper-300 mt-1 truncate text-center font-mono text-[10px] tracking-wide" :title="weatherLabel(code)">
-        {{ weatherLabel(code) }}
+      <div class="text-paper-300 mt-1 truncate text-center font-mono text-[10px] tracking-wide" :title="codeLabel">
+        {{ codeLabel }}
       </div>
 
       <!-- High / low presented as a paired register -->
