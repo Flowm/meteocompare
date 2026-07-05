@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
 
+import { PARIS } from "@/test/fixtures";
+
 import { MODELS, getModel } from "./models";
 import { modelWeight, normalizedWeights } from "./weighting";
 
-const PARIS = { lat: 48.85, lon: 2.35 };
 const SAHARA = { lat: 23, lon: 10 };
 const SYDNEY = { lat: -33.87, lon: 151.21 };
 

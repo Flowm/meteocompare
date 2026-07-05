@@ -1,17 +1,12 @@
 import { describe, it, expect } from "vitest";
 
+import { PARIS, makeTimes, modelSubset } from "@/test/fixtures";
+
 import { aggregateSeries } from "./aggregate";
 import { aggregateVariables } from "./aggregateVariables";
-import { getModel } from "./models";
 import { predictabilityFor } from "./predictability";
 
-const PARIS = { lat: 48.85, lon: 2.35 };
-const subset = [getModel("ecmwf_ifs")!, getModel("gfs_seamless")!, getModel("icon_global")!, getModel("meteofrance_seamless")!];
-
-function makeTimes(n: number, baseISO: string): string[] {
-  const base = new Date(baseISO).getTime();
-  return Array.from({ length: n }, (_, i) => new Date(base + i * 3_600_000).toISOString().slice(0, 16));
-}
+const subset = modelSubset();
 
 const baseTime = new Date("2026-05-20T00:00:00Z");
 

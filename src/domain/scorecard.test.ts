@@ -1,15 +1,14 @@
 import { describe, expect, it } from "vitest";
 
+import { aggPoint, array } from "@/test/fixtures";
+
 import type { AggregatePoint } from "./aggregate";
 import { AGGREGATE_ROW_ID, AMOUNT_REF_BAD_PER_DAY, buildModelScorecard, LEAD_BANDS, TEMP_MAE_REF_BAD, type ScorecardInput } from "./scorecard";
 import type { VerifyChannel } from "./verification";
 
 const N = 168; // a full 7-day window
 
-function array<T>(n: number, fn: (i: number) => T): T[] {
-  return Array.from({ length: n }, (_, i) => fn(i));
-}
-const aggPt = (value: number): AggregatePoint => ({ time: "", value, stdDev: 0, weights: {}, perModel: {} });
+const aggPt = (value: number): AggregatePoint => aggPoint(value);
 
 /** A baseline input: dry truth, flat 20 °C truth, no models — caller overrides
  *  the channels via `over` (a partial per variable, merged onto the defaults). */

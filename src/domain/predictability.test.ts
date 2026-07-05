@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
 
+import { aggPoint } from "@/test/fixtures";
+
 import type { AggregatePoint } from "./aggregate";
 import { predictabilityFor, predictabilityTier, overallPredictability } from "./predictability";
 
 function mkPoint(perModel: Record<string, number | null>, weights: Record<string, number>, value: number, stdDev: number): AggregatePoint {
-  return { time: "2026-05-20T00:00", value, stdDev, perModel, weights };
+  return aggPoint(value, { time: "2026-05-20T00:00", stdDev, perModel, weights });
 }
 
 describe("predictabilityFor", () => {

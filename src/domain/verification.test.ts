@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { aggPoint, array } from "@/test/fixtures";
+
 import type { AggregatePoint } from "./aggregate";
 import {
   bias,
@@ -185,13 +187,8 @@ describe("WET_THRESHOLD_MM_PER_H", () => {
   });
 });
 
-function aggregate(value: number | null): AggregatePoint {
-  return { time: "ignored", value, stdDev: 0, weights: {}, perModel: {} };
-}
-
-function array<T>(n: number, fn: (i: number) => T): T[] {
-  return Array.from({ length: n }, (_, i) => fn(i));
-}
+// Local alias so the `.map(aggregate)` call sites read unchanged.
+const aggregate = (value: number | null): AggregatePoint => aggPoint(value, { time: "ignored" });
 
 describe("buildDailyVerification", () => {
   it("emits one entry per full 24-hour day, dropping any trailing partial day", () => {

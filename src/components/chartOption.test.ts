@@ -4,6 +4,7 @@ import type { HourlySeries } from "@/composables/hourlySeries";
 import type { UnitPrefs } from "@/composables/useUnits";
 import type { AggregatePoint } from "@/domain/aggregate";
 import { getModel } from "@/domain/models";
+import { aggPoint, makeTimes } from "@/test/fixtures";
 
 import { buildHourlyChartOption, visibilityPatches, type HourlyChartOptionArgs, type VisibilityState, type VisibilityToggle } from "./chartOption";
 
@@ -17,13 +18,7 @@ const togglesOf = (args: HourlyChartOptionArgs): VisibilityToggle[] => buildHour
 
 const C: UnitPrefs = { temp: "c", precip: "mm", wind: "kmh" };
 
-function pt(value: number, stdDev = 0): AggregatePoint {
-  return { time: "", value, stdDev, weights: {}, perModel: {} };
-}
-function makeTimes(n: number, baseISO: string): string[] {
-  const base = new Date(baseISO).getTime();
-  return Array.from({ length: n }, (_, i) => new Date(base + i * 3_600_000).toISOString().slice(0, 16));
-}
+const pt = (value: number, stdDev = 0): AggregatePoint => aggPoint(value, { stdDev });
 
 const DATA: HourlySeries = {
   times: makeTimes(5, "2026-05-20T00:00:00Z"),
