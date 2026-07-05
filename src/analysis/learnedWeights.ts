@@ -12,7 +12,7 @@ import { modelWeight } from "@/domain/weighting";
 
 import type { RunEvaluation } from "./runEvaluation";
 import type { LocationSample } from "./sample";
-import { runKey } from "./sampleStore";
+import { runKey, sampleKey } from "./sampleStore";
 
 // Tunables.
 export const MIN_TRAIN_RUNS = 8;
@@ -27,6 +27,10 @@ export const SHRINK = 0.5;
 
 export interface FitResult {
   ok: boolean;
+  /** The grid key of the sample this fit was computed from (sampleKey of the
+   *  sample's location). apply() checks it still matches the current location
+   *  before persisting, so a fit can never be stored under the wrong cell. */
+  sourceKey: string;
   /** Reason when `ok` is false (e.g. not enough runs). */
   reason?: string;
   /** Per-model multipliers (shrunk) to persist + apply; `{}` when not ok. */
@@ -120,7 +124,8 @@ function meanComposite(panels: readonly RunPanel[], m: Record<string, number>): 
 
 /** Fit per-model multipliers for a location's stored sample. */
 export function fitWeights(sample: LocationSample): FitResult {
-  const fail = (reason: string): FitResult => ({ ok: false, reason, multipliers: {}, nTrain: 0, nVal: 0, valComposite: NaN, valBaselineComposite: NaN, improvement: 0 });
+  const sourceKey = sampleKey(sample.location.latitude, sample.location.longitude);
+  const fail = (reason: string): FitResult => ({ ok: false, sourceKey, reason, multipliers: {}, nTrain: 0, nVal: 0, valComposite: NaN, valBaselineComposite: NaN, improvement: 0 });
 
   const { latitude: lat, longitude: lon } = sample.location;
   const runs = [...sample.runs].toSorted((a, b) => runKey(a).localeCompare(runKey(b))); // oldest first
@@ -160,5 +165,5 @@ export function fitWeights(sample: LocationSample): FitResult {
 
   const valComposite = meanComposite(valPanels, multipliers);
   const valBaselineComposite = meanComposite(valPanels, {});
-  return { ok: true, multipliers, nTrain: trainRuns.length, nVal: valRuns.length, valComposite, valBaselineComposite, improvement: valComposite - valBaselineComposite };
+  return { ok: true, sourceKey, multipliers, nTrain: trainRuns.length, nVal: valRuns.length, valComposite, valBaselineComposite, improvement: valComposite - valBaselineComposite };
 }

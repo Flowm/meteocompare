@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 import { fitWeights, MIN_TRAIN_RUNS, MIN_VAL_RUNS } from "./learnedWeights";
 import type { RunEvaluation } from "./runEvaluation";
 import type { LocationSample } from "./sample";
+import { sampleKey } from "./sampleStore";
 
 const N = 48;
 
@@ -51,6 +52,12 @@ describe("fitWeights", () => {
     const res = fitWeights(sampleOf(MIN_TRAIN_RUNS + MIN_VAL_RUNS - 1));
     expect(res.ok).toBe(false);
     expect(res.reason).toBeTruthy();
+    // Even a failed fit is tagged with its source cell, so apply() can guard.
+    expect(res.sourceKey).toBe(sampleKey(48, 11));
+  });
+
+  it("tags the result with the source sample's grid key", () => {
+    expect(fitWeights(sampleOf(15)).sourceKey).toBe(sampleKey(48, 11));
   });
 
   it("up-weights the consistently better model and improves out-of-sample", () => {

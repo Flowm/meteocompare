@@ -110,6 +110,9 @@ async function train(): Promise<void> {
 function apply(): void {
   const r = result.value;
   if (!r?.ok) return;
+  // Insurance against a location swap between fit and apply: the fit is tagged
+  // with the sample's grid key, so never persist it under a different cell.
+  if (r.sourceKey !== currentKey.value) return;
   const loc = current.value;
   // Preserve any reach already set for this location across re-fits.
   saveWeights(loc.latitude, loc.longitude, {
