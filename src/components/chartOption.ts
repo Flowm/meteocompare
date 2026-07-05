@@ -13,21 +13,35 @@ import { MODELS } from "@/domain/models";
 import type { ModelDef } from "@/domain/models";
 
 import { buildNightRanges, findNowIndex, type ChartViewId } from "./chartHelpers";
+import {
+  AGG_COLOR,
+  BAND_FILL,
+  BAND_SWATCH,
+  CHART_FONT,
+  INK_600,
+  INK_700,
+  INK_800,
+  INK_950,
+  MODEL_OPACITY,
+  MODEL_PALETTE,
+  NIGHT_FILL,
+  NOW_LINE,
+  PAPER_200,
+  PAPER_300,
+  PAPER_50,
+  PRECIP_BAR_COLOR,
+  PRECIP_SPREAD_FILL,
+  SODIUM_300,
+  TOOLTIP_BG,
+  TRUTH_AREA,
+  TRUTH_COLOR,
+} from "./chartTheme";
 
-// ---- Colours ----------------------------------------------------------------
-// "Observatory" palette: coral = aggregate forecast, sodium amber = truth
-// (ERA5 reference), oxidized teal for cool data, and a model palette drawn from
-// the same warm-cool spectrum rather than the default Tailwind hues.
-export const AGG_COLOR = "#e8826b"; // coral — aggregate forecast
-export const TRUTH_COLOR = "#f5b942"; // sodium amber — ERA5-Seamless truth
-export const BAND_SWATCH = "rgba(232, 130, 107, 0.45)"; // more visible coral for the legend chip
-const PRECIP_BAR_COLOR = "rgba(127, 184, 224, 0.65)"; // dusty rain blue
-const PRECIP_SPREAD_FILL = "rgba(186, 219, 247, 0.38)"; // pale rain blue — ±1σ spread band
-const BAND_FILL = "rgba(232, 130, 107, 0.16)"; // coral, low alpha — ±1σ band
-const TRUTH_AREA = "rgba(245, 185, 66, 0.12)"; // sodium, low alpha — precip truth fill
-const NIGHT_FILL = "rgba(120, 140, 200, 0.12)"; // cool marine wash — reads as night against the warm theme
-const MODEL_PALETTE = ["#6dc6c2", "#9bb87a", "#bfa9d6", "#f0a285", "#7fb8e0", "#d99a1e", "#e8826b", "#9ddad6", "#c7b69a", "#a8c182", "#b88c8c"];
-export const MODEL_OPACITY = 0.55;
+// The chart palette + font live in ./chartTheme (single-sourced from the CSS
+// @theme tokens, since ECharts can't read CSS vars). Re-exported here so the
+// existing import sites — HourlySeriesChart's legend swatches, the scorecards,
+// the model rail — keep importing them from chartOption unchanged.
+export { AGG_COLOR, BAND_SWATCH, MODEL_OPACITY, TRUTH_COLOR };
 
 // ECharts reads `null` as "auto-scale this axis", but its TS types only allow
 // number | string | undefined. We need the literal null (not undefined) so a
@@ -193,15 +207,15 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
           silent: true,
           animation: false,
           symbol: ["none", "none"] as [string, string],
-          lineStyle: { color: "rgba(245, 185, 66, 0.85)", width: 1, type: "solid" as const },
+          lineStyle: { color: NOW_LINE, width: 1, type: "solid" as const },
           label: {
             formatter: "NOW",
-            color: "#050810",
+            color: INK_950,
             fontSize: 9,
             fontWeight: 700 as const,
-            fontFamily: "JetBrains Mono Variable, ui-monospace, monospace",
+            fontFamily: CHART_FONT,
             position: "end" as const,
-            backgroundColor: "#f5b942",
+            backgroundColor: SODIUM_300,
             borderRadius: 0,
             padding: [2, 6, 2, 6],
             distance: 6,
@@ -451,7 +465,7 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
 
   const option: EChartsOption = {
     backgroundColor: "transparent",
-    textStyle: { color: "#c9bea4", fontFamily: "JetBrains Mono Variable, ui-monospace, monospace" },
+    textStyle: { color: PAPER_200, fontFamily: CHART_FONT },
     // Trimmed left/right gutters (was 52) so the plot spans more of the card;
     // 36 still clears the 2-digit axis labels and the unit names on top.
     // bottom kept tight (26) so the x-axis labels sit just under the plot
@@ -460,18 +474,18 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
     animationDurationUpdate: 0,
     tooltip: {
       trigger: "axis",
-      backgroundColor: "rgba(10, 16, 24, 0.96)",
-      borderColor: "#1a2638",
+      backgroundColor: TOOLTIP_BG,
+      borderColor: INK_700,
       borderWidth: 1,
-      textStyle: { color: "#f4ecd8", fontFamily: "JetBrains Mono Variable, ui-monospace, monospace", fontSize: 11 },
+      textStyle: { color: PAPER_50, fontFamily: CHART_FONT, fontSize: 11 },
       extraCssText: "border-radius: 0; backdrop-filter: blur(6px); box-shadow: 0 8px 32px rgba(0,0,0,0.6);",
       // formatter is attached by the component (reads live toggle state at hover).
     },
     xAxis: {
       type: "category",
       data: labels,
-      axisLine: { lineStyle: { color: "#243349" } },
-      axisLabel: { color: "#93896f", interval: labelInterval, hideOverlap: true, fontSize: 10 },
+      axisLine: { lineStyle: { color: INK_600 } },
+      axisLabel: { color: PAPER_300, interval: labelInterval, hideOverlap: true, fontSize: 10 },
       axisTick: { show: false },
     },
     yAxis: [
@@ -480,11 +494,11 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
         // the horizontal grid even when only precipitation is shown.
         type: "value",
         name: leftVar ? leftUnit : "",
-        nameTextStyle: { color: "#93896f", fontSize: 10 },
+        nameTextStyle: { color: PAPER_300, fontSize: 10 },
         axisLine: { show: false },
-        axisLabel: { color: "#93896f", show: !!leftVar, fontSize: 10 },
+        axisLabel: { color: PAPER_300, show: !!leftVar, fontSize: 10 },
         axisTick: { show: false },
-        splitLine: { lineStyle: { color: "#131d2d", type: "dashed" } },
+        splitLine: { lineStyle: { color: INK_800, type: "dashed" } },
         // Percentage views (precip prob / cloud cover) lock to 0..100; every
         // other view auto-scales. These MUST be set explicitly (AUTO = null =
         // auto) rather than omitted — vue-echarts merges options, so an omitted
@@ -496,13 +510,13 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
         // Right axis (precipitation).
         type: "value",
         name: precipUnit,
-        nameTextStyle: { color: "#93896f", fontSize: 10 },
+        nameTextStyle: { color: PAPER_300, fontSize: 10 },
         position: "right",
         min: 0,
         max: precipMax,
         axisLine: { show: false },
-        axisLabel: { color: "#93896f", fontSize: 10 },
-        splitLine: { lineStyle: { color: "#131d2d", type: "dashed" }, show: rightActive && !leftVar },
+        axisLabel: { color: PAPER_300, fontSize: 10 },
+        splitLine: { lineStyle: { color: INK_800, type: "dashed" }, show: rightActive && !leftVar },
         show: rightActive,
       },
     ],

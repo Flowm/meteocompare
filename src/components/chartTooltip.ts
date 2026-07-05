@@ -9,7 +9,8 @@ import { convertVar, type UnitPrefs } from "@/composables/useUnits";
 import type { ModelDef } from "@/domain/models";
 
 import { CHART_VIEWS, type ChartViewId } from "./chartHelpers";
-import { AGG_COLOR, paletteFor, TRUTH_COLOR } from "./chartOption";
+import { paletteFor } from "./chartOption";
+import { AGG_COLOR, PAPER_50, RAIN_300, STD_LABEL, TRUTH_COLOR } from "./chartTheme";
 
 /** Toggle + cursor state read at hover time (never at option-compute time). */
 export interface TooltipState {
@@ -60,9 +61,11 @@ export function buildTooltipFormatter(ctx: TooltipContext): (params: unknown) =>
       if (showAggregate && aggPt && !Number.isNaN(aggPt.value)) {
         // ±1σ shown whenever the spread is on — bars carry it as error-bar
         // whiskers, line views as the shaded band, but the tooltip reads alike.
-        const std = showBand && Number.isFinite(aggPt.stdDev) ? ` <span style="color:#94a3b8">± ${fmtVar(dv, aggPt.stdDev).replace(/[°a-zA-Z%/ ]+$/, "")}</span>` : "";
+        const std = showBand && Number.isFinite(aggPt.stdDev) ? ` <span style="color:${STD_LABEL}">± ${fmtVar(dv, aggPt.stdDev).replace(/[°a-zA-Z%/ ]+$/, "")}</span>` : "";
         const label = vars.length > 1 ? `${dv === "temperature_2m" ? "Temp" : "Precip"} ` : "Forecast ";
-        const color = dv === "precipitation" ? "#7dd3fc" : AGG_COLOR;
+        // Rain-blue precip label — the rain-300 token, matching the precip bar
+        // hue (was a stray third blue #7dd3fc).
+        const color = dv === "precipitation" ? RAIN_300 : AGG_COLOR;
         lines.push(`<span style="color:${color}">${label}</span>${fmtVar(dv, aggPt.value)}${std}`);
       }
       const truthVal = data.truth?.[dv]?.[idx];
@@ -92,7 +95,7 @@ export function buildTooltipFormatter(ctx: TooltipContext): (params: unknown) =>
         const near = m.id === nearestId;
         const marker = near ? "▸ " : "&nbsp;&nbsp;";
         const label = `<span style="color:${paletteFor(m.id)}${near ? ";font-weight:700" : ""}">${marker}${m.label}</span>`;
-        const value = near ? `<span style="color:#f4ecd8;font-weight:700">${fmtVar(activeVar, val)}</span>` : fmtVar(activeVar, val);
+        const value = near ? `<span style="color:${PAPER_50};font-weight:700">${fmtVar(activeVar, val)}</span>` : fmtVar(activeVar, val);
         lines.push(`${label} ${value}`);
       }
     }
