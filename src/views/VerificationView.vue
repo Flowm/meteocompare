@@ -5,6 +5,7 @@ import { useRoute, useRouter } from "vue-router";
 import AppFooter from "@/components/AppFooter.vue";
 import { type ChartViewId } from "@/components/chartHelpers";
 import CollapsibleSection from "@/components/CollapsibleSection.vue";
+import GatherControls from "@/components/GatherControls.vue";
 import HourlySeriesChart from "@/components/HourlySeriesChart.vue";
 import LoadingVeil from "@/components/LoadingVeil.vue";
 import LocationBar from "@/components/LocationBar.vue";
@@ -12,6 +13,7 @@ import LocationLabel from "@/components/LocationLabel.vue";
 import ModelScorecard from "@/components/ModelScorecard.vue";
 import ModelTimingMatrix from "@/components/ModelTimingMatrix.vue";
 import MultiRunScorecard from "@/components/MultiRunScorecard.vue";
+import RunPicker from "@/components/RunPicker.vue";
 import SegmentedToggle from "@/components/SegmentedToggle.vue";
 import StateBlock from "@/components/StateBlock.vue";
 import VerificationDayCard from "@/components/VerificationDayCard.vue";
@@ -56,10 +58,10 @@ function setRunDate(newDate: string): void {
 // Run cycle (00 / 06 / 12 / 18 Z). A run is identified by date + cycle; default 00Z.
 // Models publish different cycles, so a non-00Z pick naturally prunes the ones
 // that don't issue it (the single-runs API reports them missing).
-const RUN_CYCLES = new Set([0, 6, 12, 18]);
+const RUN_CYCLES = [0, 6, 12, 18] as const;
 const runCycle = computed<number>(() => {
   const c = Number(route.query.cycle);
-  return RUN_CYCLES.has(c) ? c : 0;
+  return (RUN_CYCLES as readonly number[]).includes(c) ? c : 0;
 });
 function setRunCycle(hour: number): void {
   void router.replace({ query: { ...route.query, cycle: String(hour) } });
@@ -75,10 +77,6 @@ const cyclesPerDay = ref<1 | 4>(1);
 const MODE_OPTIONS = [
   { value: "single", label: "Single run" },
   { value: "multi", label: "Multi-run" },
-] as const;
-const CYCLES_OPTIONS = [
-  { value: 1, label: "00Z only" },
-  { value: 4, label: "All cycles" },
 ] as const;
 
 const showModels = ref(false);
@@ -123,83 +121,41 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
 
           <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
             <LocationLabel :name="locationLabel" />
-            <div class="flex flex-col items-end gap-1.5">
-              <label class="text-paper-300 flex items-center gap-2.5 font-mono text-[11px] tracking-wide">
-                <span>{{ mode === "multi" ? "End date" : "Run date" }}</span>
-                <input
-                  type="date"
-                  :value="runDate"
-                  :min="RETENTION_FLOOR"
-                  :max="maxRunDate"
-                  class="border-ink-700 bg-ink-950 text-paper-50 focus:border-sodium-300/60 border px-2 py-1 font-mono text-base tracking-normal outline-none sm:text-xs"
-                  @change="setRunDate(($event.target as HTMLInputElement).value)"
-                />
-              </label>
-              <label v-if="mode === 'single'" class="text-paper-300 flex items-center gap-2.5 font-mono text-[11px] tracking-wide">
-                <span>Cycle</span>
-                <select
-                  :value="String(runCycle)"
-                  class="border-ink-700 bg-ink-950 text-paper-50 focus:border-sodium-300/60 border px-2 py-1 font-mono text-base tracking-normal outline-none sm:text-xs"
-                  @change="setRunCycle(Number(($event.target as HTMLSelectElement).value))"
-                >
-                  <option v-for="h in RUN_CYCLES" :key="h" :value="String(h)">{{ String(h).padStart(2, "0") }}Z</option>
-                </select>
-              </label>
-              <p v-if="mode === 'single' && missingModelCount > 0 && !loading" class="text-paper-400 font-mono text-[11px] tracking-wide">
-                {{ availableModels.length }}/{{ MODELS.length }} models available
-              </p>
-            </div>
+            <RunPicker
+              :run-date="runDate"
+              :cycle="runCycle"
+              :min="RETENTION_FLOOR"
+              :max="maxRunDate"
+              :cycles="RUN_CYCLES"
+              :show-cycle="mode === 'single'"
+              :date-label="mode === 'multi' ? 'End date' : 'Run date'"
+              @update:run-date="setRunDate"
+              @update:cycle="setRunCycle"
+            >
+              <template #hint>
+                <p v-if="mode === 'single' && missingModelCount > 0 && !loading" class="text-paper-400 font-mono text-[11px] tracking-wide">
+                  {{ availableModels.length }}/{{ MODELS.length }} models available
+                </p>
+              </template>
+            </RunPicker>
           </div>
 
           <!-- Multi-run sampling controls: gather a window of runs for this
                location, then store them for training (phase 3). -->
-          <div v-if="mode === 'multi'" class="border-ink-700 mt-4 space-y-3 border-t pt-4">
-            <div class="flex flex-wrap items-center gap-x-5 gap-y-3">
-              <label class="text-paper-300 flex items-center gap-2.5 font-mono text-[11px] tracking-wide">
-                <span>Duration (days)</span>
-                <input
-                  v-model.number="durationDays"
-                  type="number"
-                  min="1"
-                  max="120"
-                  class="border-ink-700 bg-ink-950 text-paper-50 focus:border-sodium-300/60 w-20 border px-2 py-1 font-mono text-base tracking-normal outline-none sm:text-xs"
-                />
-              </label>
-              <div class="text-paper-300 flex items-center gap-2.5 font-mono text-[11px] tracking-wide">
-                <span>Runs / day</span>
-                <SegmentedToggle v-model="cyclesPerDay" :options="CYCLES_OPTIONS" inline divided padding="px-2.5 py-1" />
-              </div>
-              <button
-                type="button"
-                :disabled="gathering"
-                class="border-sodium-300/40 bg-sodium-300/10 text-sodium-200 hover:bg-sodium-300/20 border px-3 py-1 font-mono text-xs tracking-wide transition-colors disabled:opacity-40"
-                @click="runGather"
-              >
-                {{ gathering ? "Gathering…" : "Gather" }}
-              </button>
-              <button
-                v-if="gathering"
-                type="button"
-                class="border-ink-700 text-paper-300 hover:text-paper-50 border px-3 py-1 font-mono text-xs tracking-wide transition-colors"
-                @click="cancel"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                :disabled="!sampleRuns.length || gathering"
-                class="border-ink-600 bg-ink-800 text-paper-100 hover:bg-ink-700 border px-3 py-1 font-mono text-xs tracking-wide transition-colors disabled:opacity-40"
-                @click="runStore"
-              >
-                Store data
-              </button>
-            </div>
-            <p v-if="gathering || progress.total" class="text-paper-400 font-mono text-[11px] tracking-wide">
-              Gathered {{ sampleRuns.length }} runs · {{ progress.done }}/{{ progress.total }} fetched
-            </p>
-            <p v-if="storedCount != null" class="text-predictability-high font-mono text-[11px] tracking-wide">Stored {{ storedCount }} runs for this location.</p>
-            <p v-if="sampleError" class="text-heat-300 font-mono text-[11px] tracking-wide"><span class="text-heat-400">[err]</span> {{ sampleError }}</p>
-          </div>
+          <GatherControls
+            v-if="mode === 'multi'"
+            v-model:durationDays="durationDays"
+            v-model:cyclesPerDay="cyclesPerDay"
+            class="mt-4"
+            :gathering="gathering"
+            :progress="progress"
+            :gathered-count="sampleRuns.length"
+            :stored-count="storedCount"
+            :error="sampleError"
+            @gather="runGather"
+            @store="runStore"
+            @cancel="cancel"
+          />
 
           <!-- Truth reference (single-run window). -->
           <p v-if="mode === 'single'" class="border-ink-700 text-paper-400 mt-4 border-t pt-3 font-mono text-[11px] tracking-wide">

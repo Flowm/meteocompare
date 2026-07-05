@@ -6,15 +6,14 @@ import { clearWeightsByKey, listWeights, REACH_PRESETS_KM, saveWeights, setReach
 import type { LocationSample } from "@/analysis/sample";
 import { loadSample, sampleKey } from "@/analysis/sampleStore";
 import AppFooter from "@/components/AppFooter.vue";
-import { paletteFor } from "@/components/chartOption";
 import CollapsibleSection from "@/components/CollapsibleSection.vue";
 import LocationBar from "@/components/LocationBar.vue";
 import LocationLabel from "@/components/LocationLabel.vue";
+import { accent, label as scorecardLabel } from "@/components/scorecardFormat";
 import StateBlock from "@/components/StateBlock.vue";
 import Swatch from "@/components/Swatch.vue";
 import { useLocation } from "@/composables/useLocation";
 import { useSettings } from "@/composables/useSettings";
-import { getModel } from "@/domain/models";
 
 const { current, label: locationLabel, setLocation } = useLocation();
 const { useTrainedWeights } = useSettings();
@@ -66,10 +65,13 @@ function refreshEntries(): void {
   entries.value = listWeights();
 }
 
-/** Per-model multiplier rows, sorted highest-trust first. */
+/** Per-model multiplier rows, sorted highest-trust first. Row label + swatch
+ *  colour come from the shared scorecardFormat helpers (these are all model rows
+ *  — no aggregate — so `label(id, false)` / `accent(id, false)`), so they can't
+ *  drift from the scorecard surfaces. */
 const rows = computed(() =>
   Object.entries(result.value?.multipliers ?? {})
-    .map(([id, mult]) => ({ id, mult, label: getModel(id)?.label ?? id, color: paletteFor(id) }))
+    .map(([id, mult]) => ({ id, mult, label: scorecardLabel(id, false), color: accent(id, false) }))
     .toSorted((a, b) => b.mult - a.mult),
 );
 
