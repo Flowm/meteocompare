@@ -27,7 +27,7 @@ const label = (id: string): string => labelOf(id, hasTuned.value);
     <!-- Scroll lives on this padding-free wrapper (not the card) so the sticky
          label column's background covers cleanly from the very left edge, and so
          the legend below stays put when the matrix is scrolled. -->
-    <div class="overflow-x-auto">
+    <div class="no-scrollbar overflow-x-auto">
       <!-- min-width keeps each of the ~168 hour cells legible; the whole matrix
            scrolls horizontally on narrow screens, model labels frozen left. -->
       <div class="min-w-[48rem]">

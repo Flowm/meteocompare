@@ -29,7 +29,7 @@ const fmtRange = (s: ModelSampleStats): string =>
 </script>
 
 <template>
-  <div v-if="hasRows" class="border-ink-700 bg-ink-900/40 overflow-x-auto border">
+  <div v-if="hasRows" class="no-scrollbar border-ink-700 bg-ink-900/40 overflow-x-auto border">
     <table class="w-full min-w-[40rem] border-collapse font-mono text-[11px] tabular-nums">
       <thead>
         <tr class="text-paper-400 text-[10px] tracking-wide">
