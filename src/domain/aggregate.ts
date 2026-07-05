@@ -1,6 +1,7 @@
 import type { ModelDef } from "./models";
+import { VARIABLES, type Variable } from "./variables";
 import { severitySlug, type SeveritySlug } from "./weatherCodes";
-import { normalizedWeights, type Variable } from "./weighting";
+import { normalizedWeights } from "./weighting";
 
 /** A single (model → value) sample at one timestep. Null = model has no value here. */
 export type ModelSamples = Record<string, number | null>;
@@ -161,7 +162,10 @@ export function aggregateSeries(times: string[], series: Record<string, (number 
       const arr = series[m.id];
       perModel[m.id] = arr ? (arr[i] ?? null) : null;
     }
-    if (variable === "weather_code") {
+    // The reducer is selected from the descriptor table; the three
+    // implementations stay local to this module.
+    const reducer = VARIABLES[variable].reducer;
+    if (reducer === "mode") {
       // Force integer codes; some models may report decimals.
       for (const id in perModel) {
         const v = perModel[id];
@@ -175,7 +179,7 @@ export function aggregateSeries(times: string[], series: Record<string, (number 
         weights: effectiveWeights,
         perModel,
       });
-    } else if (variable === "wind_direction_10m") {
+    } else if (reducer === "circular") {
       const { mean, stdDev, effectiveWeights } = weightedCircularMean(perModel, weights);
       result.push({
         time: timeStr,

@@ -16,7 +16,7 @@ import type { AggregatePoint } from "@/domain/aggregate";
 import { aggregateVariables } from "@/domain/aggregateVariables";
 import { MODELS, MODEL_IDS } from "@/domain/models";
 import { overallPredictability } from "@/domain/predictability";
-import type { Variable } from "@/domain/weighting";
+import { dailyBaseVariable } from "@/domain/variables";
 import { FORECAST_UPDATE_CHANNEL, type ForecastCacheUpdatedMessage } from "@/swMessages";
 
 import { useAbortableResource } from "./useAbortableResource";
@@ -28,25 +28,6 @@ import { useSettings } from "./useSettings";
 // imported from omForecast rather than re-declared so the two can't drift.
 const HOURLY = HOURLY_VARS;
 const DAILY = DAILY_VARS;
-
-/** Map a daily variable to its base variable family (drives weighting + predictability). */
-function dailyBase(v: DailyVar): Variable {
-  switch (v) {
-    case "temperature_2m_max":
-    case "temperature_2m_min":
-      return "temperature_2m";
-    case "precipitation_sum":
-      return "precipitation";
-    case "precipitation_probability_max":
-      return "precipitation_probability";
-    case "wind_speed_10m_max":
-      return "wind_speed_10m";
-    case "wind_direction_10m_dominant":
-      return "wind_direction_10m";
-    case "weather_code":
-      return "weather_code";
-  }
-}
 
 // Structurally assignable to HourlySeries (the unified chart contract):
 // `aggregate`/`perModel` are keyed by the same variable ids, just over the
@@ -167,7 +148,7 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
     const { aggregate, predictability } = aggregateVariables({
       times,
       perModel,
-      vars: DAILY.map((v) => ({ key: v, family: dailyBase(v) })),
+      vars: DAILY.map((v) => ({ key: v, family: dailyBaseVariable(v) })),
       models: MODELS,
       lat: location.value.latitude,
       lon: location.value.longitude,

@@ -1,33 +1,14 @@
 import type { AggregatePoint } from "./aggregate";
 import { effectiveModelCount } from "./models";
 import { clamp01, meanFinite } from "./num";
+import { VARIABLES, type Variable } from "./variables";
 import { severitySlug } from "./weatherCodes";
-import type { Variable } from "./weighting";
 
-/** Expected inter-model standard deviation under normal conditions.
- *  Daily accumulated variables (precipitation_sum) use "daily" resolution. */
+/** Expected inter-model standard deviation under normal conditions, read from
+ *  the descriptor table. Daily accumulated variables (precipitation_sum) use
+ *  "daily" resolution. */
 function typicalSpread(variable: Variable, leadHours: number, resolution: "hourly" | "daily"): number {
-  switch (variable) {
-    case "temperature_2m": {
-      if (leadHours <= 24) return 1;
-      if (leadHours <= 72) return 1 + ((leadHours - 24) / 48) * 1;
-      if (leadHours <= 168) return 2 + ((leadHours - 72) / 96) * 1.5;
-      return 3.5;
-    }
-    case "precipitation":
-      if (resolution === "daily") return leadHours <= 48 ? 5 : 10; // mm/day
-      return leadHours <= 48 ? 1.5 : 2.5; // mm/h
-    case "precipitation_probability":
-      return 25;
-    case "wind_speed_10m":
-      return leadHours <= 48 ? 4 : 7;
-    case "wind_direction_10m":
-      return leadHours <= 48 ? 30 : 70;
-    case "cloud_cover":
-      return 25;
-    case "weather_code":
-      return 1; // unused — weather_code uses agreement, not spread
-  }
+  return VARIABLES[variable].typicalSpread(leadHours, resolution);
 }
 
 /** Penalises forecasts built from fewer than ~3 *independent* contributing
@@ -40,10 +21,13 @@ function modelCountFactor(point: AggregatePoint): number {
 
 export function predictabilityFor(point: AggregatePoint, variable: Variable, leadHours: number, resolution: "hourly" | "daily" = "hourly"): number {
   const mcf = modelCountFactor(point);
-  if (variable === "weather_code") {
+  if (VARIABLES[variable].predictability === "agreement") {
     return weatherCodePredictability(point) * mcf;
   }
   if (variable === "wind_direction_10m") {
+    // Angular spread has no daily accumulation, so its typical-spread band is
+    // always read at "hourly" resolution regardless of the caller's cadence —
+    // and it skips the numeric-mean's NaN/spreadScore-clamp path.
     return clamp01((1 - point.stdDev / typicalSpread("wind_direction_10m", leadHours, "hourly")) * mcf);
   }
   if (Number.isNaN(point.value)) return 0;

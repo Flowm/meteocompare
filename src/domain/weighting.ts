@@ -1,7 +1,10 @@
 import type { ModelDef } from "./models";
 import { regionBonus } from "./models";
+import { VARIABLES, type Variable } from "./variables";
 
-export type Variable = "temperature_2m" | "precipitation" | "precipitation_probability" | "weather_code" | "wind_speed_10m" | "wind_direction_10m" | "cloud_cover";
+// The Variable union now lives in variables.ts (the descriptor table's key);
+// re-exported here so existing `from "./weighting"` importers keep working.
+export type { Variable };
 
 /** Gentle decay past 3 days: full weight ≤72 h, easing to a 0.4 floor by 240 h,
  *  so the weight system stays the single source of lead-time authority. Shared
@@ -37,12 +40,12 @@ function leadFactor(model: ModelDef, leadHours: number): number {
   }
 }
 
-/** Variable-specific boost — CAMs get a precipitation bonus. */
+/** Variable-specific boost — CAMs get a precipitation bonus. The per-variable
+ *  factor comes from the descriptor table's `camBoost` (1.3 on precipitation +
+ *  precipitation_probability, absent elsewhere). */
 function variableBoost(model: ModelDef, variable: Variable): number {
-  if ((variable === "precipitation" || variable === "precipitation_probability") && model.kind === "regional-cam") {
-    return 1.3;
-  }
-  return 1;
+  if (model.kind !== "regional-cam") return 1;
+  return VARIABLES[variable].camBoost ?? 1;
 }
 
 export function modelWeight(model: ModelDef, leadHours: number, lat: number, lon: number, variable: Variable, multipliers?: Record<string, number>): number {
