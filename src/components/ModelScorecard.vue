@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
-import { convertDelta, convertVar, signed, unitLabel, useUnits } from "@/composables/useUnits";
-import { getModel } from "@/domain/models";
-import { AGGREGATE_ROW_ID, AGGREGATE_TUNED_ROW_ID, LEAD_BANDS, type ScorecardRow } from "@/domain/scorecard";
+import { unitLabel, useUnits } from "@/composables/useUnits";
+import { AGGREGATE_TUNED_ROW_ID, LEAD_BANDS, type ScorecardRow } from "@/domain/scorecard";
 import { HOURS_PER_DAY } from "@/domain/verification";
 
-import { AGG_COLOR, paletteFor } from "./chartOption";
+import { accent, fmtScore as fmtComposite, fmtTiming, label as labelOf, scoreTone, useScorecardFormat } from "./scorecardFormat";
 
 const props = defineProps<{
   /** Rows to score; the aggregate is one of them, ranked inline. */
@@ -14,6 +13,7 @@ const props = defineProps<{
 }>();
 
 const { prefs } = useUnits();
+const { fmtTempMae, fmtTempBias, fmtAmount } = useScorecardFormat();
 
 const hasRows = computed(() => props.rows.length > 0);
 // When a tuned aggregate is shown too, qualify both so neither claims the bare
@@ -24,31 +24,8 @@ const tempUnit = computed(() => unitLabel("temperature_2m", prefs.value));
 const precipUnit = computed(() => unitLabel("precipitation", prefs.value));
 const unitOf = (kind: "temp" | "precip"): string => (kind === "temp" ? tempUnit.value : precipUnit.value);
 
-const label = (id: string): string =>
-  id === AGGREGATE_ROW_ID ? (hasTuned.value ? "Aggregate (default)" : "Aggregate") : id === AGGREGATE_TUNED_ROW_ID ? "Aggregate (tuned)" : (getModel(id)?.label ?? id);
-const accent = (row: ScorecardRow): string => (row.isAggregate ? AGG_COLOR : paletteFor(row.id));
+const label = (id: string): string => labelOf(id, hasTuned.value);
 
-const fmtComposite = (c: number): string => (Number.isFinite(c) ? String(Math.round(c)) : "—");
-
-/** 0–100 composite → tone, on the same high/mid/low thresholds the predictability
- *  badge uses (≥70 / ≥40), so the colour language reads consistently. */
-const scoreTone = (c: number): string => {
-  if (!Number.isFinite(c)) return "text-paper-500";
-  if (c >= 70) return "text-predictability-high";
-  if (c >= 40) return "text-sodium-200";
-  return "text-heat-300";
-};
-
-// Temperature MAE/bias are *deltas* (magnitudes/differences), so convert with
-// convertDelta — never convertVar, which would add the °F offset.
-const fmtTempMae = (v: number): string => (Number.isFinite(v) ? convertDelta(v, "temperature_2m", prefs.value).toFixed(1) : "—");
-const fmtTempBias = (v: number): string => (Number.isFinite(v) ? signed(convertDelta(v, "temperature_2m", prefs.value)) : "—");
-const fmtAmount = (v: number): string => {
-  if (!Number.isFinite(v)) return "—";
-  const x = convertVar(v, "precipitation", prefs.value);
-  return x == null ? "—" : signed(x);
-};
-const fmtTiming = (v: number): string => (Number.isFinite(v) ? `${Math.round(v * 100)}%` : "—");
 const fmtCoverage = (row: ScorecardRow): string => `${row.coveredHours}h`;
 
 /** Coverage colour by how much of the 7-day window the model scored: under
@@ -271,7 +248,7 @@ const caretClass = (key: SortKey): string => (sortKey.value === key ? "text-sodi
                w-px + nowrap shrinks it to just past the widest label. -->
           <th scope="row" class="border-ink-700/40 bg-ink-900 sticky left-0 z-10 w-px border-b px-3 py-1.5 text-left font-normal whitespace-nowrap">
             <span class="flex items-center gap-2">
-              <span class="inline-block size-2 shrink-0" :style="{ backgroundColor: accent(row) }" />
+              <span class="inline-block size-2 shrink-0" :style="{ backgroundColor: accent(row.id, row.isAggregate) }" />
               <span :class="row.isAggregate ? 'text-aggregate-400 font-semibold' : 'text-paper-200'">{{ label(row.id) }}</span>
             </span>
           </th>

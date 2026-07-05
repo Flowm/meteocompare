@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import { getModel } from "@/domain/models";
-import { AGGREGATE_ROW_ID, AGGREGATE_TUNED_ROW_ID, type ScorecardRow } from "@/domain/scorecard";
+import { AGGREGATE_TUNED_ROW_ID, type ScorecardRow } from "@/domain/scorecard";
 
-import { AGG_COLOR, paletteFor } from "./chartOption";
 import HitMissStrip from "./HitMissStrip.vue";
+import { accent, label as labelOf } from "./scorecardFormat";
 
 const props = defineProps<{
   /** Same rows (and order) as the scorecard table. */
@@ -19,9 +18,7 @@ const dayCount = computed(() => Math.max(1, Math.round((props.rows[0]?.hourlyCla
 
 const hasRows = computed(() => props.rows.length > 0);
 const hasTuned = computed(() => props.rows.some((r) => r.id === AGGREGATE_TUNED_ROW_ID));
-const label = (id: string): string =>
-  id === AGGREGATE_ROW_ID ? (hasTuned.value ? "Aggregate (default)" : "Aggregate") : id === AGGREGATE_TUNED_ROW_ID ? "Aggregate (tuned)" : (getModel(id)?.label ?? id);
-const accent = (id: string, isAggregate: boolean): string => (isAggregate ? AGG_COLOR : paletteFor(id));
+const label = (id: string): string => labelOf(id, hasTuned.value);
 </script>
 
 <template>
@@ -54,14 +51,10 @@ const accent = (id: string, isAggregate: boolean): string => (isAggregate ? AGG_
       </div>
     </div>
 
-    <!-- Legend mirrors HitMissStrip's tones. Outside the scroll wrapper so it
-         stays in place when the matrix is scrolled horizontally. -->
+    <!-- Legend is HitMissStrip's single source of tones (legend mode). Outside
+         the scroll wrapper so it stays in place when the matrix is scrolled. -->
     <div class="text-paper-400 mt-3 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[10px] tracking-wide">
-      <span class="flex items-center gap-1"><span class="bg-predictability-high/85 inline-block size-2" /> Hit</span>
-      <span class="flex items-center gap-1"><span class="bg-sodium-300/80 inline-block size-2" /> Miss</span>
-      <span class="flex items-center gap-1"><span class="bg-heat-400/85 inline-block size-2" /> False alarm</span>
-      <span class="flex items-center gap-1"><span class="bg-ink-700 inline-block size-2" /> Correct dry</span>
-      <span class="flex items-center gap-1"><span class="bg-ink-950/60 border-ink-700 inline-block size-2 border" /> No data</span>
+      <HitMissStrip legend />
     </div>
   </div>
 </template>

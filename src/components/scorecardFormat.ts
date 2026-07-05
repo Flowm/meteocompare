@@ -1,0 +1,82 @@
+// Shared formatting for the three scorecard surfaces — the single-run
+// ModelScorecard, the multi-run MultiRunScorecard, and the ModelTimingMatrix.
+// Row labelling, accent colour and score tone are byte-identical across all
+// three; the unit-dependent value formatters (temperature MAE, precip amount,
+// timing) are shared by the two tables. Kept as a pure module + a thin
+// useUnits-wrapping composable, following the chartHelpers.ts precedent, so the
+// call sites stay one-liners and the number formatting can't drift apart.
+
+import { computed, type ComputedRef } from "vue";
+
+import { convertDelta, convertVar, signed, useUnits } from "@/composables/useUnits";
+import { getModel } from "@/domain/models";
+import { AGGREGATE_ROW_ID, AGGREGATE_TUNED_ROW_ID } from "@/domain/scorecard";
+
+import { AGG_COLOR, paletteFor } from "./chartOption";
+
+/** Row label for a model id or an aggregate row. When a tuned aggregate is also
+ *  present both aggregate rows are qualified — "Aggregate (default)" / "(tuned)"
+ *  — so neither claims the bare "Aggregate" that means the active weighting
+ *  elsewhere (chart, forecast page). */
+export function label(id: string, hasTuned: boolean): string {
+  if (id === AGGREGATE_ROW_ID) return hasTuned ? "Aggregate (default)" : "Aggregate";
+  if (id === AGGREGATE_TUNED_ROW_ID) return "Aggregate (tuned)";
+  return getModel(id)?.label ?? id;
+}
+
+/** Swatch/accent colour for a row: the aggregate colour for aggregate rows,
+ *  otherwise the model's palette colour. */
+export function accent(id: string, isAggregate: boolean): string {
+  return isAggregate ? AGG_COLOR : paletteFor(id);
+}
+
+/** 0–100 composite → text-colour tone, on the same high/mid/low thresholds
+ *  (≥70 / ≥40) the predictability badge uses, so the colour language reads
+ *  consistently across surfaces. */
+export function scoreTone(c: number): string {
+  if (!Number.isFinite(c)) return "text-paper-500";
+  if (c >= 70) return "text-predictability-high";
+  if (c >= 40) return "text-sodium-200";
+  return "text-heat-300";
+}
+
+/** Composite score as a rounded integer, em-dash when unscorable. Shared name
+ *  for the single-run scorecard's fmtComposite and the multi-run fmtScore. */
+export function fmtScore(c: number): string {
+  return Number.isFinite(c) ? String(Math.round(c)) : "—";
+}
+
+/** Timing (Critical Success Index) as a whole-percent, em-dash when NaN. */
+export function fmtTiming(v: number): string {
+  return Number.isFinite(v) ? `${Math.round(v * 100)}%` : "—";
+}
+
+/** The unit-dependent value formatters, closed over the live unit prefs so the
+ *  scorecard call sites stay one-liners. Temperature MAE/bias are *deltas*
+ *  (magnitudes/differences), so they convert with convertDelta — never
+ *  convertVar, which would add the °F offset. */
+export function useScorecardFormat(): {
+  fmtTempMae: ComputedRef<(v: number) => string>;
+  fmtTempBias: ComputedRef<(v: number) => string>;
+  fmtAmount: ComputedRef<(v: number) => string>;
+} {
+  const { prefs } = useUnits();
+
+  const fmtTempMae = computed(
+    () =>
+      (v: number): string =>
+        Number.isFinite(v) ? convertDelta(v, "temperature_2m", prefs.value).toFixed(1) : "—",
+  );
+  const fmtTempBias = computed(
+    () =>
+      (v: number): string =>
+        Number.isFinite(v) ? signed(convertDelta(v, "temperature_2m", prefs.value)) : "—",
+  );
+  const fmtAmount = computed(() => (v: number): string => {
+    if (!Number.isFinite(v)) return "—";
+    const x = convertVar(v, "precipitation", prefs.value);
+    return x == null ? "—" : signed(x);
+  });
+
+  return { fmtTempMae, fmtTempBias, fmtAmount };
+}

@@ -2,11 +2,10 @@
 import { computed } from "vue";
 
 import type { ModelSampleStats } from "@/analysis/sample";
-import { convertDelta, convertVar, signed, unitLabel, useUnits } from "@/composables/useUnits";
-import { getModel } from "@/domain/models";
-import { AGGREGATE_ROW_ID, AGGREGATE_TUNED_ROW_ID, LEAD_BANDS } from "@/domain/scorecard";
+import { unitLabel, useUnits } from "@/composables/useUnits";
+import { AGGREGATE_TUNED_ROW_ID, LEAD_BANDS } from "@/domain/scorecard";
 
-import { AGG_COLOR, paletteFor } from "./chartOption";
+import { accent, fmtScore, fmtTiming, label as labelOf, scoreTone, useScorecardFormat } from "./scorecardFormat";
 
 const props = defineProps<{
   /** Per-model performance across the sample, pre-sorted best-first. */
@@ -14,6 +13,7 @@ const props = defineProps<{
 }>();
 
 const { prefs } = useUnits();
+const { fmtTempMae, fmtAmount } = useScorecardFormat();
 
 const hasRows = computed(() => props.stats.length > 0);
 const hasTuned = computed(() => props.stats.some((s) => s.id === AGGREGATE_TUNED_ROW_ID));
@@ -21,30 +21,10 @@ const tempUnit = computed(() => unitLabel("temperature_2m", prefs.value));
 const precipUnit = computed(() => unitLabel("precipitation", prefs.value));
 const bandLabels = LEAD_BANDS.map((b) => b.label);
 
-const label = (id: string): string =>
-  id === AGGREGATE_ROW_ID ? (hasTuned.value ? "Aggregate (default)" : "Aggregate") : id === AGGREGATE_TUNED_ROW_ID ? "Aggregate (tuned)" : (getModel(id)?.label ?? id);
-const accent = (s: ModelSampleStats): string => (s.isAggregate ? AGG_COLOR : paletteFor(s.id));
-
-const fmtScore = (c: number): string => (Number.isFinite(c) ? String(Math.round(c)) : "—");
-
-/** Same high/mid/low thresholds (≥70 / ≥40) as the single-run scorecard + the
- *  predictability badge, so the colour language reads consistently. */
-const scoreTone = (c: number): string => {
-  if (!Number.isFinite(c)) return "text-paper-500";
-  if (c >= 70) return "text-predictability-high";
-  if (c >= 40) return "text-sodium-200";
-  return "text-heat-300";
-};
+const label = (id: string): string => labelOf(id, hasTuned.value);
 
 const fmtRange = (s: ModelSampleStats): string =>
   Number.isFinite(s.compositeMin) && Number.isFinite(s.compositeMax) ? `${Math.round(s.compositeMin)}–${Math.round(s.compositeMax)}` : "—";
-const fmtTempMae = (v: number): string => (Number.isFinite(v) ? convertDelta(v, "temperature_2m", prefs.value).toFixed(1) : "—");
-const fmtAmount = (v: number): string => {
-  if (!Number.isFinite(v)) return "—";
-  const x = convertVar(v, "precipitation", prefs.value);
-  return x == null ? "—" : signed(x);
-};
-const fmtTiming = (v: number): string => (Number.isFinite(v) ? `${Math.round(v * 100)}%` : "—");
 </script>
 
 <template>
@@ -78,7 +58,7 @@ const fmtTiming = (v: number): string => (Number.isFinite(v) ? `${Math.round(v *
         <tr v-for="s in props.stats" :key="s.id" :class="s.isAggregate ? 'bg-aggregate-400/5' : ''">
           <th scope="row" class="border-ink-700/40 bg-ink-900 sticky left-0 z-10 border-b px-3 py-1.5 text-left font-normal whitespace-nowrap">
             <span class="flex items-center gap-2">
-              <span class="inline-block size-2 shrink-0" :style="{ backgroundColor: accent(s) }" />
+              <span class="inline-block size-2 shrink-0" :style="{ backgroundColor: accent(s.id, s.isAggregate) }" />
               <span :class="s.isAggregate ? 'text-aggregate-400 font-semibold' : 'text-paper-200'">{{ label(s.id) }}</span>
             </span>
           </th>

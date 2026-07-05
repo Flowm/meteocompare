@@ -5,20 +5,25 @@ import type { HourClassification } from "@/domain/verification";
 
 const props = withDefaults(
   defineProps<{
-    /** One entry per hour. Length is typically 24 (one day's worth). */
-    classification: HourClassification[];
+    /** One entry per hour. Length is typically 24 (one day's worth). Omitted in
+     *  legend-only mode (`legend`), where no strip is drawn. */
+    classification?: HourClassification[];
     /** Optional label/explanation appended to each cell's tooltip. */
     hourLabel?: (i: number) => string;
     /** Centered "No precipitation events" overlay on an all-dry strip. Off in
      *  the multi-row timing matrix, where thin (h-3) rows can't fit the text. */
     showEmptyLabel?: boolean;
+    /** Render only the tone legend (no strip). The single source of the five
+     *  tone/label pairs, so callers like ModelTimingMatrix consume it rather
+     *  than restating the tones. */
+    legend?: boolean;
   }>(),
-  { showEmptyLabel: true },
+  { classification: () => [], showEmptyLabel: true, legend: false },
 );
 
 // Tones tuned to the "Observatory" palette: sage / sodium / coral / faint ink.
 // no_data sits near the page floor so unscored hours read as an absence (a gap)
-// rather than a real outcome.
+// rather than a real outcome. The order here is the legend's reading order.
 const TONE: Record<HourClassification, string> = {
   hit: "bg-predictability-high/85",
   miss: "bg-sodium-300/80",
@@ -35,6 +40,23 @@ const LEGEND: Record<HourClassification, string> = {
   no_data: "no data",
 };
 
+// The legend rows, in reading order — no_data carries the outlined-empty swatch,
+// and its label is capitalised for the standalone legend (the cell tooltips use
+// the lowercase LEGEND text mid-sentence).
+const LEGEND_LABEL: Record<HourClassification, string> = {
+  hit: "Hit",
+  miss: "Miss",
+  false_alarm: "False alarm",
+  correct_dry: "Correct dry",
+  no_data: "No data",
+};
+
+const legendItems = (Object.keys(TONE) as HourClassification[]).map((c) => ({
+  cls: c,
+  tone: c === "no_data" ? "bg-ink-950/60 border-ink-700 border" : TONE[c],
+  text: LEGEND_LABEL[c],
+}));
+
 const cells = computed(() => props.classification.map((c, i) => ({ cls: c, tone: TONE[c], title: `${props.hourLabel?.(i) ?? `hour ${i}`} · ${LEGEND[c]}` })));
 
 // "Dry day" overlay only when every hour is a genuine correct-dry — a strip of
@@ -46,7 +68,12 @@ const wrapperTitle = computed(() =>
 </script>
 
 <template>
-  <div class="relative" :title="wrapperTitle">
+  <!-- Legend-only mode: the five tone/label pairs, no strip. Callers supply the
+       surrounding layout (the timing matrix's spacing + colour wrapper). -->
+  <template v-if="legend">
+    <span v-for="item in legendItems" :key="item.cls" class="flex items-center gap-1"><span class="inline-block size-2" :class="item.tone" /> {{ item.text }}</span>
+  </template>
+  <div v-else class="relative" :title="wrapperTitle">
     <div class="border-ink-700 flex w-full gap-px overflow-hidden border">
       <div v-for="(c, i) in cells" :key="i" class="h-3 flex-1" :class="c.tone" :title="c.title" />
     </div>
