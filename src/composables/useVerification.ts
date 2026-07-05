@@ -58,15 +58,15 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>, r
 
   // All scoring lives in the framework-free analysis layer now; the composable
   // just feeds it the fetched pair and slices the result into reactive refs.
+  // The evaluation no longer depends on the toggle: it always builds the
+  // default surfaces and, when tuned weights exist, the tuned ones alongside.
   const evaluation = computed<RunEvaluation | null>(() => {
     const runs = data.value?.runs;
     const truth = data.value?.truth;
     if (!runs || !truth) return null;
-    // Show a default-vs-tuned comparison whenever this location has stored
+    // Compute a default-vs-tuned comparison whenever this location has stored
     // trained weights — independent of the live "use trained weights" toggle.
     const tunedMultipliers = loadWeights(location.value.latitude, location.value.longitude)?.multipliers;
-    // applyTuned mirrors the live forecast: when the toggle is on, the chart +
-    // daily cards draw the tuned aggregate. The scorecard compares both regardless.
     return evaluateRun({
       runs,
       truth,
@@ -75,12 +75,24 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>, r
       runDate: runDate.value,
       runHour: runCycle.value,
       tunedMultipliers,
-      applyTuned: useTrainedWeights.value,
     });
   });
 
-  const hourly = computed<VerificationHourly | null>(() => evaluation.value?.hourly ?? null);
-  const daily = computed<DailyVerification[] | null>(() => evaluation.value?.daily ?? null);
+  // The toggle mirrors the live forecast: when it's on and tuned surfaces exist,
+  // the chart + daily cards draw the tuned aggregate; otherwise the default one.
+  // Flipping the toggle now swaps precomputed surfaces — no re-evaluation. The
+  // scorecard exposes both rows regardless, so it never reads the toggle.
+  const useTuned = computed(() => useTrainedWeights.value && evaluation.value?.tunedHourly != null);
+  const hourly = computed<VerificationHourly | null>(() => {
+    const ev = evaluation.value;
+    if (!ev) return null;
+    return useTuned.value && ev.tunedHourly ? ev.tunedHourly : ev.hourly;
+  });
+  const daily = computed<DailyVerification[] | null>(() => {
+    const ev = evaluation.value;
+    if (!ev) return null;
+    return useTuned.value && ev.tunedDaily ? ev.tunedDaily : ev.daily;
+  });
   const scorecard = computed<ScorecardRow[] | null>(() => evaluation.value?.scorecard ?? null);
   const availableModels = computed<ModelDef[]>(() => evaluation.value?.availableModels ?? []);
   // Sunrise/sunset ride along on the truth (archive) response — single-runs

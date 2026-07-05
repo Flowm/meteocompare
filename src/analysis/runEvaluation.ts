@@ -39,8 +39,17 @@ export interface RunEvaluation {
   runDate: string;
   /** Run cycle hour (00 / 06 / 12 / 18 Z). With runDate, the run's identity. */
   runHour: number;
+  /** Displayed surfaces built from the DEFAULT-weight aggregate. Always present,
+   *  so a stored sample (which carries no tuned data) has valid `hourly`/`daily`. */
   hourly: VerificationHourly;
   daily: DailyVerification[];
+  /** The same two surfaces recomputed from the TUNED aggregate — present only
+   *  when `tunedMultipliers` were supplied. A cheap pure recompute; the UI
+   *  swaps to these when the "use trained weights" toggle is on (see
+   *  useVerification). Optional + additive so every already-stored sample stays
+   *  valid with no migration (record-versioned since Phase 2). */
+  tunedHourly?: VerificationHourly;
+  tunedDaily?: DailyVerification[];
   scorecard: ScorecardRow[];
   availableModels: ModelDef[];
 }
@@ -54,18 +63,15 @@ export interface EvaluateRunInputs {
   runDate: string;
   /** Run cycle hour (00 / 06 / 12 / 18 Z); defaults to 0. Identifies the run with runDate. */
   runHour?: number;
-  /** When the location has stored tuned weights, also compute an "Aggregate
-   *  (tuned)" scorecard row from these per-model multipliers, for comparison. */
+  /** When the location has stored tuned weights, additionally compute the
+   *  tuned aggregate: as the "Aggregate (tuned)" scorecard row and as the
+   *  optional `tunedHourly`/`tunedDaily` surfaces the UI can swap to. */
   tunedMultipliers?: Record<string, number>;
-  /** Whether the displayed surfaces (chart, daily cards, weather icons) use the
-   *  tuned weights as the active aggregate — i.e. the "use trained weights"
-   *  toggle. The scorecard always shows both default and tuned regardless. */
-  applyTuned?: boolean;
 }
 
 /** Score one fetched run against its truth. Returns null when the run carried no
  *  hours (nothing to align or score). */
-export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tunedMultipliers, applyTuned = false }: EvaluateRunInputs): RunEvaluation | null {
+export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tunedMultipliers }: EvaluateRunInputs): RunEvaluation | null {
   const times = runs.hourly.time;
   const firstTime = times[0];
   if (!firstTime) return null;
@@ -88,11 +94,10 @@ export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tuned
     cadence: "hourly",
   });
 
-  // A second aggregate under the location's tuned weights (when stored): reused
-  // as the scorecard's "Aggregate (tuned)" row, and — when the user opts in via
-  // applyTuned (the settings toggle) — as the active aggregate the chart and
-  // daily cards display. The scorecard always compares default vs tuned, so it
-  // ignores applyTuned.
+  // A second aggregate under the location's tuned weights (when stored): the
+  // scorecard's "Aggregate (tuned)" row is built from it, and — when present —
+  // so are the optional tunedHourly/tunedDaily surfaces below. The scorecard
+  // always compares default vs tuned.
   const tuned = tunedMultipliers
     ? aggregateVariables({
         times,
@@ -106,7 +111,6 @@ export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tuned
         multipliers: tunedMultipliers,
       })
     : null;
-  const active = applyTuned && tuned ? tuned : { aggregate, predictability };
 
   // Align truth to the run's time axis by ISO-string lookup; the two APIs can
   // return their hours offset by UTC-shift, which the map handles cleanly.
@@ -124,35 +128,34 @@ export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tuned
     return i == null ? null : (truthPrecipArr[i] ?? null);
   });
 
-  const hourly: VerificationHourly = {
-    times,
-    aggregate: active.aggregate,
-    perModel,
-    truth: { temperature_2m: truthTemp, precipitation: truthPrecip },
-    predictability: active.predictability,
-  };
-
-  const daily = buildDailyVerification({
-    runDate,
-    times,
-    channels: {
-      temperature_2m: {
-        aggregate: active.aggregate.temperature_2m ?? [],
-        perModel: perModel.temperature_2m ?? {},
-        truth: truthTemp,
-        predictability: active.predictability.temperature_2m ?? [],
-      },
-      precipitation: {
-        aggregate: active.aggregate.precipitation ?? [],
-        perModel: perModel.precipitation ?? {},
-        truth: truthPrecip,
-        predictability: active.predictability.precipitation ?? [],
-      },
+  // Build the hourly + daily surfaces for one aggregate pass. The default pass
+  // always runs; the tuned pass runs only when tuned weights exist. perModel and
+  // truth are shared references across both — only the aggregate + its
+  // predictability differ. A cheap pure recompute, so the UI toggle swaps
+  // precomputed surfaces instead of re-running the evaluation.
+  const surfacesFor = (agg: typeof aggregate, pred: typeof predictability): { hourly: VerificationHourly; daily: DailyVerification[] } => ({
+    hourly: {
+      times,
+      aggregate: agg,
+      perModel,
+      truth: { temperature_2m: truthTemp, precipitation: truthPrecip },
+      predictability: pred,
     },
+    daily: buildDailyVerification({
+      runDate,
+      times,
+      channels: {
+        temperature_2m: { aggregate: agg.temperature_2m ?? [], perModel: perModel.temperature_2m ?? {}, truth: truthTemp, predictability: pred.temperature_2m ?? [] },
+        precipitation: { aggregate: agg.precipitation ?? [], perModel: perModel.precipitation ?? {}, truth: truthPrecip, predictability: pred.precipitation ?? [] },
+      },
+    }),
   });
 
+  const { hourly, daily } = surfacesFor(aggregate, predictability);
+  const tunedSurfaces = tuned ? surfacesFor(tuned.aggregate, tuned.predictability) : null;
+
   // Scorecard: the default-weight aggregate row, plus a tuned row (when stored)
-  // for the inline comparison — independent of applyTuned.
+  // for the inline comparison.
   const scorecard = buildModelScorecard({
     times,
     channels: {
@@ -167,6 +170,7 @@ export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tuned
     runHour,
     hourly,
     daily,
+    ...(tunedSurfaces ? { tunedHourly: tunedSurfaces.hourly, tunedDaily: tunedSurfaces.daily } : {}),
     scorecard,
     availableModels: availableModelsOf(runs),
   };
