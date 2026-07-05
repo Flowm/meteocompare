@@ -23,6 +23,12 @@ export const router = createRouter({
       name: "train",
       component: TrainingView,
     },
+    {
+      path: "/about",
+      name: "about",
+      // Static editorial page, rarely on the hot path — keep it out of the main bundle.
+      component: () => import("@/views/AboutView.vue"),
+    },
   ],
 });
 
