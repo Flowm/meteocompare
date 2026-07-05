@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { nextTick, ref } from "vue";
 
-import { useAbortableResource } from "./useAbortableResource";
+import { useAbortableResource, useAbortableTask } from "./useAbortableResource";
 
 describe("useAbortableResource — superseded-request guard", () => {
   // The bug class this helper centralizes: a request that has been superseded
@@ -52,5 +52,66 @@ describe("useAbortableResource — superseded-request guard", () => {
     expect(error.value).toBe("boom");
     expect(data.value).toBeNull();
     expect(loading.value).toBe(false);
+  });
+});
+
+describe("useAbortableTask — superseded-guard", () => {
+  it("a stale run resolving after a newer one does not clear running", async () => {
+    const resolvers: Array<() => void> = [];
+    const task = useAbortableTask();
+    const start = (): Promise<void> => task.run(() => new Promise<void>((resolve) => resolvers.push(resolve)));
+
+    void start();
+    expect(task.running.value).toBe(true);
+
+    // Supersede run #0 with run #1 — the first controller is aborted.
+    void start();
+    expect(resolvers).toHaveLength(2);
+    expect(task.running.value).toBe(true);
+
+    // The stale run #0 resolves late — running must stay on.
+    resolvers[0]!();
+    await nextTick();
+    expect(task.running.value).toBe(true);
+
+    // The latest run #1 resolves — now running clears.
+    resolvers[1]!();
+    await nextTick();
+    await nextTick();
+    expect(task.running.value).toBe(false);
+  });
+
+  it("cancel() aborts the in-flight run and clears running", async () => {
+    const task = useAbortableTask();
+    let seenAbort = false;
+    void task.run(
+      (signal) =>
+        new Promise<void>((_, reject) => {
+          signal.addEventListener("abort", () => {
+            seenAbort = true;
+            reject(new DOMException("aborted", "AbortError"));
+          });
+        }),
+    );
+    expect(task.running.value).toBe(true);
+    task.cancel();
+    await nextTick();
+    expect(seenAbort).toBe(true);
+    expect(task.running.value).toBe(false);
+  });
+
+  it("a superseded run's late failure does not surface over the replacement", async () => {
+    const task = useAbortableTask();
+    const rejecters: Array<(e: unknown) => void> = [];
+    const start = (): Promise<void> => task.run(() => new Promise<void>((_, reject) => rejecters.push(reject)));
+
+    void start();
+    void start(); // supersedes #0
+
+    // #0 fails late with a non-abort error — must NOT set error (it's superseded).
+    rejecters[0]!(new Error("stale failure"));
+    await nextTick();
+    expect(task.error.value).toBeNull();
+    expect(task.running.value).toBe(true);
   });
 });
