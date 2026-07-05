@@ -40,9 +40,10 @@ const props = withDefaults(
   { solar: null, currentTime: undefined, defaultWindow: 72, showTitle: true },
 );
 
-/** Two-way when the parent binds it (verify, to share with the day cards);
- *  derived locally from `enabledModels.size > 0` — kept as a writable ref so
- *  selectView() can also clear the overlay when switching to a composite view. */
+/** Output-only: the per-model overlay is on iff at least one chip is enabled, so
+ *  `enabledModels` is the single source of truth. This model just mirrors that
+ *  derived boolean out to the parent (verify, to reveal its day-card rows); the
+ *  parent never writes it, so there's no second source to hand-sync. */
 const showModels = defineModel<boolean>("showModels", { default: false });
 
 const { prefs, formatTemp, formatPrecip, formatWind } = useUnits();
@@ -72,6 +73,10 @@ const showBand = ref(true);
 const showTruth = ref(true);
 const enabledModels = ref<Set<string>>(new Set());
 
+/** The per-model overlay is on iff a chip is enabled — the single truth the
+ *  showModels model and the snaps all read, so nothing can fall out of sync. */
+const overlayOn = computed(() => enabledModels.value.size > 0);
+
 // Direct handle to the ECharts instance for no-redraw merge patches.
 // vue-echarts exposes the underlying instance as `.chart` on its component ref.
 const chartRef = ref<{ chart?: ECharts } | null>(null);
@@ -82,16 +87,10 @@ const hasTruth = computed(() => !!props.data.truth);
  *  to their `overlayVar`. */
 const activeVar = computed<DataVarId>(() => CHART_VIEWS[view.value].overlayVar);
 
-// Q11 (option A): the per-model overlay needs a single variable. Enabling any model while
-// the composite Temp+Precip view is selected snaps to Temperature.
-watch(showModels, (on) => {
-  if (on && view.value === "temp_precip") view.value = "temperature_2m";
-});
-
 function selectView(v: ChartViewId): void {
   // The reverse of the snap: picking the composite while the overlay is on
   // clears the enabled models (two fans on two axes is unreadable).
-  if (v === "temp_precip" && showModels.value) enabledModels.value = new Set();
+  if (v === "temp_precip" && overlayOn.value) enabledModels.value = new Set();
   view.value = v;
 }
 
@@ -162,13 +161,16 @@ watch(
   { immediate: true },
 );
 
-// Sync the v-model:showModels out to the parent whenever the chip set changes,
-// so VerificationView can reveal per-model rows in its day cards.
+// enabledModels is the single source of truth for the overlay. On any change:
+// mirror the derived boolean out to the parent's v-model (verify reveals its
+// per-model day-card rows), and apply the snap — enabling a model while the
+// composite Temp+Precip view is selected switches to Temperature, since the
+// overlay needs a single variable (two fans on two axes is unreadable).
 watch(
-  enabledModels,
-  () => {
-    const next = enabledModels.value.size > 0;
-    if (showModels.value !== next) showModels.value = next;
+  overlayOn,
+  (on) => {
+    if (showModels.value !== on) showModels.value = on;
+    if (on && view.value === "temp_precip") view.value = "temperature_2m";
   },
   { immediate: true },
 );
@@ -191,17 +193,20 @@ function applyVisibility(): void {
   if (patches.length) chart.setOption({ series: patches }, false);
 }
 
+// One watch drives every visibility patch: whenever any toggle changes, re-apply
+// the no-redraw opacity merge. These refs stay OUT of `option`'s reactive deps
+// (only the tooltip reads them, lazily at hover), so flipping a toggle patches
+// the chart directly without a full rebuild — the handlers below just flip state.
+watch([showAggregate, showBand, showTruth, enabledModels], () => applyVisibility());
+
 function toggleAggregate(): void {
   showAggregate.value = !showAggregate.value;
-  applyVisibility();
 }
 function toggleBand(): void {
   showBand.value = !showBand.value;
-  applyVisibility();
 }
 function toggleTruth(): void {
   showTruth.value = !showTruth.value;
-  applyVisibility();
 }
 function toggleModel(id: string): void {
   if (!modelHasData.value[id]) return;
@@ -209,15 +214,12 @@ function toggleModel(id: string): void {
   if (next.has(id)) next.delete(id);
   else next.add(id);
   enabledModels.value = next;
-  applyVisibility();
 }
 function selectAllModels(): void {
   enabledModels.value = new Set(allModels.value.filter((m) => modelHasData.value[m.id]).map((m) => m.id));
-  applyVisibility();
 }
 function selectNoModels(): void {
   enabledModels.value = new Set();
-  applyVisibility();
 }
 
 // Single "All" toggle: active only when every available model is enabled;
