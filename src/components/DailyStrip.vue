@@ -34,13 +34,13 @@ const days = computed<DayRow[]>(() =>
     }));
     return {
       date,
-      code: Math.round(props.daily.series.weather_code[i]?.value ?? 0),
-      high: props.daily.series.temperature_2m_max[i]?.value ?? NaN,
-      low: props.daily.series.temperature_2m_min[i]?.value ?? NaN,
-      precipProb: props.daily.series.precipitation_probability_max[i]?.value ?? null,
-      precipSum: props.daily.series.precipitation_sum[i]?.value ?? null,
-      windSpeed: props.daily.series.wind_speed_10m_max[i]?.value ?? null,
-      windDirection: props.daily.series.wind_direction_10m_dominant[i]?.value ?? null,
+      code: Math.round(props.daily.aggregate.weather_code[i]?.value ?? 0),
+      high: props.daily.aggregate.temperature_2m_max[i]?.value ?? NaN,
+      low: props.daily.aggregate.temperature_2m_min[i]?.value ?? NaN,
+      precipProb: props.daily.aggregate.precipitation_probability_max[i]?.value ?? null,
+      precipSum: props.daily.aggregate.precipitation_sum[i]?.value ?? null,
+      windSpeed: props.daily.aggregate.wind_speed_10m_max[i]?.value ?? null,
+      windDirection: props.daily.aggregate.wind_direction_10m_dominant[i]?.value ?? null,
       predictability: dailyOverallPredictability(props.daily, i),
       models,
     };

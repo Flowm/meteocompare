@@ -1,6 +1,6 @@
 import type { AggregatePoint } from "./aggregate";
 import { effectiveModelCount } from "./models";
-import { clamp01 } from "./num";
+import { clamp01, meanFinite } from "./num";
 import { severitySlug } from "./weatherCodes";
 import type { Variable } from "./weighting";
 
@@ -69,15 +69,7 @@ function weatherCodePredictability(point: AggregatePoint): number {
  *  review)"; the forecast view's badge and the daily strip both route through it
  *  so they can never drift apart. */
 export function overallPredictability(parts: readonly (number | null | undefined)[]): number {
-  let sum = 0;
-  let n = 0;
-  for (const v of parts) {
-    if (v != null && Number.isFinite(v)) {
-      sum += v;
-      n += 1;
-    }
-  }
-  return n === 0 ? 0 : sum / n;
+  return meanFinite(parts);
 }
 
 export type PredictabilityTier = "high" | "mid" | "low";

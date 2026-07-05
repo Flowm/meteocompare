@@ -6,6 +6,7 @@
 // docs/adr/0002-two-part-precipitation-score.md.
 
 import { aggregateValue, type AggregatePoint } from "./aggregate";
+import { meanFinite as sharedMeanFinite } from "./num";
 
 /** Threshold above which a precipitation reading counts as "wet" (mm/h). */
 export const WET_THRESHOLD_MM_PER_H = 0.1;
@@ -142,17 +143,10 @@ export function maxNonNull(values: readonly (number | null)[]): number {
 }
 
 /** Mean of non-null finite values. Returns `0` when the array is empty/all-NaN
- *  — this is the daily mean predictability helper, where 0 means "no information". */
+ *  — this is the daily mean predictability helper, where 0 means "no information".
+ *  Thin alias over the shared `meanFinite` reduction in num.ts. */
 export function meanFinite(values: readonly number[]): number {
-  let s = 0;
-  let n = 0;
-  for (const v of values) {
-    if (Number.isFinite(v)) {
-      s += v;
-      n += 1;
-    }
-  }
-  return n === 0 ? 0 : s / n;
+  return sharedMeanFinite(values);
 }
 
 // ---------------------------------------------------------------------------

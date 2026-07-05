@@ -23,7 +23,7 @@ const tempUnitLetter = computed(() => (temp.value === "f" ? "F" : "C"));
 const currentTemp = computed(() => convertVar(props.raw.current.temperature_2m, "temperature_2m", prefs.value));
 const currentCode = computed(() => Number(props.raw.current.weather_code ?? 0));
 const currentIsDay = computed(() => (props.raw.current.is_day ?? 1) === 1);
-const todayPrecipProb = computed(() => props.daily.series.precipitation_probability_max[0]?.value ?? null);
+const todayPrecipProb = computed(() => props.daily.aggregate.precipitation_probability_max[0]?.value ?? null);
 
 const sunrise = computed(() => props.solar?.sunrise[0] ?? null);
 const sunset = computed(() => props.solar?.sunset[0] ?? null);

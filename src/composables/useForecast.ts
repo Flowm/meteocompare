@@ -1,7 +1,17 @@
 import { computed, onScopeDispose, ref, type Ref } from "vue";
 
 import { loadWeights } from "@/analysis/learnedWeightsStore";
-import { fetchForecast, extractHourlyByModel, extractDailyByModel, solarFrom, type ForecastResponse, type HourlyVar, type DailyVar } from "@/api/omForecast";
+import {
+  fetchForecast,
+  extractHourlyByModel,
+  extractDailyByModel,
+  solarFrom,
+  HOURLY_VARS,
+  DAILY_VARS,
+  type ForecastResponse,
+  type HourlyVar,
+  type DailyVar,
+} from "@/api/omForecast";
 import type { AggregatePoint } from "@/domain/aggregate";
 import { aggregateVariables } from "@/domain/aggregateVariables";
 import { MODELS, MODEL_IDS } from "@/domain/models";
@@ -13,17 +23,10 @@ import { useApiKey } from "./useApiKey";
 import type { Location } from "./useLocation";
 import { useSettings } from "./useSettings";
 
-const HOURLY: HourlyVar[] = ["temperature_2m", "precipitation", "precipitation_probability", "weather_code", "wind_speed_10m", "wind_direction_10m", "cloud_cover"];
-
-const DAILY: DailyVar[] = [
-  "weather_code",
-  "temperature_2m_max",
-  "temperature_2m_min",
-  "precipitation_sum",
-  "precipitation_probability_max",
-  "wind_speed_10m_max",
-  "wind_direction_10m_dominant",
-];
+// The hourly/daily variable sets are the ones the forecast client requests —
+// imported from omForecast rather than re-declared so the two can't drift.
+const HOURLY = HOURLY_VARS;
+const DAILY = DAILY_VARS;
 
 /** Map a daily variable to its base variable family (drives weighting + predictability). */
 function dailyBase(v: DailyVar): Variable {
@@ -56,7 +59,7 @@ export interface HourlyAggregate {
 
 export interface DailyAggregate {
   times: string[];
-  series: Record<DailyVar, AggregatePoint[]>;
+  aggregate: Record<DailyVar, AggregatePoint[]>;
   predictability: Record<DailyVar, number[]>;
   perModel: Record<DailyVar, Record<string, (number | null)[]>>;
 }
@@ -160,7 +163,7 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
     for (const v of DAILY) perModel[v] = extractDailyByModel(data, v, MODEL_IDS);
     // Daily cadence anchors predictability at lead = dayIndex*24 + 12, and each daily
     // variable is weighted/scored under its base family (e.g. max → temperature_2m).
-    const { aggregate: series, predictability } = aggregateVariables({
+    const { aggregate, predictability } = aggregateVariables({
       times,
       perModel,
       vars: DAILY.map((v) => ({ key: v, family: dailyBase(v) })),
@@ -171,7 +174,7 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
       cadence: "daily",
       multipliers: multipliers.value,
     });
-    return { times, series, predictability, perModel };
+    return { times, aggregate, predictability, perModel };
   });
 
   const solar = computed(() => solarFrom(raw.value));
