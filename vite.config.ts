@@ -1,7 +1,5 @@
 /// <reference types="vitest/config" />
 import { execSync } from "node:child_process";
-import { createRequire } from "node:module";
-import path from "node:path";
 
 import tailwindcss from "@tailwindcss/vite";
 import vue from "@vitejs/plugin-vue";
@@ -13,16 +11,10 @@ const buildSha = execSync("git rev-parse --short HEAD").toString().trim();
 
 const port = process.env.PORT ? Number(process.env.PORT) : undefined;
 
-// Resolve node_modules wherever it lives so Vite can serve assets from it — in
-// a git worktree it sits in the main repo, outside the worktree root.
-const require = createRequire(import.meta.url);
-const nodeModulesDir = path.join(require.resolve("vue/package.json"), "../..");
-
 export default defineConfig({
   server: {
     port,
     strictPort: port !== undefined,
-    fs: { allow: [process.cwd(), nodeModulesDir] },
   },
   preview: { port, strictPort: port !== undefined },
   build: {
