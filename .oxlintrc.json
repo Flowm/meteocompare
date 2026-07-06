@@ -9,6 +9,7 @@
   "rules": {
     "consistent-function-scoping": "off",
     "import/no-unassigned-import": ["warn", { "allow": ["**/*.css"] }],
+    "no-console": "off",
     "no-underscore-dangle": "off"
   },
   "env": {

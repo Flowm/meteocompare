@@ -1,7 +1,7 @@
 /// <reference types="vitest/config" />
-import { execSync } from "child_process";
-import { createRequire } from "module";
-import path from "path";
+import { execSync } from "node:child_process";
+import { createRequire } from "node:module";
+import path from "node:path";
 
 import tailwindcss from "@tailwindcss/vite";
 import vue from "@vitejs/plugin-vue";
@@ -26,11 +26,16 @@ export default defineConfig({
   },
   preview: { port, strictPort: port !== undefined },
   build: {
+    // echarts is a large charting library that legitimately lands ~550 kB in its
+    // own dedicated chunk; raise the warning limit so that expected chunk doesn't
+    // trip the default 500 kB advisory.
+    chunkSizeWarningLimit: 600,
     rolldownOptions: {
       output: {
         codeSplitting: {
           groups: [
             { name: "vue", test: /@vue|vue-router|@vueuse/, priority: 60 },
+            { name: "echarts", test: /echarts|vue-echarts|zrender/, priority: 40 },
             { name: "analytics", test: /posthog/, priority: 20 },
             { name: "vendor", test: /node_modules/, priority: 10 },
             { name: "app", test: /src/, priority: 1 },
