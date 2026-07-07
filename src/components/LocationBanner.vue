@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import type { ForecastResponse } from "@/api/omForecast";
-import type { DailyAggregate } from "@/composables/useForecast";
+import type { CurrentConditions, DailyAggregate } from "@/analysis/forecastEvaluation";
 import { convertVar, useUnits } from "@/composables/useUnits";
 import { weatherLabel } from "@/domain/weatherCodes";
 
@@ -10,7 +9,7 @@ import LocationLabel from "./LocationLabel.vue";
 import WeatherIcon from "./WeatherIcon.vue";
 
 const props = defineProps<{
-  raw: ForecastResponse;
+  current: CurrentConditions;
   daily: DailyAggregate;
   solar: { sunrise: string[]; sunset: string[] } | null;
   locationName: string;
@@ -20,9 +19,9 @@ const { temp, prefs, formatPercent } = useUnits();
 
 const tempUnitLetter = computed(() => (temp.value === "f" ? "F" : "C"));
 
-const currentTemp = computed(() => convertVar(props.raw.current.temperature_2m, "temperature_2m", prefs.value));
-const currentCode = computed(() => Number(props.raw.current.weather_code ?? 0));
-const currentIsDay = computed(() => (props.raw.current.is_day ?? 1) === 1);
+const currentTemp = computed(() => convertVar(props.current.temperature_2m, "temperature_2m", prefs.value));
+const currentCode = computed(() => Number(props.current.weather_code ?? 0));
+const currentIsDay = computed(() => props.current.isDay);
 const todayPrecipProb = computed(() => props.daily.aggregate.precipitation_probability_max[0]?.value ?? null);
 
 const sunrise = computed(() => props.solar?.sunrise[0] ?? null);
@@ -33,7 +32,7 @@ function formatClock(iso: string | null): string {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-const lastUpdatedClock = computed(() => formatClock(props.raw.current.time));
+const lastUpdatedClock = computed(() => formatClock(props.current.time));
 
 // The full dated "from when" stamp for the last-updated tooltip: current.time is
 // the reference moment the model output is valid for. The line itself shows only
@@ -44,7 +43,7 @@ function formatStamp(iso: string | null): string {
   return new Date(iso).toLocaleString([], { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
-const forecastStamp = computed(() => formatStamp(props.raw.current.time));
+const forecastStamp = computed(() => formatStamp(props.current.time));
 
 // Decimal portion of the current temperature is dropped; the banner shows a
 // rounded reading so the serif number reads as a compact hero value.

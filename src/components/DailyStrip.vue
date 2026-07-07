@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import { dailyOverallPredictability, type DailyAggregate } from "@/composables/useForecast";
+import { dailyOverallPredictability, type DailyAggregate } from "@/analysis/forecastEvaluation";
 import { MODELS } from "@/domain/models";
 
 import DayCard, { type ModelRow } from "./DayCard.vue";

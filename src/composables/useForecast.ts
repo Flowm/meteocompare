@@ -1,22 +1,8 @@
 import { computed, onScopeDispose, ref, type Ref } from "vue";
 
+import { evaluateForecast, type CurrentConditions, type DailyAggregate, type ForecastEvaluation, type HourlyAggregate } from "@/analysis/forecastEvaluation";
 import { loadWeights } from "@/analysis/learnedWeightsStore";
-import {
-  fetchForecast,
-  extractHourlyByModel,
-  extractDailyByModel,
-  solarFrom,
-  HOURLY_VARS,
-  DAILY_VARS,
-  type ForecastResponse,
-  type HourlyVar,
-  type DailyVar,
-} from "@/api/omForecast";
-import type { AggregatePoint } from "@/domain/aggregate";
-import { aggregateVariables } from "@/domain/aggregateVariables";
-import { MODELS, MODEL_IDS } from "@/domain/models";
-import { overallPredictability } from "@/domain/predictability";
-import { dailyBaseVariable } from "@/domain/variables";
+import { fetchForecast, type ForecastResponse } from "@/api/omForecast";
 import { FORECAST_UPDATE_CHANNEL, type ForecastCacheUpdatedMessage } from "@/swMessages";
 
 import { useAbortableResource } from "./useAbortableResource";
@@ -24,48 +10,21 @@ import { useApiKey } from "./useApiKey";
 import type { Location } from "./useLocation";
 import { useSettings } from "./useSettings";
 
-// The hourly/daily variable sets are the ones the forecast client requests —
-// imported from omForecast rather than re-declared so the two can't drift.
-const HOURLY = HOURLY_VARS;
-const DAILY = DAILY_VARS;
-
-// Structurally assignable to HourlySeries (the unified chart contract):
-// `aggregate`/`perModel` are keyed by the same variable ids, just over the
-// full forecast variable set. `predictability` is extra (used by daily cards).
-export interface HourlyAggregate {
-  times: string[];
-  aggregate: Record<HourlyVar, AggregatePoint[]>;
-  predictability: Record<HourlyVar, number[]>;
-  perModel: Record<HourlyVar, Record<string, (number | null)[]>>;
-}
-
-export interface DailyAggregate {
-  times: string[];
-  aggregate: Record<DailyVar, AggregatePoint[]>;
-  predictability: Record<DailyVar, number[]>;
-  perModel: Record<DailyVar, Record<string, (number | null)[]>>;
-}
-
-/** The forecast view's per-day "overall predictability" collapse: the unweighted
- *  mean of the day's temperature, precipitation, and weather-code predictabilities.
- *  The single definition of *which* variables compose it — CONTEXT.md flags this
- *  collapse as "overall predictability (under review)", so it lives in one place
- *  rather than inlined in each card. */
-export function dailyOverallPredictability(daily: DailyAggregate, i: number): number {
-  return overallPredictability([daily.predictability.temperature_2m_max[i], daily.predictability.precipitation_sum[i], daily.predictability.weather_code[i]]);
-}
-
 export interface UseForecastReturn {
   loading: Ref<boolean>;
   error: Ref<string | null>;
   lastUpdated: Ref<Date | null>;
-  raw: Ref<ForecastResponse | null>;
+  current: Ref<CurrentConditions | null>;
   hourly: Ref<HourlyAggregate | null>;
   daily: Ref<DailyAggregate | null>;
   solar: Ref<{ sunrise: string[]; sunset: string[] } | null>;
   refresh: () => Promise<void>;
 }
 
+/** Thin reactive wrapper over the framework-free forecast evaluation
+ *  (`@/analysis/forecastEvaluation`) — it owns fetch, abort/supersede,
+ *  the trained-weights toggle, and the SW cache-refresh channel; all
+ *  extraction + aggregation lives in `evaluateForecast`. */
 export function useForecast(location: Ref<Location>): UseForecastReturn {
   const lastUpdated = ref<Date | null>(null);
   // Switching the commercial API key on/off changes which host every request
@@ -111,55 +70,16 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
     onScopeDispose(() => channel.close());
   }
 
-  const hourly = computed<HourlyAggregate | null>(() => {
+  const evaluation = computed<ForecastEvaluation | null>(() => {
     const data = raw.value;
     if (!data) return null;
-    const times = data.hourly.time;
-    const firstHourlyTime = times[0];
-    if (firstHourlyTime === undefined) return null;
-    const baseTime = new Date(firstHourlyTime);
-    const perModel = {} as Record<HourlyVar, Record<string, (number | null)[]>>;
-    for (const v of HOURLY) perModel[v] = extractHourlyByModel(data, v, MODEL_IDS);
-    const { aggregate, predictability } = aggregateVariables({
-      times,
-      perModel,
-      vars: HOURLY.map((v) => ({ key: v, family: v })),
-      models: MODELS,
-      lat: location.value.latitude,
-      lon: location.value.longitude,
-      baseTime,
-      cadence: "hourly",
-      multipliers: multipliers.value,
-    });
-    return { times, aggregate, predictability, perModel };
+    return evaluateForecast({ raw: data, lat: location.value.latitude, lon: location.value.longitude, multipliers: multipliers.value });
   });
 
-  const daily = computed<DailyAggregate | null>(() => {
-    const data = raw.value;
-    if (!data) return null;
-    const times = data.daily.time;
-    const firstDailyTime = times[0];
-    if (firstDailyTime === undefined) return null;
-    const baseTime = new Date(firstDailyTime);
-    const perModel = {} as Record<DailyVar, Record<string, (number | null)[]>>;
-    for (const v of DAILY) perModel[v] = extractDailyByModel(data, v, MODEL_IDS);
-    // Daily cadence anchors predictability at lead = dayIndex*24 + 12, and each daily
-    // variable is weighted/scored under its base family (e.g. max → temperature_2m).
-    const { aggregate, predictability } = aggregateVariables({
-      times,
-      perModel,
-      vars: DAILY.map((v) => ({ key: v, family: dailyBaseVariable(v) })),
-      models: MODELS,
-      lat: location.value.latitude,
-      lon: location.value.longitude,
-      baseTime,
-      cadence: "daily",
-      multipliers: multipliers.value,
-    });
-    return { times, aggregate, predictability, perModel };
-  });
+  const current = computed(() => evaluation.value?.current ?? null);
+  const hourly = computed(() => evaluation.value?.hourly ?? null);
+  const daily = computed(() => evaluation.value?.daily ?? null);
+  const solar = computed(() => evaluation.value?.solar ?? null);
 
-  const solar = computed(() => solarFrom(raw.value));
-
-  return { loading, error, lastUpdated, raw, hourly, daily, solar, refresh };
+  return { loading, error, lastUpdated, current, hourly, daily, solar, refresh };
 }
