@@ -9,9 +9,9 @@ import type { DataVarId, HourlySeries } from "@/composables/hourlySeries";
 import { useChartCursor } from "@/composables/useChartCursor";
 import { useFittingRail } from "@/composables/useFittingRail";
 import { useUnits } from "@/composables/useUnits";
-import { MODELS, type ModelDef } from "@/domain/models";
 
-import { CHART_VIEWS, isVarActive as isVarActiveFor, nextCombinableView, type ChartViewId } from "./chartHelpers";
+import { useChartControls } from "./chartControls";
+import { CHART_VIEWS, type ChartViewId } from "./chartHelpers";
 import { AGG_COLOR, BAND_SWATCH, buildHourlyChartOption, TRUTH_COLOR, visibilityPatches } from "./chartOption";
 import { buildTooltipFormatter } from "./chartTooltip";
 import ChevronIcon from "./ChevronIcon.vue";
@@ -59,40 +59,34 @@ const WINDOW_CHOICES = [
 ] as const;
 
 // ---- UI state ---------------------------------------------------------------
-// Forecast (no truth) opens on the combined temperature + precipitation view;
-// verify keeps per-variable views so each can show its own ERA5 truth line.
-const canCombineTempPrecip = !props.data.truth && props.variables.includes("temperature_2m") && props.variables.includes("precipitation");
-const view = ref<ChartViewId>(canCombineTempPrecip ? "temp_precip" : (props.variables[0] ?? "temperature_2m"));
-const hoursWindow = ref<number>(props.defaultWindow);
-
-// Visibility toggles. Kept OUT of `option` so toggling them patches the chart
-// directly (no full redraw) — only re-read inside the tooltip formatter at
-// hover time, where they don't register as reactive dependencies.
-const showAggregate = ref(true);
-const showBand = ref(true);
-const showTruth = ref(true);
-const enabledModels = ref<Set<string>>(new Set());
-
-/** The per-model overlay is on iff a chip is enabled — the single truth the
- *  showModels model and the snaps all read, so nothing can fall out of sync. */
-const overlayOn = computed(() => enabledModels.value.size > 0);
+// All control decisions — view selection, the combinable Temp+Precip pair, the
+// chip enable/reset/snap rules, visibility toggles — live in the testable
+// controls module; this component renders them and patches the chart.
+const {
+  view,
+  hoursWindow,
+  showAggregate,
+  showBand,
+  showTruth,
+  enabledModels,
+  overlayOn,
+  hasTruth,
+  activeVar,
+  allModels,
+  modelHasData,
+  allModelsActive,
+  isVarActive,
+  selectVariable: selectControlVariable,
+  toggleAggregate,
+  toggleBand,
+  toggleTruth,
+  toggleModel,
+  toggleAllModels,
+} = useChartControls({ data: () => props.data, variables: props.variables, defaultWindow: props.defaultWindow });
 
 // Direct handle to the ECharts instance for no-redraw merge patches.
 // vue-echarts exposes the underlying instance as `.chart` on its component ref.
 const chartRef = ref<{ chart?: ECharts } | null>(null);
-
-const hasTruth = computed(() => !!props.data.truth);
-
-/** The single variable an overlay line is drawn for. Composite views resolve
- *  to their `overlayVar`. */
-const activeVar = computed<DataVarId>(() => CHART_VIEWS[view.value].overlayVar);
-
-function selectView(v: ChartViewId): void {
-  // The reverse of the snap: picking the composite while the overlay is on
-  // clears the enabled models (two fans on two axes is unreadable).
-  if (v === "temp_precip" && overlayOn.value) enabledModels.value = new Set();
-  view.value = v;
-}
 
 // Variable picker: keep the expanded rail while it fits beside the window
 // selector; collapse to a dropdown only when the two controls would wrap. The
@@ -111,66 +105,18 @@ watch(showExpandedVariableRail, (expanded) => {
   if (expanded) varOpen.value = false;
 });
 
-/** Whether a picker entry reads as "active". Temperature and precipitation are
- *  a combinable pair on the forecast page: either is active in the composite. */
-function isVarActive(vid: ChartViewId): boolean {
-  return isVarActiveFor(view.value, vid, canCombineTempPrecip);
-}
-
 function selectVariable(vid: ChartViewId): void {
-  // Temperature & precipitation toggle independently (dual-axis) into the
-  // composite; every other variable is an exclusive single-axis view. The set
-  // arithmetic for the combinable pair lives in chartHelpers.nextCombinableView.
-  if (canCombineTempPrecip && (vid === "temperature_2m" || vid === "precipitation")) {
-    selectView(nextCombinableView(view.value, vid));
-  } else {
-    selectView(vid);
-  }
+  selectControlVariable(vid);
   varOpen.value = false;
 }
 
-// ---- Model chip helpers -----------------------------------------------------
-/** Models that returned data for at least one variable (the chip universe). */
-const allModels = computed<ModelDef[]>(() => {
-  const ids = new Set<string>();
-  for (const vId of Object.keys(props.data.perModel) as DataVarId[]) {
-    const byModel = props.data.perModel[vId] ?? {};
-    for (const id of Object.keys(byModel)) if (byModel[id]?.some((x) => x != null)) ids.add(id);
-  }
-  return MODELS.filter((m) => ids.has(m.id));
-});
-
-/** Whether a model has data for the *currently active* variable (drives the
- *  disabled/strikethrough chip state). */
-const modelHasData = computed<Record<string, boolean>>(() => {
-  const out: Record<string, boolean> = {};
-  const byModel = props.data.perModel[activeVar.value] ?? {};
-  for (const m of allModels.value) out[m.id] = !!byModel[m.id]?.some((x) => x != null);
-  return out;
-});
-
-// Reset enabled models whenever the chip universe changes (new data / run).
-// Default: nothing is enabled, so the chart starts clean (aggregate + band +
-// truth only). The user opts in to the per-model overlay via the chips below the
-// chart — this is the single source of truth for "show contributing models".
-watch(
-  () => allModels.value.map((m) => m.id).join(","),
-  () => {
-    enabledModels.value = new Set();
-  },
-  { immediate: true },
-);
-
-// enabledModels is the single source of truth for the overlay. On any change:
-// mirror the derived boolean out to the parent's v-model (verify reveals its
-// per-model day-card rows), and apply the snap — enabling a model while the
-// composite Temp+Precip view is selected switches to Temperature, since the
-// overlay needs a single variable (two fans on two axes is unreadable).
+// Mirror the derived overlay boolean out to the parent's v-model (verify
+// reveals its per-model day-card rows). The composite→Temperature snap on
+// overlay-enable lives in the controls module.
 watch(
   overlayOn,
   (on) => {
     if (showModels.value !== on) showModels.value = on;
-    if (on && view.value === "temp_precip") view.value = "temperature_2m";
   },
   { immediate: true },
 );
@@ -198,40 +144,6 @@ function applyVisibility(): void {
 // (only the tooltip reads them, lazily at hover), so flipping a toggle patches
 // the chart directly without a full rebuild — the handlers below just flip state.
 watch([showAggregate, showBand, showTruth, enabledModels], () => applyVisibility());
-
-function toggleAggregate(): void {
-  showAggregate.value = !showAggregate.value;
-}
-function toggleBand(): void {
-  showBand.value = !showBand.value;
-}
-function toggleTruth(): void {
-  showTruth.value = !showTruth.value;
-}
-function toggleModel(id: string): void {
-  if (!modelHasData.value[id]) return;
-  const next = new Set(enabledModels.value);
-  if (next.has(id)) next.delete(id);
-  else next.add(id);
-  enabledModels.value = next;
-}
-function selectAllModels(): void {
-  enabledModels.value = new Set(allModels.value.filter((m) => modelHasData.value[m.id]).map((m) => m.id));
-}
-function selectNoModels(): void {
-  enabledModels.value = new Set();
-}
-
-// Single "All" toggle: active only when every available model is enabled;
-// clicking flips between all-on and all-off.
-const allModelsActive = computed(() => {
-  const available = allModels.value.filter((m) => modelHasData.value[m.id]);
-  return available.length > 0 && available.every((m) => enabledModels.value.has(m.id));
-});
-function toggleAllModels(): void {
-  if (allModelsActive.value) selectNoModels();
-  else selectAllModels();
-}
 
 // ---- Cursor tracking (tooltip highlight) ------------------------------------
 /** Axis the per-model lines live on — right (1) for precip, left (0) otherwise. */
