@@ -7,7 +7,12 @@ import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 const buildDate = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-const buildSha = execSync("git rev-parse --short HEAD").toString().trim();
+let buildSha = "dev";
+try {
+  buildSha = execSync("git rev-parse --short HEAD").toString().trim();
+} catch {
+  // not a git checkout (e.g. tarball build)
+}
 
 const port = process.env.PORT ? Number(process.env.PORT) : undefined;
 
