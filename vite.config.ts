@@ -35,12 +35,17 @@ export default defineConfig({
       },
       output: {
         codeSplitting: {
+          // Group heavy vendor deps into stable chunks. Deliberately no `src`
+          // catch-all group: a `{ test: /src/ }` group would fold every app
+          // module — including the lazy route views — into one chunk, defeating
+          // the router's dynamic import()s. Leaving src ungrouped lets Rolldown's
+          // default splitting honour those dynamic-import boundaries, so the
+          // off-landing views each get their own lazy chunk.
           groups: [
             { name: "vue", test: /@vue|vue-router|@vueuse/, priority: 60 },
             { name: "echarts", test: /echarts|vue-echarts|zrender/, priority: 40 },
             { name: "analytics", test: /posthog/, priority: 20 },
             { name: "vendor", test: /node_modules/, priority: 10 },
-            { name: "app", test: /src/, priority: 1 },
           ],
         },
       },

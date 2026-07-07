@@ -2,8 +2,6 @@ import { createRouter, createWebHistory } from "vue-router";
 
 import { usePostHog } from "@/composables/usePostHog";
 import ForecastView from "@/views/ForecastView.vue";
-import TrainingView from "@/views/TrainingView.vue";
-import VerificationView from "@/views/VerificationView.vue";
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -16,12 +14,14 @@ export const router = createRouter({
     {
       path: "/verify",
       name: "verify",
-      component: VerificationView,
+      // Off the landing path — lazy-load so it lands in its own chunk.
+      component: () => import("@/views/VerificationView.vue"),
     },
     {
       path: "/train",
       name: "train",
-      component: TrainingView,
+      // Off the landing path — lazy-load so it lands in its own chunk.
+      component: () => import("@/views/TrainingView.vue"),
     },
     {
       path: "/about",
