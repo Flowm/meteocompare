@@ -47,6 +47,7 @@ jobs:
         env:
           VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
           VITE_POSTHOG_API_HOST: ${{ secrets.VITE_POSTHOG_API_HOST }}
+          VITE_POSTHOG_UI_HOST: ${{ secrets.VITE_POSTHOG_UI_HOST }}
       # First 8 chars of the PR head commit form the preview alias, so the URL is
       # reproducible from a commit (and matches `pnpm deploy:preview` locally).
       # Cloudflare requires the alias to start with a lowercase letter (a bare SHA
@@ -122,6 +123,7 @@ jobs:
         env:
           VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
           VITE_POSTHOG_API_HOST: ${{ secrets.VITE_POSTHOG_API_HOST }}
+          VITE_POSTHOG_UI_HOST: ${{ secrets.VITE_POSTHOG_UI_HOST }}
       - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
