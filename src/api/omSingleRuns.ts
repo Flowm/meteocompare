@@ -7,6 +7,7 @@
 // as the forecast API, so we reuse ForecastResponse and the extract helpers.
 
 import { MODELS } from "@/domain/models";
+import { VERIFIED_VARIABLES, type VerifiedVariable } from "@/domain/verification";
 
 import type { ForecastResponse } from "./omForecast";
 import { extractHourlyByModel } from "./omForecast";
@@ -70,9 +71,12 @@ const PROVIDER_PREFIX_TO_SEAMLESS_ID: ReadonlyArray<readonly [string, string]> =
 // hourly only: daily verification is recomputed from these series downstream,
 // and the chart's day/night solar comes from the archive/truth call instead
 // (see extractSolar in omHistoricalWeather).
-const HOURLY_VARS = ["temperature_2m", "precipitation"] as const;
+//
+// The variable list is exactly what verification scores — one source of truth
+// (domain/verification), so the fetch can't drift from the scoring.
+const HOURLY_VARS = VERIFIED_VARIABLES;
 
-export type SingleRunsHourlyVar = (typeof HOURLY_VARS)[number];
+export type SingleRunsHourlyVar = VerifiedVariable;
 
 export interface SingleRunsRequest {
   lat: number;

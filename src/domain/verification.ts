@@ -71,12 +71,16 @@ export interface DailyVerification {
 // Scored (verified) variables
 // ---------------------------------------------------------------------------
 
-/** The variables the verification path scores. Today temperature and
- *  precipitation — the only two ERA5-Seamless provides truth for (CONTEXT.md
- *  "Truth", ADR 0001). Wind and cloud-cover truth exist; scoring them is now a
- *  genuine data-only change — add the id here and route it through a channel,
- *  no new field pairs. `runEvaluation`'s VERIFY_VARS aligns with this. */
-export type VerifiedVariable = "temperature_2m" | "precipitation";
+/** The variables the verification path scores — the single source the fetch
+ *  lists (omSingleRuns, omHistoricalWeather truth) and `runEvaluation`'s
+ *  plumbing all derive from. Today temperature and precipitation, the two
+ *  ERA5-Seamless provides truth for (CONTEXT.md "Truth", ADR 0001). Wind and
+ *  cloud-cover truth exist; adding one starts with a new id here — the
+ *  `Record<VerifiedVariable, …>` channel types then point the compiler at the
+ *  one remaining decision, its per-variable metrics. */
+export const VERIFIED_VARIABLES = ["temperature_2m", "precipitation"] as const;
+
+export type VerifiedVariable = (typeof VERIFIED_VARIABLES)[number];
 
 /** One verified variable's inputs for a single (run, location): the aggregate
  *  best-estimate surface, every model's raw hourly series, and the aligned

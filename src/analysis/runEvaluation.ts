@@ -12,16 +12,19 @@ import type { DataVarId, HourlySeries } from "@/composables/hourlySeries";
 import { aggregateVariables, type VarSpec } from "@/domain/aggregateVariables";
 import { MODEL_IDS, MODELS, type ModelDef } from "@/domain/models";
 import { buildModelScorecard, type ScorecardRow } from "@/domain/scorecard";
-import { buildDailyVerification, type DailyVerification, type VerifiedVariable } from "@/domain/verification";
+import { buildDailyVerification, VERIFIED_VARIABLES, type DailyVerification, type VerifiedVariable } from "@/domain/verification";
 
-/** The two variables the verification path aggregates + scores — temperature and
- *  precipitation, the only ones ERA5-Seamless provides truth for (ADR 0001).
- *  Shared by the default and tuned aggregation passes below. Keys are the domain
- *  `VerifiedVariable` set, so adding a scored variable starts here and in that type. */
-const VERIFY_VARS = [
-  { key: "temperature_2m", family: "temperature_2m" },
-  { key: "precipitation", family: "precipitation" },
-] as const satisfies readonly VarSpec<VerifiedVariable>[];
+/** The aggregation specs for the verified-variable set, derived from the single
+ *  domain source (`VERIFIED_VARIABLES`). Every verified variable is its own
+ *  weighting family, and all plumbing below iterates the same list — adding a
+ *  scored variable starts in domain/verification, not here. */
+const VERIFY_VARS: readonly VarSpec<VerifiedVariable>[] = VERIFIED_VARIABLES.map((v) => ({ key: v, family: v }));
+
+/** Build a `Record` keyed by the verified-variable set — the loop that replaced
+ *  the per-variable hardcoding at every plumbing site below. */
+function perVerifiedVariable<T>(build: (v: VerifiedVariable) => T): Record<VerifiedVariable, T> {
+  return Object.fromEntries(VERIFIED_VARIABLES.map((v) => [v, build(v)])) as Record<VerifiedVariable, T>;
+}
 
 /** Conforms to the unified chart contract (HourlySeries) — temperature and
  *  precipitation only, the two variables we currently verify. ERA5-Seamless
@@ -79,10 +82,7 @@ export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tuned
 
   // Per-model series straight off the single-runs response. Aggregate +
   // predictability via the shared pipeline; lead-time decay keys off baseTime.
-  const perModel = {
-    temperature_2m: extractHourlyByModel(runs, "temperature_2m", MODEL_IDS),
-    precipitation: extractHourlyByModel(runs, "precipitation", MODEL_IDS),
-  };
+  const perModel = perVerifiedVariable((v) => extractHourlyByModel(runs, v, MODEL_IDS));
   const { aggregate, predictability } = aggregateVariables({
     times,
     perModel,
@@ -114,18 +114,14 @@ export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tuned
 
   // Align truth to the run's time axis by ISO-string lookup; the two APIs can
   // return their hours offset by UTC-shift, which the map handles cleanly.
-  const truthTimes = truth.hourly.time;
-  const truthTempArr = extractTruthHourly(truth, "temperature_2m");
-  const truthPrecipArr = extractTruthHourly(truth, "precipitation");
   const truthIndex = new Map<string, number>();
-  truthTimes.forEach((t, i) => truthIndex.set(t, i));
-  const truthTemp: (number | null)[] = times.map((t) => {
-    const i = truthIndex.get(t);
-    return i == null ? null : (truthTempArr[i] ?? null);
-  });
-  const truthPrecip: (number | null)[] = times.map((t) => {
-    const i = truthIndex.get(t);
-    return i == null ? null : (truthPrecipArr[i] ?? null);
+  truth.hourly.time.forEach((t, i) => truthIndex.set(t, i));
+  const alignedTruth = perVerifiedVariable((v) => {
+    const arr = extractTruthHourly(truth, v);
+    return times.map((t): number | null => {
+      const i = truthIndex.get(t);
+      return i == null ? null : (arr[i] ?? null);
+    });
   });
 
   // Build the hourly + daily surfaces for one aggregate pass. The default pass
@@ -138,16 +134,13 @@ export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tuned
       times,
       aggregate: agg,
       perModel,
-      truth: { temperature_2m: truthTemp, precipitation: truthPrecip },
+      truth: alignedTruth,
       predictability: pred,
     },
     daily: buildDailyVerification({
       runDate,
       times,
-      channels: {
-        temperature_2m: { aggregate: agg.temperature_2m ?? [], perModel: perModel.temperature_2m ?? {}, truth: truthTemp, predictability: pred.temperature_2m ?? [] },
-        precipitation: { aggregate: agg.precipitation ?? [], perModel: perModel.precipitation ?? {}, truth: truthPrecip, predictability: pred.precipitation ?? [] },
-      },
+      channels: perVerifiedVariable((v) => ({ aggregate: agg[v] ?? [], perModel: perModel[v] ?? {}, truth: alignedTruth[v], predictability: pred[v] ?? [] })),
     }),
   });
 
@@ -156,13 +149,11 @@ export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tuned
 
   // Scorecard: the default-weight aggregate row, plus a tuned row (when stored)
   // for the inline comparison.
+  const tunedAgg = tuned?.aggregate;
   const scorecard = buildModelScorecard({
     times,
-    channels: {
-      temperature_2m: { aggregate: aggregate.temperature_2m ?? [], perModel: perModel.temperature_2m ?? {}, truth: truthTemp },
-      precipitation: { aggregate: aggregate.precipitation ?? [], perModel: perModel.precipitation ?? {}, truth: truthPrecip },
-    },
-    tuned: tuned ? { temperature_2m: tuned.aggregate.temperature_2m ?? [], precipitation: tuned.aggregate.precipitation ?? [] } : undefined,
+    channels: perVerifiedVariable((v) => ({ aggregate: aggregate[v] ?? [], perModel: perModel[v] ?? {}, truth: alignedTruth[v] })),
+    tuned: tunedAgg ? perVerifiedVariable((v) => tunedAgg[v] ?? []) : undefined,
   });
 
   return {
@@ -176,15 +167,12 @@ export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tuned
   };
 }
 
-/** Models that returned a non-null value (temperature OR precipitation) for this run. */
+/** Models that returned a non-null value for at least one verified variable. */
 function availableModelsOf(runs: SingleRunsResponse): ModelDef[] {
   const ids = new Set<string>();
   for (const id of MODEL_IDS) {
-    const tempArr = runs.hourly[`temperature_2m_${id}`];
-    const precipArr = runs.hourly[`precipitation_${id}`];
-    const hasTemp = tempArr && tempArr.some((x) => x != null);
-    const hasPrecip = precipArr && precipArr.some((x) => x != null);
-    if (hasTemp || hasPrecip) ids.add(id);
+    const hasData = VERIFIED_VARIABLES.some((v) => runs.hourly[`${v}_${id}`]?.some((x) => x != null));
+    if (hasData) ids.add(id);
   }
   return MODELS.filter((m) => ids.has(m.id));
 }

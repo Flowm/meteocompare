@@ -4,13 +4,17 @@
 // We always request ERA5-Seamless as the truth source — see
 // docs/adr/0001-era5-seamless-as-sole-ground-truth.md.
 
+import { VERIFIED_VARIABLES, type VerifiedVariable } from "@/domain/verification";
+
 import { baseParams, buildOpenMeteoUrl, fetchOpenMeteoJson } from "./openMeteo";
 
 const HISTORICAL_WEATHER_URL = "https://archive-api.open-meteo.com/v1/archive";
 
 const TRUTH_MODEL_ID = "era5_seamless";
 
-const HOURLY_VARS = ["temperature_2m", "precipitation"] as const;
+// The truth fetch requests exactly the variables verification scores — one
+// source of truth (domain/verification), so truth can't drift from the scoring.
+const HOURLY_VARS = VERIFIED_VARIABLES;
 
 // Sunrise/sunset are astronomical (a function of lat/lon/date), so ERA5's values
 // are identical to any forecast model's. We source the chart's day/night solar
@@ -18,7 +22,7 @@ const HOURLY_VARS = ["temperature_2m", "precipitation"] as const;
 // constraint makes unusable (see omSingleRuns). The archive has no run= constraint.
 const DAILY_SOLAR_VARS = ["sunrise", "sunset"] as const;
 
-export type HistoricalHourlyVar = (typeof HOURLY_VARS)[number];
+export type HistoricalHourlyVar = VerifiedVariable;
 
 export interface HistoricalWeatherRequest {
   lat: number;
