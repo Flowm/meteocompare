@@ -127,11 +127,11 @@ localStorage holds units, favourites, recent searches, and the optional open-met
 ## Develop
 
 ```bash
-mise install         # provision Node 24 + pnpm 11 + prek (see mise.toml); or bring your own
-mise run setup       # install the git hooks (one-time; runs `prek install`)
+mise trust && mise install   # provision Node 24 + pnpm 11 + prek (see mise.toml); or bring your own
+mise setup                   # install the git hooks (one-time; runs `prek install`)
 
 pnpm install
-pnpm dev             # http://localhost:5173
+pnpm dev                     # http://localhost:5183 (dev port from .claude/launch.json)
 ```
 
 [mise](https://mise.jdx.dev) pins the toolchain (Node 24 + pnpm 11, matching CI). Git hooks are run by
@@ -143,7 +143,7 @@ as CI. mise is optional: any Node 24 + pnpm 11 works, but you'll then install pr
 
 ```bash
 pnpm dev             # Vite dev server
-pnpm build           # type-check + production build to ./dist
+pnpm build           # production build to ./dist (type-checking runs via pnpm lint / CI)
 pnpm preview         # serve ./dist locally
 
 pnpm test            # Vitest unit tests
