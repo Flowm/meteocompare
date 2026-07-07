@@ -1,10 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed } from "vue";
 
-import { fitWeights, MIN_TRAIN_RUNS, MIN_VAL_RUNS, type FitResult } from "@/analysis/learnedWeights";
-import { clearWeightsByKey, listWeights, REACH_PRESETS_KM, saveWeights, setReach, type StoredWeights, type WeightEntry } from "@/analysis/learnedWeightsStore";
-import type { LocationSample } from "@/analysis/sample";
-import { loadSample, sampleKey } from "@/analysis/sampleStore";
+import { REACH_PRESETS_KM } from "@/analysis/learnedWeightsStore";
 import AppFooter from "@/components/AppFooter.vue";
 import CollapsibleSection from "@/components/CollapsibleSection.vue";
 import LocationBar from "@/components/LocationBar.vue";
@@ -14,56 +11,20 @@ import StateBlock from "@/components/StateBlock.vue";
 import Swatch from "@/components/Swatch.vue";
 import { useLocation } from "@/composables/useLocation";
 import { useSettings } from "@/composables/useSettings";
+import { MIN_RUNS, useTrainingFlow } from "@/composables/useTrainingFlow";
 
 const { current, label: locationLabel, setLocation } = useLocation();
 const { useTrainedWeights } = useSettings();
 
-const MIN_RUNS = MIN_TRAIN_RUNS + MIN_VAL_RUNS;
-
-const sample = ref<LocationSample | null>(null);
-const sampleLoading = ref(false);
-const result = ref<FitResult | null>(null);
-const training = ref(false);
-const justSaved = ref(false);
-const entries = ref<WeightEntry[]>([]);
-
-const runCount = computed(() => sample.value?.runs.length ?? 0);
-const currentKey = computed(() => sampleKey(current.value.latitude, current.value.longitude));
-
-/** The exact-cell entry for the current location (a neighbour's reach never
- *  counts as "stored here" — only a fit trained at this cell does). */
-const stored = computed<StoredWeights | null>(() => entries.value.find((e) => e.key === currentKey.value)?.weights ?? null);
+// The flow — load stored sample, fit, persist, inventory — lives in the
+// testable useTrainingFlow module; this view renders its state.
+const { sampleLoading, result, training, justSaved, runCount, currentKey, stored, overview, train, apply, setEntryReach: onReachChange, removeEntry } = useTrainingFlow(current);
 
 const reachLabel = (km: number): string => (km <= 0 ? "This point only" : `${km} km`);
 const fmtDate = (iso: string): string => {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString();
 };
-
-/** Device-wide stored-weights inventory, current location first then newest. */
-const overview = computed(() =>
-  entries.value
-    .map((e) => {
-      const loc = e.weights.location;
-      return {
-        key: e.key,
-        name: loc?.name ?? e.key,
-        detail: loc?.detail,
-        latitude: loc?.latitude,
-        longitude: loc?.longitude,
-        trainedAt: e.weights.trainedAt,
-        improvement: e.weights.improvement,
-        radiusKm: e.weights.radiusKm ?? 0,
-        tuned: Object.values(e.weights.multipliers).filter((m) => Math.abs(m - 1) > 1e-9).length,
-        isCurrent: e.key === currentKey.value,
-      };
-    })
-    .toSorted((a, b) => (a.isCurrent === b.isCurrent ? b.trainedAt.localeCompare(a.trainedAt) : a.isCurrent ? -1 : 1)),
-);
-
-function refreshEntries(): void {
-  entries.value = listWeights();
-}
 
 /** Per-model multiplier rows, sorted highest-trust first. Row label + swatch
  *  colour come from the shared scorecardFormat helpers (these are all model rows
@@ -77,65 +38,6 @@ const rows = computed(() =>
 
 const fmt1 = (n: number): string => (Number.isFinite(n) ? n.toFixed(1) : "—");
 const fmt2 = (n: number): string => (Number.isFinite(n) ? n.toFixed(2) : "—");
-
-async function reload(): Promise<void> {
-  const lat = current.value.latitude;
-  const lon = current.value.longitude;
-  result.value = null;
-  justSaved.value = false;
-  refreshEntries();
-  sampleLoading.value = true;
-  const key = sampleKey(lat, lon);
-  const loaded = await loadSample(key);
-  // Ignore a stale load if the location changed while awaiting.
-  if (sampleKey(current.value.latitude, current.value.longitude) === key) {
-    sample.value = loaded;
-    sampleLoading.value = false;
-  }
-}
-watch(current, reload, { immediate: true });
-
-async function train(): Promise<void> {
-  if (!sample.value) return;
-  training.value = true;
-  justSaved.value = false;
-  await new Promise((r) => setTimeout(r, 16)); // let the spinner paint before the synchronous fit
-  try {
-    result.value = fitWeights(sample.value);
-  } finally {
-    training.value = false;
-  }
-}
-
-function apply(): void {
-  const r = result.value;
-  if (!r?.ok) return;
-  // Insurance against a location swap between fit and apply: the fit is tagged
-  // with the sample's grid key, so never persist it under a different cell.
-  if (r.sourceKey !== currentKey.value) return;
-  const loc = current.value;
-  // Preserve any reach already set for this location across re-fits.
-  saveWeights(loc.latitude, loc.longitude, {
-    multipliers: r.multipliers,
-    trainedAt: new Date().toISOString(),
-    improvement: r.improvement,
-    location: { name: loc.name, detail: loc.detail, latitude: loc.latitude, longitude: loc.longitude },
-    radiusKm: stored.value?.radiusKm ?? 0,
-  });
-  justSaved.value = true;
-  refreshEntries();
-}
-
-function onReachChange(key: string, radiusKm: number): void {
-  setReach(key, radiusKm);
-  refreshEntries();
-}
-
-function removeEntry(key: string): void {
-  clearWeightsByKey(key);
-  if (key === currentKey.value) justSaved.value = false;
-  refreshEntries();
-}
 
 function jumpTo(row: { name: string; detail?: string; latitude?: number; longitude?: number }): void {
   if (row.latitude == null || row.longitude == null) return;
