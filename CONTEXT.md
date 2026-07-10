@@ -2,7 +2,7 @@
 
 Multi-model weather forecast comparison. The app pulls operational forecast products from many models via open-meteo, weights them, and produces a single aggregate forecast (the _best estimate_) plus a per-timestep _predictability_ signal. A secondary verification surface compares past forecasts against a reference reanalysis field to expose which models (and the aggregate) were actually right.
 
-We follow the three-output frame the multi-model industry uses: **Best estimate** (the blended value), **Probabilistic** (likelihood of an event — today only the grafted precipitation probability), and **Predictability** (how trustworthy the forecast is, estimated from inter-model spread). We are a _poor man's ensemble_ today — fixed weights, no bias correction, an open verification loop; the direction of travel is a closed-loop, verification-fed approach. See ADR 0005.
+We follow the three-output frame the multi-model industry uses: **Best estimate** (the blended value), **Probabilistic** (likelihood of an event — today only the grafted precipitation probability), and **Predictability** (how trustworthy the forecast is, estimated from inter-model spread and — where verification data allows — calibrated against measured outcomes). We are a _poor man's ensemble_ with a partially closed verification loop: per-location trained weights (ADR 0007) and calibrated predictability for the verified variables (ADR 0008); heuristics fill every gap. See ADR 0005.
 
 ## Language
 
@@ -68,15 +68,27 @@ _Avoid_: spaghetti view, breakdown view (both used historically). "Spaghetti" sp
 ### Predictability
 
 **Predictability**:
-A 0..1 signal estimating how much to trust an aggregate value at a timestep, derived from inter-model **spread** (the agreement mechanism) normalised against typical spread, multiplied by a model-count factor based on the _effective_ (lineage-discounted) number of contributing models — see **Model family**. Computed per variable. Stored in code as `predictability` (renamed from `confidence`). When unqualified, refers to the per-variable primitive — see "Flagged ambiguities".
-_Honesty note_: this is an **uncalibrated, agreement-based** estimate — a _poor man's predictability_. It has not been validated against verification, so it is neither a probability nor a verified spread-skill predictability (see ADR 0005). We adopt the word **predictability** to match the three-output frame and the direction of travel, and we mark the calibration gap explicitly rather than hide behind a vaguer word.
-_Avoid_: _confidence_ (the prior term — it reads as a probability of being correct, which this is not).
+A 0..1 signal estimating how much to trust an aggregate value, computed per variable. It has two states, one label: **calibrated predictability** where a **calibration curve** exists (verified variables, daily granularity), and the **raw predictability** heuristic everywhere else. The label stays "predictability" in both states because it must be honest in both; the badge tooltip says which state applies (ADR 0008). Stored in code as `predictability` (renamed from `confidence`). When unqualified, refers to the per-variable primitive — see "Flagged ambiguities".
+_Avoid_: _confidence_ (the prior term — reads as a probability of being correct, which only the calibrated state earns).
+
+**Raw predictability**:
+The agreement-based heuristic primitive: inter-model **spread** normalised against typical spread, multiplied by a model-count factor based on the _effective_ (lineage-discounted) number of contributing models — see **Model family**. Uncalibrated — a _poor man's predictability_ (ADR 0005). The mechanism-side score, and the input the calibration curve maps from. The only state available for unverified variables, hourly surfaces, and locations below the calibration data gate.
+
+**Calibration curve**:
+A learned monotone mapping from raw predictability to the observed **calibration hit** frequency, fitted per verified variable per **lead-time band** from a location's stored sample at training time (ADR 0008). Resolved through a fallback ladder: the location's own curve when it meets the data gate, else the device-pooled curve, else the identity (raw heuristic unchanged). Persisted on-device beside trained weights, with the same **reach** semantics.
+
+**Calibrated predictability**:
+The published signal where a calibration curve exists: the fraction of past forecasts with similar raw predictability that verified as calibration hits — "8 of 10 forecasts this confident landed within 2 °C". A verified frequency with an explicit reference class, shown with that reference class in the badge tooltip.
+
+**Calibration hit**:
+The day-level outcome that the aggregate forecast verified "close enough" against truth: for temperature, |daily t_max error| ≤ 2 °C; for precipitation, a correct wet/dry day call with wet = daily sum ≥ 1 mm (the WMO/ETCCDI wet-day threshold — also robust to ERA5 drizzle). The event the calibration curve counts.
+_Avoid_: bare _hit_ (taken — the hourly precipitation classification, see "Hit / Miss / False alarm / Correct dry").
 
 **Predictability tier**:
-Categorical bucket of a predictability value: `high` (≥0.7), `mid` (≥0.4), `low` (<0.4).
+Categorical bucket of a predictability value. Two scales, one per state: calibrated — `high` (≥0.8), `mid` (≥0.5), `low` (<0.5), aligned with NWS confidence conventions; raw fallback — `high` (≥0.7), `mid` (≥0.4), `low` (<0.4), tuned to the heuristic score's distribution. One threshold set for both would either mark coin-flips "mid" or make untrained locations look uniformly worse (ADR 0008).
 
-**Overall predictability** _(forecast-view only, under review)_:
-The single 0..1 number shown on the forecast view's predictability badge. Currently computed as the unweighted mean of per-variable predictabilities. Flagged for reconsideration once the verification page produces calibration evidence — the same evidence that would let us drop the "uncalibrated" caveat above.
+**Overall predictability** _(forecast-view only)_:
+The single 0..1 number on a forecast day card: the **minimum** of the two per-variable predictabilities for temperature and precipitation — the day is as trustworthy as its least certain headline variable. Weather code is excluded (its agreement score partly proxies the precipitation call and is uncalibrated). Clicking the badge reveals the two parts separately. Replaces the unweighted three-variable mean, whose averaging regressed every day toward "mid" (ADR 0009 — resolves the prior "under review" flag).
 
 ### Verification
 
@@ -129,7 +141,7 @@ A single 0–100 number blending a model's temperature MAE, precip amount error 
 _Avoid_: skill (a skill score is improvement over a reference like climatology — this is not that), accuracy (too vague).
 
 **Lead-time band**:
-A coarse lead-hour bucket (0–48 h / 48–96 h / 96–168 h) the scorecard scores separately, exposing how a model's composite decays with lead time. Empty bands read as coverage gaps.
+A coarse lead-hour bucket (0–48 h / 48–96 h / 96–168 h) the scorecard scores separately, exposing how a model's composite decays with lead time. Empty bands read as coverage gaps. Also the bucketing of the **calibration curve** — one curve per band, because lead-time error climatology dominates forecast error and a single all-lead curve would bake the typical-spread heuristic's biases into the published probability (ADR 0008).
 
 **Coverage**:
 The hours a model actually returned data for within the window — a runtime fact (retention varies per model and run date). Sub-full-coverage models are flagged `*` and still ranked; their empty lead bands show the gap. Distinct from **Available models**, which is the binary did-it-return-anything set.
@@ -150,10 +162,13 @@ _Avoid_: **coverage** (taken — it means temporal data availability, see "Cover
 ## Flagged ambiguities
 
 **"Predictability" / "probability" / "agreement".**
-Three neighbouring terms; keep them apart. **Probability** is _initial-condition_ uncertainty — many perturbed runs of one model (an ensemble), read as a calibrated "% chance" that verifies at its stated rate. meteocompare surfaces a genuine one only via the `precipitation_probability` graft, and never computes it. **Predictability** (the industry's headline reliability signal, which we adopt) is the broad trust signal — in mature multi-model products it is verification-calibrated; at meteocompare it is currently an _uncalibrated, agreement-based_ estimate (a _poor man's predictability_; see "Predictability" and ADR 0005). **Agreement** is the _mechanism_ — how much different models disagree at one run (inter-model spread) — and is what our predictability is computed from. Predictability is blind in two ways: models that share lineage or bias can agree and all be wrong (high predictability, low accuracy — see the example dialogue), and a chaotic, initial-condition-sensitive situation reads as calm because we run no ensemble. Reserve **probability** for the precip graft; use **predictability** for the headline signal; say **agreement** or **spread** for the raw mechanism.
+Three neighbouring terms; keep them apart. **Probability** is _initial-condition_ uncertainty — many perturbed runs of one model (an ensemble), read as a calibrated "% chance" that verifies at its stated rate. meteocompare surfaces a genuine one only via the `precipitation_probability` graft, and never computes one from ensemble members. **Predictability** (the industry's headline reliability signal, which we adopt) is the broad trust signal — verification-calibrated where a calibration curve exists (see "Calibrated predictability"), an _uncalibrated, agreement-based_ estimate everywhere else (see "Raw predictability" and ADR 0005). **Agreement** is the _mechanism_ — how much different models disagree at one run (inter-model spread) — and is what raw predictability is computed from. Raw predictability is blind in two ways: models that share lineage or bias can agree and all be wrong (high predictability, low accuracy — see the example dialogue), and a chaotic, initial-condition-sensitive situation reads as calm because we run no ensemble; the calibration curve corrects the published _rate_ for these blindnesses on average, but cannot restore per-day discrimination the spread signal doesn't carry. In UI copy, reserve the word **probability** for the precip graft; describe calibrated predictability by its reference class ("N of 10 forecasts like this…") rather than calling it a probability, even though it is one in the technical sense; say **agreement** or **spread** for the raw mechanism.
+
+**"Calibration hit" vs "Hit".**
+A **calibration hit** is the day-level "close enough" outcome the calibration curve counts (≤2 °C / correct wet-dry call). A **Hit** is the per-hour precipitation timing outcome (wet forecast matching wet truth within ±1 h). The hourly Hit feeds the timing score; the calibration hit feeds predictability. Never shorten "calibration hit" to "hit".
 
 **"Predictability", unqualified.**
-The per-variable primitive (one number per variable per timestep) lives in the domain layer and is what the verification page exposes. The single-number "overall predictability" shown on the forecast view's badge is a UI-side unweighted-mean collapse of the primitive across three variables (temp, precip, weather*code). Always say \_per-variable predictability* or _overall predictability_ when the distinction matters.
+The per-variable primitive (one number per variable per timestep) lives in the domain layer and is what the verification page exposes. The single-number "overall predictability" shown on the forecast view's badge is the minimum of the temperature and precipitation per-variable values (ADR 0009). Always say _per-variable predictability_ or _overall predictability_ when the distinction matters, and _raw_ or _calibrated_ when the state matters.
 
 **"Analysis".**
 In meteorology, the **analysis** is a model's initial-condition field after assimilating observations — _not_ a verification activity. The user-facing analysis-comparison surface in this app is therefore called **Verification**, never "Analysis". The route is `/verify`, not `/analyze`.
@@ -162,7 +177,7 @@ In meteorology, the **analysis** is a model's initial-condition field after assi
 Always refers to an NWP source (ECMWF, GFS, ICON, etc.), never to a UI/data shape or a domain type. When you mean a TypeScript type, name it explicitly (`ModelDef`, `ModelRow`).
 
 **"Calibration".**
-Three unrelated things have worn this word; keep them apart. **Bias correction** — adjusting model weights against past performance — is what the README's "No bias correction" limitation means; the app does none. **Predictability calibration** — whether a 0.7 predictability actually verifies ~70% of the time — is what the verification page surfaces informally (per-variable predictability shown beside the measured error) and the "evidence" the under-review _overall predictability_ collapse (and the "uncalibrated" caveat on predictability generally) is waiting on. The reference values that normalise raw spread are **typical spread**, never "calibration". Reserve the bare word "calibration" for predictability calibration.
+Three unrelated things have worn this word; keep them apart. **Bias correction** — adjusting forecast _values_ against past error — is what the README's "No bias correction" limitation means; the app still does none (trained weights reweight models, they don't correct values). **Predictability calibration** — whether a stated 0.7 actually verifies ~70% of the time — is now implemented as the **calibration curve** (ADR 0008); the verification page remains its standing sanity check (per-variable predictability shown beside the measured error). The reference values that normalise raw spread are **typical spread**, never "calibration". Reserve the bare word "calibration" for predictability calibration.
 
 ## Example dialogue
 
