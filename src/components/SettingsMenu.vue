@@ -70,27 +70,27 @@ const trainedWeightsOptions = [
     </button>
 
     <PopoverPanel v-if="isOpen" role="menu" class="right-0 w-60">
-      <div class="border-ink-700 text-paper-400 border-b px-3 py-2 font-mono text-[11px] tracking-wide"><span class="text-sodium-300">·</span> Units</div>
+      <div class="eyebrow px-3 pt-3 pb-0.5">Units</div>
 
-      <div class="flex items-center justify-between px-3 py-2.5 text-sm">
+      <div class="flex items-center justify-between px-3 py-2 text-sm">
         <span class="text-paper-200 font-mono text-xs tracking-wide">Temperature</span>
         <SegmentedToggle v-model="temp" :options="tempOptions" role="radiogroup" aria-label="Temperature unit" class="font-mono text-[11px] tabular-nums" />
       </div>
 
-      <div class="border-ink-700/60 flex items-center justify-between border-t px-3 py-2.5 text-sm">
+      <div class="flex items-center justify-between px-3 py-2 text-sm">
         <span class="text-paper-200 font-mono text-xs tracking-wide">Precipitation</span>
         <SegmentedToggle v-model="precip" :options="precipOptions" role="radiogroup" aria-label="Precipitation unit" class="font-mono text-[11px]" />
       </div>
 
-      <div class="border-ink-700 text-paper-400 border-t px-3 py-2 font-mono text-[11px] tracking-wide"><span class="text-sodium-300">·</span> Forecast</div>
-      <div class="flex items-center justify-between px-3 py-2.5 text-sm">
+      <div class="eyebrow border-ink-700 border-t px-3 pt-3 pb-0.5">Forecast</div>
+      <div class="flex items-center justify-between px-3 py-2 text-sm">
         <span class="text-paper-200 font-mono text-xs tracking-wide" title="Apply per-location trained weights to the aggregate where available">Trained weights</span>
         <SegmentedToggle v-model="trainedWeightsMode" :options="trainedWeightsOptions" role="radiogroup" aria-label="Use trained weights" class="font-mono text-[11px]" />
       </div>
 
-      <div class="border-ink-700 text-paper-400 border-t border-b px-3 py-2 font-mono text-[11px] tracking-wide"><span class="text-sodium-300">·</span> Open-Meteo API key</div>
+      <div class="eyebrow border-ink-700 border-t px-3 pt-3 pb-0.5">Open-Meteo API key</div>
 
-      <div class="px-3 py-3">
+      <div class="px-3 py-2.5">
         <div class="flex items-stretch gap-1.5">
           <input
             v-model.lazy.trim="apiKey"
