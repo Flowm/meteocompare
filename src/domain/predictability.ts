@@ -59,7 +59,7 @@ export type PredictabilityScale = "raw" | "calibrated";
  *  scale keeps the cutoffs tuned to the heuristic score's distribution — one
  *  set for both would either mark coin-flips "mid" or make untrained locations
  *  read uniformly worse. */
-const TIER_CUTOFFS: Record<PredictabilityScale, { high: number; mid: number }> = {
+export const TIER_CUTOFFS: Record<PredictabilityScale, { high: number; mid: number }> = {
   raw: { high: 0.7, mid: 0.4 },
   calibrated: { high: 0.8, mid: 0.5 },
 };

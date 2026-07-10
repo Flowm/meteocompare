@@ -6,9 +6,13 @@
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 
+import { DEFAULT_CALIBRATION_META } from "@/analysis/defaultCalibration";
 import AppFooter from "@/components/AppFooter.vue";
 import LocationBar from "@/components/LocationBar.vue";
+import { TEMP_HIT_TOLERANCE_C, WET_DAY_THRESHOLD_MM } from "@/domain/calibration";
 import { MODELS, type ModelKind } from "@/domain/models";
+import { TIER_CUTOFFS } from "@/domain/predictability";
+import { LEAD_BANDS } from "@/domain/scorecard";
 import { leadFactorForKind } from "@/domain/weighting";
 
 const GITHUB_URL = "https://github.com/Flowm/meteocompare";
@@ -72,7 +76,57 @@ const METHOD_STEPS = [
 // — §03 · predictability formula, verbatim from domain/predictability.ts —
 // Rendered from a constant (not a <pre> literal) so the formatter can't
 // re-indent the alignment away.
-const FORMULA = ["spread = clamp(1 − σ / typicalSpread(lead), 0, 1)", "votes  = min(1, independentModels / 3)", "signal = spread × votes"].join("\n");
+const FORMULA = ["spread = clamp(1 − σ / typicalSpread(lead), 0, 1)", "votes  = min(1, independentModels / 3)", "raw    = spread × votes"].join("\n");
+
+// — §03 · calibration facts, drawn live from the domain + the shipped fit —
+// (ADR 0008/0010). Tolerances, band labels, tier cutoffs and the built-in
+// fit's metadata all come from code, so this section can't drift from it.
+const pct = (x: number): number => Math.round(x * 100);
+const CAL = DEFAULT_CALIBRATION_META;
+const CAL_POINTS = CAL ? Object.values(CAL.points).reduce((a, b) => a + b, 0) : 0;
+const BAND_LABELS = LEAD_BANDS.map((b) => b.label).join(" · ");
+const HIT_TEMP = `within ±${TEMP_HIT_TOLERANCE_C} °C of the actual daily high`;
+const HIT_PRECIP = `the right wet-or-dry call at ≥ ${WET_DAY_THRESHOLD_MM} mm/day`;
+
+/** The resolution ladder, most specific tier first (ADR 0008/0010). */
+const LADDER = [
+  { n: "01", title: "Your location's fit", note: "curves trained here (or in reach) win, per variable and lead band" },
+  { n: "02", title: "Device pool", note: "one fit across every location you've trained on this device" },
+  {
+    n: "03",
+    title: "Built-in default",
+    note: CAL
+      ? `shipped with the app — ${CAL.locations.length} reference locations worldwide, ${CAL_POINTS} verified days, fitted ${CAL.generatedAt.slice(0, 10)}`
+      : "shipped with the app",
+  },
+  { n: "04", title: "Raw agreement", note: "the uncalibrated formula above — only where no curve clears its data gate" },
+];
+
+// Tier chips per scale, from the live cutoffs.
+const TIER_ROWS = [
+  {
+    scale: "calibrated · daily badges",
+    chips: [
+      { tone: "high", label: `high · ≥ ${pct(TIER_CUTOFFS.calibrated.high)} % verified` },
+      { tone: "mid", label: `mid · ≥ ${pct(TIER_CUTOFFS.calibrated.mid)} %` },
+      { tone: "low", label: `low · < ${pct(TIER_CUTOFFS.calibrated.mid)} % · coin-flip territory` },
+    ],
+  },
+  {
+    scale: "raw · hourly & unverified variables",
+    chips: [
+      { tone: "high", label: `high · ≥ ${pct(TIER_CUTOFFS.raw.high)} % · models agree` },
+      { tone: "mid", label: `mid · ≥ ${pct(TIER_CUTOFFS.raw.mid)} % · mixed signals` },
+      { tone: "low", label: `low · < ${pct(TIER_CUTOFFS.raw.mid)} % · genuinely uncertain` },
+    ],
+  },
+] as const;
+
+const TIER_CHIP_CLASS = {
+  high: "border-predictability-high/40 bg-predictability-high/10 text-predictability-high",
+  mid: "border-predictability-mid/40 bg-predictability-mid/10 text-predictability-mid",
+  low: "border-predictability-low/40 bg-predictability-low/10 text-predictability-low",
+} as const;
 
 // — §04 · the three instruments —
 const VIEWS = [
@@ -91,7 +145,7 @@ const VIEWS = [
     path: "/train",
     name: "Train",
     blurb:
-      "Fit per-location weight multipliers from runs you've gathered and stored on-device. If the fit beats the heuristics on held-out runs, opt in and the aggregate uses it.",
+      "Fit per-location weight multipliers from runs you've gathered and stored on-device — calibration curves for the predictability signal ride along on every fit. If the weights beat the heuristics on held-out runs, opt in and the aggregate uses them.",
   },
 ];
 
@@ -129,7 +183,7 @@ const FINE_PRINT = [
   },
   {
     n: "02",
-    body: "Deterministic runs only. The predictability signal reads agreement between single model runs, not true ensemble spread — an uncalibrated proxy, not a probability.",
+    body: "Deterministic runs only. The predictability signal reads agreement between single model runs, not true ensemble spread. Daily badges are calibrated against verified outcomes; hourly surfaces remain a raw agreement proxy, and a chaotic day can still read calm.",
   },
   {
     n: "03",
@@ -275,30 +329,52 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
             <h2 class="text-paper-50 text-lg font-semibold tracking-tight sm:text-xl">The predictability signal</h2>
             <span class="bg-ink-700 h-px min-w-6 flex-1" aria-hidden="true" />
           </header>
-          <p class="text-paper-200 max-w-[62ch] text-sm leading-relaxed sm:text-base">
-            Predictability here means agreement made visible. For each hour the app measures how widely the models spread, normalises that against typical spread at the same lead
-            time, and discounts votes that aren't independent — sibling models sharing a dynamical core count about a quarter each. Weather icons, which have no meaningful σ, use
-            severity-group agreement instead.
-          </p>
+          <div class="text-paper-200 max-w-[62ch] space-y-4 text-sm leading-relaxed sm:text-base">
+            <p>
+              The signal starts as agreement made visible. For each hour the app measures how widely the models spread, normalises that against typical spread at the same lead
+              time, and discounts votes that aren't independent — sibling models sharing a dynamical core count about a quarter each. Weather icons, which have no meaningful σ, use
+              severity-group agreement instead.
+            </p>
+          </div>
           <figure class="registration border-ink-700 bg-ink-900/60 mt-5 border">
             <div class="graph-paper overflow-x-auto p-4 sm:p-5">
               <pre class="text-paper-100 font-mono text-xs leading-6">{{ FORMULA }}</pre>
             </div>
           </figure>
-          <div class="mt-4 flex flex-wrap gap-2">
-            <span class="border-predictability-high/40 bg-predictability-high/10 text-predictability-high border px-2.5 py-1 font-mono text-[11px] tracking-wide"
-              >high · ≥ 70 % · models agree</span
-            >
-            <span class="border-predictability-mid/40 bg-predictability-mid/10 text-predictability-mid border px-2.5 py-1 font-mono text-[11px] tracking-wide"
-              >mid · ≥ 40 % · mixed signals</span
-            >
-            <span class="border-predictability-low/40 bg-predictability-low/10 text-predictability-low border px-2.5 py-1 font-mono text-[11px] tracking-wide"
-              >low · &lt; 40 % · genuinely uncertain</span
-            >
+          <div class="text-paper-200 mt-5 max-w-[62ch] space-y-4 text-sm leading-relaxed sm:text-base">
+            <p>
+              Agreement alone can lie — related models agree and are wrong together, and a raw 30 % says nothing about how often such days actually verify. So on the daily badges
+              the raw score is <em>calibrated</em>: the app looks up how often past forecasts with agreement like this turned out close enough — {{ HIT_TEMP }}, or
+              {{ HIT_PRECIP }} — and publishes that verified frequency instead. Curves are fitted separately per lead-time band ({{ BAND_LABELS }}), because a day-one and a day-six
+              forecast live in different error regimes. Each day card then shows the lower of its temperature and rain values — a day is only as trustworthy as its least certain
+              headline — and clicking the badge splits them apart.
+            </p>
+            <p>Where the number comes from is resolved down a ladder; the first tier with enough verified days for the band wins:</p>
+          </div>
+          <figure class="registration border-ink-700 bg-ink-900/60 mt-5 border p-4 sm:p-5">
+            <figcaption class="eyebrow mb-3">Calibration ladder · most local evidence wins</figcaption>
+            <ol class="space-y-2">
+              <li v-for="step in LADDER" :key="step.n" class="flex items-baseline gap-3">
+                <span class="text-sodium-300/80 font-mono text-[10px] tracking-wide">{{ step.n }}</span>
+                <span class="text-paper-100 min-w-[10rem] text-sm font-medium tracking-tight">{{ step.title }}</span>
+                <span class="text-paper-400 text-xs leading-relaxed">{{ step.note }}</span>
+              </li>
+            </ol>
+          </figure>
+          <div class="mt-4 space-y-2.5">
+            <div v-for="row in TIER_ROWS" :key="row.scale">
+              <p class="text-paper-500 mb-1.5 font-mono text-[10px] tracking-[0.18em] uppercase">{{ row.scale }}</p>
+              <div class="flex flex-wrap gap-2">
+                <span v-for="chip in row.chips" :key="chip.label" class="border px-2.5 py-1 font-mono text-[11px] tracking-wide" :class="TIER_CHIP_CLASS[chip.tone]">{{
+                  chip.label
+                }}</span>
+              </div>
+            </div>
           </div>
           <p class="text-paper-400 mt-4 max-w-[62ch] text-xs leading-relaxed">
-            An honest caveat: this is an agreement-based estimate, not a calibrated probability. 85 % doesn't mean an 85 % chance of being right — it means the models largely
-            agree, which is usually, but not always, the same thing.
+            Honest caveats: calibration fixes the <em>rate</em>, not the ranking — mid-range agreement barely separates one day from the next, so most of the signal comes from lead
+            time. It is measured against ERA5 reanalysis, not your garden thermometer. And with no ensemble members in the mix, a chaotic day on which the models happen to agree
+            still reads calmer than it is. Hourly surfaces and unverified variables show the raw score, labelled as such.
           </p>
         </section>
 
