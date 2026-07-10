@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 
 import type { DayPredictability } from "@/analysis/forecastEvaluation";
 import { useUnits } from "@/composables/useUnits";
+import { predictabilityTier } from "@/domain/predictability";
 import { weatherLabel } from "@/domain/weatherCodes";
 
 import PredictabilityBadge from "./PredictabilityBadge.vue";
@@ -36,25 +37,28 @@ const { formatTemp, formatPercent, formatPrecip, formatWind, compassPoint } = us
 const expanded = ref(false);
 const predictabilityExpanded = ref(false);
 
-/** The badge popover's two per-variable rows, each carrying its own state's
- *  claim with an honest reference class (ADR 0008/0010): device curves speak
- *  for past forecasts here, the builtin default for reference locations
- *  worldwide, raw values say "model agreement, uncalibrated". */
+// Percent color per tier — the badge's typographic registers, reused so the
+// readout rows and the badge read as one instrument.
+const TIER_TEXT = { high: "text-predictability-high", mid: "text-sodium-200", low: "text-heat-300" } as const;
+
+/** The badge readout's two per-variable rows in instrument shorthand (ADR
+ *  0008/0010): tier-colored percent, then event + provenance as a terse tag
+ *  ("±2 °C · global fit") instead of prose. Full sentences live in the badge's
+ *  hover title. */
 const predictabilityRows = computed(() => {
   const row = (label: string, value: number | null, source: "device" | "builtin" | null, event: string) => {
     if (value == null || !Number.isFinite(value)) return null;
-    const n = Math.round(value * 10);
-    const note =
-      source === "device"
-        ? `${n} of 10 past forecasts this confident ${event}`
-        : source === "builtin"
-          ? `${n} of 10 similar forecasts at reference locations worldwide ${event}`
-          : "model agreement — uncalibrated";
-    return { label, pct: Math.round(value * 100), note };
+    const provenance = source === "device" ? "local fit" : source === "builtin" ? "global fit" : "uncalibrated";
+    return {
+      label,
+      pct: Math.round(value * 100),
+      tone: TIER_TEXT[predictabilityTier(value, source ? "calibrated" : "raw")],
+      tag: `${event} · ${provenance}`,
+    };
   };
   return [
-    row("Temp", props.predictability.temperature, props.predictability.temperatureSource, "landed within 2 °C of the actual high"),
-    row("Rain", props.predictability.precipitation, props.predictability.precipitationSource, "called the wet/dry day correctly"),
+    row("Temp", props.predictability.temperature, props.predictability.temperatureSource, "±2 °C"),
+    row("Rain", props.predictability.precipitation, props.predictability.precipitationSource, "wet/dry"),
   ].filter((r) => r !== null);
 });
 
@@ -150,9 +154,9 @@ const visibleModels = computed(() => props.models?.filter((m) => m.high != null 
         <span>{{ formatWind(windSpeed, 0) }}</span>
       </div>
 
-      <div class="mt-3 flex justify-center">
-        <!-- Clicking the badge reveals the two per-variable parts behind the
-             min collapse (ADR 0009) — its own toggle, not the card's. -->
+      <div class="relative mt-3 flex justify-center">
+        <!-- Clicking the badge toggles the floating readout with the min's two
+             parts (ADR 0009) — its own toggle, not the card's. -->
         <button
           type="button"
           class="cursor-pointer"
@@ -162,29 +166,31 @@ const visibleModels = computed(() => props.models?.filter((m) => m.high != null 
         >
           <PredictabilityBadge :value="predictability.overall" :calibrated="predictability.calibrated" size="sm" />
         </button>
+
+        <!-- Floating instrument readout: overlays the card body just above the
+             badge (never reflows the card, never clipped by the snap rail —
+             it stays inside the card's own footprint). -->
+        <Transition
+          enter-active-class="transition duration-150 ease-out"
+          leave-active-class="transition duration-100 ease-in"
+          enter-from-class="translate-y-1 opacity-0"
+          leave-to-class="translate-y-1 opacity-0"
+        >
+          <div
+            v-if="predictabilityExpanded && predictabilityRows.length"
+            class="border-ink-600 bg-ink-950/95 shadow-ink-950/60 absolute inset-x-0 bottom-full z-10 mb-1.5 border px-2 py-1.5 shadow-lg"
+            @click.stop="predictabilityExpanded = false"
+          >
+            <div class="text-paper-500 border-ink-700/60 mb-1 border-b pb-1 font-mono text-[8px] tracking-[0.15em] uppercase">Predictability</div>
+            <div v-for="r in predictabilityRows" :key="r.label" class="flex items-baseline justify-between gap-2 py-px font-mono">
+              <span class="text-paper-400 text-[10px]">{{ r.label }}</span>
+              <span class="text-paper-500 flex-1 truncate text-right text-[8px] tracking-wide">{{ r.tag }}</span>
+              <span class="text-[10px] font-medium tabular-nums" :class="r.tone">{{ r.pct }}%</span>
+            </div>
+          </div>
+        </Transition>
       </div>
     </div>
-
-    <!-- Predictability breakdown (badge click to toggle): the min's two parts. -->
-    <Transition
-      enter-active-class="overflow-hidden transition-all duration-200 ease-out"
-      leave-active-class="overflow-hidden transition-all duration-150 ease-in"
-      enter-from-class="max-h-0 opacity-0"
-      enter-to-class="max-h-48 opacity-100"
-      leave-from-class="max-h-48 opacity-100"
-      leave-to-class="max-h-0 opacity-0"
-    >
-      <div v-if="predictabilityExpanded && predictabilityRows.length" class="border-ink-700 bg-ink-950/40 border-t px-3 py-2" @click.stop>
-        <div class="text-paper-400 mb-1.5 font-mono text-[9px] tracking-wide">Predictability · least certain counts</div>
-        <div v-for="r in predictabilityRows" :key="r.label" class="py-0.5 font-mono text-[10px]">
-          <div class="flex items-baseline justify-between gap-2">
-            <span class="text-paper-400">{{ r.label }}</span>
-            <span class="text-paper-100 tabular-nums">{{ r.pct }}%</span>
-          </div>
-          <div class="text-paper-500 text-[9px] leading-snug tracking-wide">{{ r.note }}</div>
-        </div>
-      </div>
-    </Transition>
 
     <!-- Per-model breakdown (click to toggle) -->
     <Transition
