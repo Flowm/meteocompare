@@ -75,7 +75,11 @@ _Avoid_: _confidence_ (the prior term — reads as a probability of being correc
 The agreement-based heuristic primitive: inter-model **spread** normalised against typical spread, multiplied by a model-count factor based on the _effective_ (lineage-discounted) number of contributing models — see **Model family**. Uncalibrated — a _poor man's predictability_ (ADR 0005). The mechanism-side score, and the input the calibration curve maps from. The only state available for unverified variables, hourly surfaces, and locations below the calibration data gate.
 
 **Calibration curve**:
-A learned monotone mapping from raw predictability to the observed **calibration hit** frequency, fitted per verified variable per **lead-time band** from a location's stored sample at training time (ADR 0008). Resolved through a fallback ladder: the location's own curve when it meets the data gate, else the device-pooled curve, else the identity (raw heuristic unchanged). Persisted on-device beside trained weights, with the same **reach** semantics.
+A learned monotone mapping from raw predictability to the observed **calibration hit** frequency, fitted per verified variable per **lead-time band** from stored verification samples (ADR 0008). Resolved through a fallback ladder: the location's own curve when it meets the data gate, else the device-pooled curve, else the **default calibration**, else the identity (raw heuristic unchanged). Device curves persist beside trained weights, with the same **reach** semantics.
+
+**Default calibration**:
+The built-in calibration curve set shipped with the app (ADR 0010), fitted offline from verification samples at climatically diverse reference locations worldwide, with run dates spread across seasons. The ladder's floor above the raw heuristic: untrained devices get outcome-anchored percentages out of the box. Curves carry `source: "builtin"` so the UI names the reference class honestly ("at reference locations worldwide", not "at this location").
+_Avoid_: calling it _global calibration_ (reads as "calibrated for the globe" — it is a global-average default, not a per-place fit).
 
 **Calibrated predictability**:
 The published signal where a calibration curve exists: the fraction of past forecasts with similar raw predictability that verified as calibration hits — "8 of 10 forecasts this confident landed within 2 °C". A verified frequency with an explicit reference class, shown with that reference class in the badge tooltip.

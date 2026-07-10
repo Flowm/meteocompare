@@ -65,9 +65,13 @@ maps from the raw score to the observed frequency of past forecasts verifying
 day call (wet = ≥ 1 mm/day, the WMO threshold) for precipitation. Curves are
 fitted per variable per lead-time band (0–2d / 2–4d / 4–7d) and resolve through
 a ladder: the location's own curves (with the trained weights' reach), else the
-device-pooled curves, else the identity — the raw heuristic unchanged. Where a
-curve applies, the badge's percentage means "N% of past forecasts this
-confident verified within tolerance", and the tooltip says so.
+device-pooled curves, else the **built-in default calibration** — curves
+fitted offline from reference locations worldwide and shipped with the app
+(ADR 0010, regenerate via `scripts/fit-default-calibration.ts`) — else the
+identity, the raw heuristic unchanged. Where a curve applies, the badge's
+percentage means "N% of past forecasts this confident verified within
+tolerance", and the tooltip names the reference class (this location vs
+reference locations worldwide).
 
 Each forecast day card shows the **min** of the two verified variables — the
 day is as trustworthy as its least certain headline variable (ADR 0009);
