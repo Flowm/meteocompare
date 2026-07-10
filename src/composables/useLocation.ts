@@ -13,12 +13,12 @@ export interface Location {
 }
 
 const DEFAULT_LOCATION: Location = {
-  name: "Innsbruck",
-  detail: "Tyrol, AT",
-  latitude: 47.2654,
-  longitude: 11.3927,
-  country_code: "AT",
-  timezone: "Europe/Vienna",
+  name: "Munich",
+  detail: "Bavaria, DE",
+  latitude: 48.1374,
+  longitude: 11.5755,
+  country_code: "DE",
+  timezone: "Europe/Berlin",
 };
 
 export function useLocation() {
