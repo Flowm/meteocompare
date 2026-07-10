@@ -9,6 +9,7 @@
 // back to the nearest training location whose reach covers the point. See ADR
 // 0007 and the "Reach" / "Training location" glossary entries in CONTEXT.md.
 
+import type { CalibrationSet } from "@/domain/calibration";
 import { haversineKm } from "@/domain/geo";
 
 import { createLocalKeyedStore } from "./keyedStore";
@@ -36,6 +37,11 @@ export interface StoredWeights {
   /** Reach radius in km: these weights apply to any location within this distance
    *  of the training location. Absent / 0 = "this point only" (the exact cell). */
   radiusKm?: number;
+  /** Predictability calibration curves fitted from the same sample (ADR 0008).
+   *  Rides along with the weights so it inherits the grid key and reach for
+   *  free. Optional + additive: entries stored before calibration existed load
+   *  unchanged and resolve to the pooled tier / raw heuristic instead. */
+  calibration?: CalibrationSet;
 }
 
 /** A stored entry paired with its grid key, for the device-wide overview. */

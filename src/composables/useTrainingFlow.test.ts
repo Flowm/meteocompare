@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 
+import { refitPooledCalibration } from "@/analysis/calibrationStore";
 import { fitWeights, type FitResult } from "@/analysis/learnedWeights";
 import { loadWeights, saveWeights } from "@/analysis/learnedWeightsStore";
 import type { LocationSample } from "@/analysis/sample";
@@ -20,13 +21,17 @@ vi.mock("@/analysis/learnedWeights", async (importOriginal) => {
   const orig = await importOriginal<typeof import("@/analysis/learnedWeights")>();
   return { ...orig, fitWeights: vi.fn() };
 });
+vi.mock("@/analysis/calibrationStore", async (importOriginal) => {
+  const orig = await importOriginal<typeof import("@/analysis/calibrationStore")>();
+  return { ...orig, refitPooledCalibration: vi.fn(async () => undefined) };
+});
 
 const INNSBRUCK: Location = { name: "Innsbruck", detail: "Tyrol, AT", latitude: 47.2654, longitude: 11.3927 };
 // A different 0.25° grid cell.
 const MUNICH: Location = { name: "Munich", detail: "Bavaria, DE", latitude: 48.1374, longitude: 11.5755 };
 
 const sampleOf = (n: number): LocationSample =>
-  ({ runs: Array.from({ length: n }, (_, i) => ({ runDate: `2026-06-${String(i + 1).padStart(2, "0")}` })) }) as unknown as LocationSample;
+  ({ runs: Array.from({ length: n }, (_, i) => ({ runDate: `2026-06-${String(i + 1).padStart(2, "0")}`, daily: [] })) }) as unknown as LocationSample;
 
 const fitFor = (loc: Location, over: Partial<FitResult> = {}): FitResult => ({
   ok: true,
@@ -46,6 +51,7 @@ beforeEach(() => {
   localStorage.clear();
   vi.mocked(loadSample).mockReset().mockResolvedValue(null);
   vi.mocked(fitWeights).mockReset();
+  vi.mocked(refitPooledCalibration).mockClear();
 });
 
 describe("useTrainingFlow — sample loading", () => {
@@ -104,6 +110,17 @@ describe("useTrainingFlow — train and apply", () => {
     expect(flow.overview.value[0]?.isCurrent).toBe(true);
     // Only ecmwf's multiplier differs from the heuristic 1.
     expect(flow.overview.value[0]?.tuned).toBe(1);
+  });
+
+  it("stores calibration curves alongside the weights and refits the pooled tier", async () => {
+    const flow = await trainedFlow();
+    flow.apply();
+    const calibration = loadWeights(INNSBRUCK.latitude, INNSBRUCK.longitude)?.calibration;
+    // The mock sample has no scored days, so every band is the null (identity)
+    // fallback — but the set itself is persisted, ADR 0008's ride-along shape.
+    expect(calibration?.temperature_2m.bands).toEqual([null, null, null]);
+    expect(calibration?.precipitation.bands).toEqual([null, null, null]);
+    expect(vi.mocked(refitPooledCalibration)).toHaveBeenCalledTimes(1);
   });
 
   it("preserves an existing reach across re-fits", async () => {

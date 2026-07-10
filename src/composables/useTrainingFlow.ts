@@ -6,10 +6,13 @@
 
 import { computed, ref, watch, type ComputedRef, type Ref } from "vue";
 
+import { calibrationPoints } from "@/analysis/calibrationSample";
+import { refitPooledCalibration } from "@/analysis/calibrationStore";
 import { fitWeights, MIN_TRAIN_RUNS, MIN_VAL_RUNS, type FitResult } from "@/analysis/learnedWeights";
 import { clearWeightsByKey, listWeights, saveWeights, setReach, type StoredWeights, type WeightEntry } from "@/analysis/learnedWeightsStore";
 import type { LocationSample } from "@/analysis/sample";
 import { loadSample, sampleKey } from "@/analysis/sampleStore";
+import { fitCalibrationSet } from "@/domain/calibration";
 
 import type { Location } from "./useLocation";
 
@@ -123,14 +126,20 @@ export function useTrainingFlow(current: Ref<Location>): UseTrainingFlowReturn {
     // with the sample's grid key, so never persist it under a different cell.
     if (r.sourceKey !== currentKey.value) return;
     const loc = current.value;
+    const trainedAt = new Date().toISOString();
     // Preserve any reach already set for this location across re-fits.
     saveWeights(loc.latitude, loc.longitude, {
       multipliers: r.multipliers,
-      trainedAt: new Date().toISOString(),
+      trainedAt,
       improvement: r.improvement,
       location: { name: loc.name, detail: loc.detail, latitude: loc.latitude, longitude: loc.longitude },
       radiusKm: stored.value?.radiusKm ?? 0,
+      // The calibration curves ride along with the weights (ADR 0008); bands
+      // below the data gate stay null and resolve down the ladder at read time.
+      calibration: fitCalibrationSet(calibrationPoints(sample.value?.runs ?? [])),
     });
+    // Keep the device-pooled tier current too — fire-and-forget (IndexedDB read).
+    void refitPooledCalibration(trainedAt);
     justSaved.value = true;
     refreshEntries();
   }
