@@ -139,7 +139,7 @@ function jumpTo(row: { name: string; detail?: string; latitude?: number; longitu
                 </p>
 
                 <!-- Per-model multipliers -->
-                <div class="border-ink-700 bg-ink-900/40 overflow-x-auto border">
+                <div class="border-ink-700 bg-ink-900/40 no-scrollbar overflow-x-auto border">
                   <table class="w-full border-collapse font-mono text-[11px] tabular-nums">
                     <thead>
                       <tr class="text-paper-400 text-[10px] tracking-wide">
@@ -218,7 +218,7 @@ function jumpTo(row: { name: string; detail?: string; latitude?: number; longitu
 
         <p v-if="overview.length === 0" class="text-paper-400 font-mono text-[11px] tracking-wide">Nothing stored yet. Train a location above and press Apply.</p>
 
-        <div v-else class="overflow-x-auto">
+        <div v-else class="no-scrollbar relative overflow-x-auto">
           <table class="w-full border-collapse font-mono text-[11px] tabular-nums">
             <thead>
               <tr class="text-paper-400 text-[10px] tracking-wide">
