@@ -37,22 +37,24 @@ const expanded = ref(false);
 const predictabilityExpanded = ref(false);
 
 /** The badge popover's two per-variable rows, each carrying its own state's
- *  claim: calibrated = the reference-classed verified frequency (ADR 0008),
- *  raw = honest "model agreement, uncalibrated" wording. */
+ *  claim with an honest reference class (ADR 0008/0010): device curves speak
+ *  for past forecasts here, the builtin default for reference locations
+ *  worldwide, raw values say "model agreement, uncalibrated". */
 const predictabilityRows = computed(() => {
-  const row = (label: string, value: number | null, calibrated: boolean, event: string) => {
+  const row = (label: string, value: number | null, source: "device" | "builtin" | null, event: string) => {
     if (value == null || !Number.isFinite(value)) return null;
-    const pct = Math.round(value * 100);
-    return {
-      label,
-      pct,
-      calibrated,
-      note: calibrated ? `${Math.round(value * 10)} of 10 past forecasts this confident ${event}` : "model agreement — uncalibrated",
-    };
+    const n = Math.round(value * 10);
+    const note =
+      source === "device"
+        ? `${n} of 10 past forecasts this confident ${event}`
+        : source === "builtin"
+          ? `${n} of 10 similar forecasts at reference locations worldwide ${event}`
+          : "model agreement — uncalibrated";
+    return { label, pct: Math.round(value * 100), note };
   };
   return [
-    row("Temp", props.predictability.temperature, props.predictability.temperatureCalibrated, "landed within 2 °C of the actual high"),
-    row("Rain", props.predictability.precipitation, props.predictability.precipitationCalibrated, "called the wet/dry day correctly"),
+    row("Temp", props.predictability.temperature, props.predictability.temperatureSource, "landed within 2 °C of the actual high"),
+    row("Rain", props.predictability.precipitation, props.predictability.precipitationSource, "called the wet/dry day correctly"),
   ].filter((r) => r !== null);
 });
 

@@ -8,7 +8,7 @@
 import { DAILY_VARS, extractDailyByModel, extractHourlyByModel, HOURLY_VARS, solarFrom, type DailyVar, type ForecastResponse, type HourlyVar } from "@/api/omForecast";
 import type { AggregatePoint } from "@/domain/aggregate";
 import { aggregateVariables } from "@/domain/aggregateVariables";
-import { applyCalibration, isCalibrated, type CalibrationSet } from "@/domain/calibration";
+import { applyCalibration, calibrationSource, type CalibrationSet, type CalibrationSource } from "@/domain/calibration";
 import { MODEL_IDS, MODELS } from "@/domain/models";
 import { dailyBaseVariable } from "@/domain/variables";
 import type { VerifiedVariable } from "@/domain/verification";
@@ -40,8 +40,10 @@ export interface DayPredictability {
   /** Per-variable values; null when the day has no finite hourly raw score. */
   temperature: number | null;
   precipitation: number | null;
-  temperatureCalibrated: boolean;
-  precipitationCalibrated: boolean;
+  /** Which curve calibrated each part — device fit, the shipped builtin
+   *  default, or null = raw heuristic (drives the reference-class wording). */
+  temperatureSource: CalibrationSource | null;
+  precipitationSource: CalibrationSource | null;
   /** Whether `overall` sits on the calibrated tier scale: at least one finite
    *  part, and every finite part came through a curve — a mixed day stays on
    *  the raw scale, because the min may be the uncalibrated part. */
@@ -174,10 +176,10 @@ function dayPredictabilityFor(hourly: HourlyAggregate, date: string, dayIndex: n
   // extraction so fit and apply see the same lead-band assignment.
   const leadHours = dayIndex * 24 + 12;
 
-  const part = (variable: VerifiedVariable): { value: number | null; calibrated: boolean } => {
+  const part = (variable: VerifiedVariable): { value: number | null; source: CalibrationSource | null } => {
     const raw = dayMeanRaw(hourly, date, variable);
-    if (raw === null) return { value: null, calibrated: false };
-    return { value: applyCalibration(calibration, variable, leadHours, raw), calibrated: isCalibrated(calibration, variable, leadHours) };
+    if (raw === null) return { value: null, source: null };
+    return { value: applyCalibration(calibration, variable, leadHours, raw), source: calibrationSource(calibration, variable, leadHours) };
   };
 
   const temperature = part("temperature_2m");
@@ -187,8 +189,8 @@ function dayPredictabilityFor(hourly: HourlyAggregate, date: string, dayIndex: n
     overall: finite.length === 0 ? 0 : Math.min(...finite.map((p) => p.value as number)),
     temperature: temperature.value,
     precipitation: precipitation.value,
-    temperatureCalibrated: temperature.calibrated,
-    precipitationCalibrated: precipitation.calibrated,
-    calibrated: finite.length > 0 && finite.every((p) => p.calibrated),
+    temperatureSource: temperature.source,
+    precipitationSource: precipitation.source,
+    calibrated: finite.length > 0 && finite.every((p) => p.source !== null),
   };
 }

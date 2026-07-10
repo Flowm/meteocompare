@@ -88,7 +88,7 @@ describe("dayPredictability", () => {
     expect(day0.precipitation).not.toBeNull();
     expect(day0.overall).toBe(Math.min(day0.temperature!, day0.precipitation!));
     expect(day0.calibrated).toBe(false);
-    expect(day0.temperatureCalibrated).toBe(false);
+    expect(day0.temperatureSource).toBeNull();
   });
 
   it("marks the day-1 axis-gap day as having no parts (hourly axis is 24 h, day 1 has no hours)", () => {
@@ -120,7 +120,7 @@ describe("dayPredictability", () => {
     expect(day0?.precipitation).toBeCloseTo(0.42, 9);
     expect(day0?.overall).toBeCloseTo(0.42, 9); // min of the two
     expect(day0?.calibrated).toBe(true);
-    expect(day0?.temperatureCalibrated).toBe(true);
+    expect(day0?.temperatureSource).toBe("device"); // no source on the curve = device fit
   });
 
   it("keeps a mixed day (one variable calibrated, one raw) on the raw scale", () => {
@@ -142,8 +142,30 @@ describe("dayPredictability", () => {
     };
     const ev = evaluateForecast({ raw: makeResponse(), lat: 48, lon: 11, calibration });
     const day0 = ev?.daily.dayPredictability[0];
-    expect(day0?.temperatureCalibrated).toBe(true);
-    expect(day0?.precipitationCalibrated).toBe(false);
+    expect(day0?.temperatureSource).toBe("device");
+    expect(day0?.precipitationSource).toBeNull();
     expect(day0?.calibrated).toBe(false);
+  });
+
+  it("reports the builtin source when the curve came from the shipped default (ADR 0010)", () => {
+    const calibration: CalibrationSet = {
+      temperature_2m: {
+        bands: [
+          {
+            bins: [
+              { raw: 0, p: 0.8 },
+              { raw: 1, p: 0.8 },
+            ],
+            n: 200,
+            source: "builtin",
+          },
+          null,
+          null,
+        ],
+      },
+      precipitation: { bands: [null, null, null] },
+    };
+    const ev = evaluateForecast({ raw: makeResponse(), lat: 48, lon: 11, calibration });
+    expect(ev?.daily.dayPredictability[0]?.temperatureSource).toBe("builtin");
   });
 });

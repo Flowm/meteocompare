@@ -9,6 +9,7 @@ import { LEAD_BANDS } from "@/domain/scorecard";
 import { VERIFIED_VARIABLES } from "@/domain/verification";
 
 import { calibrationPoints } from "./calibrationSample";
+import { DEFAULT_CALIBRATION } from "./defaultCalibration";
 import { createLocalKeyedStore } from "./keyedStore";
 import { loadWeights } from "./learnedWeightsStore";
 import { listSamples } from "./sampleStore";
@@ -39,18 +40,19 @@ export function clearPooledCalibration(): void {
   store.remove(POOLED_KEY);
 }
 
-/** Resolve the calibration ladder for a location (ADR 0008), merged per
+/** Resolve the calibration ladder for a location (ADR 0008 + 0010), merged per
  *  (variable, lead band): the location's own stored curves win (exact cell or
- *  in-reach, via the weights entry they ride on), bands they leave null fall to
- *  the pooled tier, and a fully absent result is null — every band then
- *  resolves to the raw-heuristic identity in `applyCalibration`. */
+ *  in-reach, via the weights entry they ride on), then the device-pooled tier,
+ *  then the shipped built-in default; a fully absent result is null — every
+ *  band then resolves to the raw-heuristic identity in `applyCalibration`. */
 export function resolveCalibration(lat: number, lon: number): CalibrationSet | null {
-  const local = loadWeights(lat, lon)?.calibration ?? null;
-  const pooled = loadPooledCalibration()?.set ?? null;
-  if (!local || !pooled) return local ?? pooled;
+  const tiers = [loadWeights(lat, lon)?.calibration ?? null, loadPooledCalibration()?.set ?? null, DEFAULT_CALIBRATION].filter((t): t is CalibrationSet => t !== null);
+  if (tiers.length === 0) return null;
+  const first = tiers[0];
+  if (tiers.length === 1 && first) return first;
   const merged = {} as CalibrationSet;
   for (const v of VERIFIED_VARIABLES) {
-    merged[v] = { bands: LEAD_BANDS.map((_, i) => local[v]?.bands[i] ?? pooled[v]?.bands[i] ?? null) };
+    merged[v] = { bands: LEAD_BANDS.map((_, i) => tiers.map((t) => t[v]?.bands[i]).find((b) => b != null) ?? null) };
   }
   return merged;
 }

@@ -51,11 +51,18 @@ export interface CalibrationBinPoint {
   p: number;
 }
 
+/** Where a curve's evidence came from — drives the UI's reference-class wording
+ *  (ADR 0010). `device`: this device's own verification samples. `builtin`: the
+ *  shipped default fitted from global reference locations. */
+export type CalibrationSource = "device" | "builtin";
+
 /** A fitted curve for one (variable, lead band): bins ascending in raw. */
 export interface CalibrationCurve {
   bins: CalibrationBinPoint[];
   /** Outcomes the fit consumed — surfaced in UI copy ("from N verified days"). */
   n: number;
+  /** Evidence provenance; absent = `device` (curves stored before ADR 0010). */
+  source?: CalibrationSource;
 }
 
 /** Per-variable curves, one slot per `LEAD_BANDS` entry; null = below the data
@@ -131,11 +138,20 @@ function fitBand(points: readonly { raw: number; hit: boolean }[]): CalibrationC
 
 /** Fit the full curve set from verified day outcomes. Every (variable, band)
  *  below the data gate is null — the identity fallback, so a sparse sample
- *  degrades gracefully instead of producing a confident lie. */
-export function fitCalibrationSet(points: readonly CalibrationPoint[], variables: readonly VerifiedVariable[] = ["temperature_2m", "precipitation"]): CalibrationSet {
+ *  degrades gracefully instead of producing a confident lie. `source` stamps
+ *  the curves' provenance (defaults to device — the ADR 0010 builtin fit is
+ *  the one caller that differs). */
+export function fitCalibrationSet(
+  points: readonly CalibrationPoint[],
+  variables: readonly VerifiedVariable[] = ["temperature_2m", "precipitation"],
+  source?: CalibrationSource,
+): CalibrationSet {
   const set = {} as CalibrationSet;
   for (const variable of variables) {
-    const bands = LEAD_BANDS.map((_, bandIndex) => fitBand(points.filter((p) => p.variable === variable && bandIndexFor(p.leadHours) === bandIndex)));
+    const bands = LEAD_BANDS.map((_, bandIndex) => {
+      const curve = fitBand(points.filter((p) => p.variable === variable && bandIndexFor(p.leadHours) === bandIndex));
+      return curve && source ? { ...curve, source } : curve;
+    });
     set[variable] = { bands };
   }
   return set;
@@ -172,6 +188,14 @@ export function applyCalibration(set: CalibrationSet | null | undefined, variabl
  *  value is a calibrated frequency, not the raw heuristic. Drives tier scale
  *  and tooltip copy (ADR 0008). */
 export function isCalibrated(set: CalibrationSet | null | undefined, variable: VerifiedVariable, leadHours: number): boolean {
+  return calibrationSource(set, variable, leadHours) !== null;
+}
+
+/** The provenance of the curve that would calibrate this (variable, band), or
+ *  null when none does (raw heuristic). Absence on the curve means `device` —
+ *  curves stored before provenance existed. */
+export function calibrationSource(set: CalibrationSet | null | undefined, variable: VerifiedVariable, leadHours: number): CalibrationSource | null {
   const curve = set?.[variable]?.bands[bandIndexFor(leadHours)];
-  return !!curve && curve.bins.length > 0;
+  if (!curve || curve.bins.length === 0) return null;
+  return curve.source ?? "device";
 }

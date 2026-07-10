@@ -64,7 +64,7 @@ const defaultLabel = computed(() => (props.size === "sm" ? `${percent.value}%` :
     :class="[tone.ring, sizing]"
     :title="
       calibrated
-        ? `Predictability — of past forecasts with model agreement like this, ${percent}% verified close to what actually happened (calibrated against this device's verification data).`
+        ? `Predictability — of past forecasts with model agreement like this, ${percent}% verified close to what actually happened.`
         : `Predictability — estimated from how closely the models agree (inter-model spread). Uncalibrated. Higher = stronger agreement. Currently ${percent}%.`
     "
   >

@@ -13,6 +13,28 @@ vi.mock("./sampleStore", async (importOriginal) => {
   const orig = await importOriginal<typeof import("./sampleStore")>();
   return { ...orig, listSamples: vi.fn(async () => []) };
 });
+// A stand-in shipped default (ADR 0010) so the ladder's third tier is testable
+// regardless of whether the generated module carries real curves.
+vi.mock("./defaultCalibration", () => ({
+  DEFAULT_CALIBRATION_META: null,
+  DEFAULT_CALIBRATION: {
+    temperature_2m: {
+      bands: [
+        null,
+        null,
+        {
+          bins: [
+            { raw: 0, p: 0.55 },
+            { raw: 1, p: 0.55 },
+          ],
+          n: 200,
+          source: "builtin",
+        },
+      ],
+    },
+    precipitation: { bands: [null, null, null] },
+  },
+}));
 
 /** A scored day in band 0 whose raw score and hit vary with `i`. */
 function mkDay(i: number): DailyVerification {
@@ -54,7 +76,7 @@ describe("calibrationStore — pooled tier", () => {
     expect(pooled?.set.precipitation.bands[0]).toBeNull();
   });
 
-  it("resolves the ladder per band: local wins, missing bands fall to pooled, else null", () => {
+  it("resolves the ladder per band: local wins, then pooled, then the builtin default", () => {
     const curve = (p: number) => ({
       bins: [
         { raw: 0, p },
@@ -62,12 +84,16 @@ describe("calibrationStore — pooled tier", () => {
       ],
       n: 60,
     });
-    // Nothing stored at all → null (raw-heuristic identity).
-    expect(resolveCalibration(48.12, 11.38)).toBeNull();
-    // Pooled only → pooled.
+    // Nothing stored on the device → the shipped default alone (band 2 only in the mock).
+    const defaultOnly = resolveCalibration(48.12, 11.38);
+    expect(defaultOnly?.temperature_2m.bands[0]).toBeNull();
+    expect(defaultOnly?.temperature_2m.bands[2]?.source).toBe("builtin");
+    // Pooled tier fills bands 0/1; builtin still supplies band 2.
     savePooledCalibration({ set: { temperature_2m: { bands: [curve(0.6), curve(0.7), null] }, precipitation: { bands: [null, null, null] } }, fittedAt: "2026-07-01T00:00:00Z" });
-    expect(resolveCalibration(48.12, 11.38)?.temperature_2m.bands[0]?.bins[0]?.p).toBe(0.6);
-    // A local fit with band 0 only: band 0 from the location, band 1 from pooled, band 2 null.
+    const withPooled = resolveCalibration(48.12, 11.38);
+    expect(withPooled?.temperature_2m.bands[0]?.bins[0]?.p).toBe(0.6);
+    expect(withPooled?.temperature_2m.bands[2]?.source).toBe("builtin");
+    // A local fit with band 0 only: band 0 local, band 1 pooled, band 2 builtin.
     saveWeights(48.12, 11.38, {
       multipliers: {},
       trainedAt: "2026-07-02T00:00:00Z",
@@ -77,7 +103,8 @@ describe("calibrationStore — pooled tier", () => {
     const merged = resolveCalibration(48.12, 11.38);
     expect(merged?.temperature_2m.bands[0]?.bins[0]?.p).toBe(0.9);
     expect(merged?.temperature_2m.bands[1]?.bins[0]?.p).toBe(0.7);
-    expect(merged?.temperature_2m.bands[2]).toBeNull();
+    expect(merged?.temperature_2m.bands[2]?.bins[0]?.p).toBe(0.55);
+    expect(merged?.precipitation.bands[0]).toBeNull();
   });
 
   it("leaves the previous pooled fit in place when the sample read fails", async () => {

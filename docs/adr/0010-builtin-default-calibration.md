@@ -20,7 +20,7 @@ accepted — extends ADR 0008's ladder.
 
 - **Fitting**: `scripts/fit-default-calibration.ts` reuses the production path
   byte-for-byte (`gatherRuns → evaluateRun → calibrationPoints →
-  fitCalibrationSet`) over ~12 reference locations spanning alpine, maritime,
+fitCalibrationSet`) over ~12 reference locations spanning alpine, maritime,
   continental, tropical and southern-hemisphere climates, with run dates spread
   across the single-runs archive's retention window so both hemispheres'
   seasons contribute. The output is a generated TypeScript module
@@ -59,7 +59,7 @@ accepted — extends ADR 0008's ladder.
   regenerated occasionally (the metadata records locations, window, and
   per-band sample counts).
 - A location climatically unlike every reference location gets a default that
-  is calibrated *on average* but possibly biased for it — still strictly more
+  is calibrated _on average_ but possibly biased for it — still strictly more
   honest than the raw heuristic, and the verification page exposes any gap.
 - The "uncalibrated" state effectively disappears from daily temperature and
   precipitation badges; the raw heuristic remains visible on hourly surfaces
