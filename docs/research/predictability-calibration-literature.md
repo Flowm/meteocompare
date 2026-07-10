@@ -7,23 +7,23 @@ this is the audit trail for the parameter choices, not prose.
 
 ## 1. The spread–skill relationship: how well does spread predict error?
 
-**Core result: spread is a real but weak *per-case* predictor of error; it is a
-good *aggregate* predictor.** The canonical reference is Whitaker & Loughe
-(1998, *Mon. Wea. Rev.* 126, 3292–3302,
+**Core result: spread is a real but weak _per-case_ predictor of error; it is a
+good _aggregate_ predictor.** The canonical reference is Whitaker & Loughe
+(1998, _Mon. Wea. Rev._ 126, 3292–3302,
 https://journals.ametsoc.org/view/journals/mwre/126/12/1520-0493_1998_126_3292_trbesa_2.0.co_2.xml):
 
 1. **Even a perfect ensemble need not show high spread-error correlation.** The
    achievable correlation is bounded by the day-to-day variability of spread
    itself: if spread barely varies from case to case (relative to its mean),
-   the correlation is necessarily near zero *even when the ensemble is
-   perfectly calibrated*.
+   the correlation is necessarily near zero _even when the ensemble is
+   perfectly calibrated_.
 2. Correlation is larger where/when the **temporal variability of spread is
    large**.
 3. Spread is most informative **when it is extreme** — very large or very small
    vs. its climatological value. Mid-range spread carries little
    case-discriminating information.
 
-**Concrete magnitudes.** Hopson (2014, *Mon. Wea. Rev.* 142(3), "Assessing the
+**Concrete magnitudes.** Hopson (2014, _Mon. Wea. Rev._ 142(3), "Assessing the
 Ensemble Spread–Error Relationship",
 https://journals.ametsoc.org/view/journals/mwre/142/3/mwr-d-12-00111.1.xml;
 ECMWF slides
@@ -34,19 +34,19 @@ only r = 0.49**. The maximum attainable correlation depends on a governing
 ratio g = ⟨s⟩²/(⟨s⟩²+var(s)); as g→1 (constant spread) the ceiling is 0.
 Hopson's conclusion: if that ratio → 1.0, a fixed "climatological" error
 distribution may be a far cheaper estimate of forecast error — and in his case
-a heteroscedastic statistical error model *beat* ensemble spread at short
+a heteroscedastic statistical error model _beat_ ensemble spread at short
 leads.
 
-**Recommended diagnostics** (Hopson 2014; Grimit & Mass 2007, *Wea.
-Forecasting*, "Measuring the Ensemble Spread–Error Relationship with a
+**Recommended diagnostics** (Hopson 2014; Grimit & Mass 2007, _Wea.
+Forecasting_, "Measuring the Ensemble Spread–Error Relationship with a
 Probabilistic Approach",
 https://www.researchgate.net/publication/249621386): don't use raw Pearson
 spread-error correlation; use **binned spread-skill plots** (bin cases by
 spread decile, average error per bin, compare to the 1:1 line) and normalized
-skill against no-skill/perfect-model references. A perfect ensemble's *binned*
+skill against no-skill/perfect-model references. A perfect ensemble's _binned_
 curve approaches the 1:1 line even when its per-case correlation is ~0.4.
 
-**Regional/seasonal caveats.** Scherrer et al. (2004, *Wea. Forecasting* 19,
+**Regional/seasonal caveats.** Scherrer et al. (2004, _Wea. Forecasting_ 19,
 552, ECMWF EPS over Europe,
 https://journals.ametsoc.org/view/journals/wefo/19/3/1520-0434_2004_019_0552_aotsru_2_0_co_2.xml)
 and the COSMO-LEPS study (Salmi/Marsigli, COSMO Newsletter 11,
@@ -67,7 +67,7 @@ same role our per-lead "typical spread" denominator plays.
 ## 2. Multi-model (poor man's) ensembles vs. proper ensembles
 
 **Multi-model deterministic spread is a legitimate, literature-backed
-uncertainty proxy.** Ebert (2001, *Mon. Wea. Rev.* 129, 2461, "Ability of a
+uncertainty proxy.** Ebert (2001, _Mon. Wea. Rev._ 129, 2461, "Ability of a
 Poor Man's Ensemble to Predict the Probability and Distribution of
 Precipitation",
 https://journals.ametsoc.org/view/journals/mwre/129/10/1520-0493_2001_129_2461_aoapms_2.0.co_2.xml):
@@ -76,27 +76,27 @@ probabilistic precipitation forecasts, with skill saturating at ~7 independent
 models**. Also: the plain multi-model mean over-predicts rain area and kills
 intensity maxima (fixed via probability matching).
 
-**Superensemble line.** Krishnamurti et al. (1999, *Science* 285, 1548,
-https://www.science.org/doi/10.1126/science.285.5433.1548; review 2016, *Rev.
-Geophys.*, https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2015RG000513):
+**Superensemble line.** Krishnamurti et al. (1999, _Science_ 285, 1548,
+https://www.science.org/doi/10.1126/science.285.5433.1548; review 2016, _Rev.
+Geophys._, https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2015RG000513):
 regression-weighted multi-model combinations beat every individual model and
 the unweighted mean — supports verification-learned per-model weights.
 
 **But a multimodel does not automatically beat the best single system.**
-Hagedorn et al. (2012, *QJRMS* 138,
+Hagedorn et al. (2012, _QJRMS_ 138,
 https://rmets.onlinelibrary.wiley.com/doi/10.1002/qj.1895): a 9-system TIGGE
 multimodel **did not beat ECMWF ENS alone** for 2m/850hPa temperature; a
 4-best-system multimodel did; **statistically calibrated ECMWF alone matched or
-beat the multimodel**. Hamill (2012, *Mon. Wea. Rev.* 140, 2232,
+beat the multimodel**. Hamill (2012, _Mon. Wea. Rev._ 140, 2232,
 https://journals.ametsoc.org/view/journals/mwre/140/7/mwr-d-11-00220.1.xml)
 found similar for CONUS precipitation. Lesson: quality-weight; calibration
 beats adding mediocre models.
 
-**Shared lineage / effective ensemble size.** Pennell & Reichler (2011, *J.
-Climate* 24, 2358, "On the Effective Number of Climate Models",
+**Shared lineage / effective ensemble size.** Pennell & Reichler (2011, _J.
+Climate_ 24, 2358, "On the Effective Number of Climate Models",
 https://journals.ametsoc.org/view/journals/clim/24/9/2010jcli3814.1.xml): **24
 CMIP3 models behaved like ~7.5–9 independent models** due to correlated errors.
-Kuma et al. (2023, *JAMES*, "Climate Model Code Genealogy",
+Kuma et al. (2023, _JAMES_, "Climate Model Code Genealogy",
 https://agupubs.onlinelibrary.wiley.com/doi/abs/10.1029/2022MS003588) traced
 this to shared code/schemes across ~12 families; within-family error
 correlations ~0.65 vs ~0.5 cross-family. Applies verbatim to NWP (GFS-driven
@@ -107,7 +107,7 @@ N/(1+(N−1)·r̄) per family cluster is a reasonable frame; skill saturates nea
 
 ## 3. Calibration methods: spread → probability
 
-**Standard toolbox.** EMOS/NGR (Gneiting et al. 2005, *Mon. Wea. Rev.* 133,
+**Standard toolbox.** EMOS/NGR (Gneiting et al. 2005, _Mon. Wea. Rev._ 133,
 1098, https://journals.ametsoc.org/view/journals/mwre/133/5/mwr2904.1.pdf);
 BMA (Raftery et al. 2005); logistic regression on ensemble statistics for
 binary events; reliability diagrams for diagnosis; Platt scaling vs. isotonic
@@ -130,11 +130,11 @@ regression on the ML side.
 - **Seasonal nonstationarity is first-order**: sliding windows exist because
   error statistics drift with season; alternatives are day-of-year harmonics in
   the calibration (https://arxiv.org/pdf/1912.11827). Wessel et al. (2024,
-  *QJRMS*, "Lead-time-continuous statistical postprocessing",
+  _QJRMS_, "Lead-time-continuous statistical postprocessing",
   https://rmets.onlinelibrary.wiley.com/doi/10.1002/qj.4701): enlarging
-  training windows beyond ~25 days *hurt* because seasonal heterogeneity
+  training windows beyond ~25 days _hurt_ because seasonal heterogeneity
   entered the training set.
-- Landry et al. (2024, *Mon. Wea. Rev.* 152,
+- Landry et al. (2024, _Mon. Wea. Rev._ 152,
   https://journals.ametsoc.org/view/journals/mwre/152/9/MWR-D-23-0273.1.xml;
   https://arxiv.org/html/2406.02141): **a learned error climatology conditioned
   on station + lead time + forecast values recovers most probabilistic skill
@@ -164,15 +164,15 @@ truth error (ERA5 is a model product — treat P(hit) as "vs ERA5").
 - **yr.no**
   (https://hjelp.yr.no/hc/en-us/articles/4402772811026-Weather-forecasts-and-uncertainty):
   10–90 percentile shaded temperature bands; precipitation as min–max
-  intervals. Best consumer-app precedent: uncertainty as a *range on the
-  displayed quantity*.
+  intervals. Best consumer-app precedent: uncertainty as a _range on the
+  displayed quantity_.
 - **NRC "Completing the Forecast" (2006,
   https://www.nationalacademies.org/read/11699/chapter/6)**: numeric
   probabilities beat verbal labels (words like "possible" span most of the
   probability spectrum); endorses confidence intervals/skill scores per
   variable; consistency across products is critical.
-- **PoP misunderstanding**: Gigerenzer et al. (2005, *Risk Analysis*); Morss,
-  Demuth & Lazo (2008, *BAMS*); Juanchich & Sirota
+- **PoP misunderstanding**: Gigerenzer et al. (2005, _Risk Analysis_); Morss,
+  Demuth & Lazo (2008, _BAMS_); Juanchich & Sirota
   (https://repository.essex.ac.uk/17012/): **>50% of the public misreads PoP**
   as % of time or area; root cause is a **missing reference class**.
   Comprehension improves when the event is stated explicitly next to the number

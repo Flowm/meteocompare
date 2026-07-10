@@ -22,7 +22,7 @@ That is the only raw score the historical data contains, so it is the statistic
 the curve is fitted on — and therefore the statistic the forecast path must
 compute at apply time. The forecast day cards currently use the **daily-cadence**
 score (`daily.predictability[...]`, lead anchored at noon, daily typical-spread
-bands) — a *different distribution*. Applying a curve fitted on one to values
+bands) — a _different distribution_. Applying a curve fitted on one to values
 from the other would miscalibrate silently. So: the calibrated day-card values
 are computed from the forecast's **hourly** predictability arrays (day-mean per
 calendar day), not from the daily-cadence arrays. The daily-cadence arrays stay
@@ -79,7 +79,7 @@ New `src/domain/calibration.ts` — framework-free, fully unit-tested:
   `loadWeights`.
 - `forecastEvaluation`: `evaluateForecast` gains optional `calibration` input;
   new per-day output `dayPredictability: { overall, temperature,
-  precipitation, calibrated }[]` — per-variable day-mean of hourly raw scores
+precipitation, calibrated }[]` — per-variable day-mean of hourly raw scores
   (calendar-day grouping by date prefix), passed through `applyCalibration`,
   overall = **min** of the two (skip non-finite parts; ADR 0009).
   `dailyOverallPredictability` (the mean-of-three collapse) is deleted.

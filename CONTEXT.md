@@ -81,8 +81,8 @@ A learned monotone mapping from raw predictability to the observed **calibration
 The published signal where a calibration curve exists: the fraction of past forecasts with similar raw predictability that verified as calibration hits — "8 of 10 forecasts this confident landed within 2 °C". A verified frequency with an explicit reference class, shown with that reference class in the badge tooltip.
 
 **Calibration hit**:
-The day-level outcome that the aggregate forecast verified "close enough" against truth: for temperature, |daily t_max error| ≤ 2 °C; for precipitation, a correct wet/dry day call with wet = daily sum ≥ 1 mm (the WMO/ETCCDI wet-day threshold — also robust to ERA5 drizzle). The event the calibration curve counts.
-_Avoid_: bare _hit_ (taken — the hourly precipitation classification, see "Hit / Miss / False alarm / Correct dry").
+The day-level outcome that the aggregate forecast verified "close enough" against truth: for temperature, |daily t*max error| ≤ 2 °C; for precipitation, a correct wet/dry day call with wet = daily sum ≥ 1 mm (the WMO/ETCCDI wet-day threshold — also robust to ERA5 drizzle). The event the calibration curve counts.
+\_Avoid*: bare _hit_ (taken — the hourly precipitation classification, see "Hit / Miss / False alarm / Correct dry").
 
 **Predictability tier**:
 Categorical bucket of a predictability value. Two scales, one per state: calibrated — `high` (≥0.8), `mid` (≥0.5), `low` (<0.5), aligned with NWS confidence conventions; raw fallback — `high` (≥0.7), `mid` (≥0.4), `low` (<0.4), tuned to the heuristic score's distribution. One threshold set for both would either mark coin-flips "mid" or make untrained locations look uniformly worse (ADR 0008).

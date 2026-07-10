@@ -38,7 +38,7 @@ applies only where no calibration curve exists.
 - **Resolution ladder.** Per-location curve (same 0.25° grid key and reach
   semantics as trained weights) when the location meets the data gate (~50
   points per band), else the device-pooled curve fitted from all stored
-  samples, else the identity — which *is* the raw heuristic. Uncalibrated,
+  samples, else the identity — which _is_ the raw heuristic. Uncalibrated,
   insufficient data, and unverified variables are all the same code path.
 - **Lifecycle.** Curves are fitted during training (the runs are already in
   memory), persisted in localStorage beside `StoredWeights` (per-location) and
@@ -71,7 +71,7 @@ applies only where no calibration curve exists.
 - **Direct (spread, lead) → P model (logistic/EMOS)** — rejected at our sample
   sizes; discards the domain knowledge already in the raw score; needs its own
   fallback path.
-- **Per-lead-band *weight* training** (the analogous change on the aggregate
+- **Per-lead-band _weight_ training** (the analogous change on the aggregate
   side) — deferred, not rejected: ~63 fitted multipliers against 20–40 runs
   violates the ~10-cases-per-parameter rule. Revisit as an experiment gated on
   the trainer's out-of-sample `improvement` metric.
