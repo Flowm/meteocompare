@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { resolveCalibration } from "@/analysis/calibrationStore";
+import { ARCHIVE_START_ECMWF, ARCHIVE_START_MOST_MODELS } from "@/api/omSingleRuns";
 import AppFooter from "@/components/AppFooter.vue";
 import { type ChartViewId } from "@/components/chartHelpers";
 import CollapsibleSection from "@/components/CollapsibleSection.vue";
@@ -39,9 +40,14 @@ const calibration = computed(() => resolveCalibration(current.value.latitude, cu
 
 // Date bounds (see ADR 0001 + grilling notes):
 // - max = today − 12 days: ERA5-Seamless ~5-day lag + 7-day forward window
-// - min = 2025-09-01: single-runs API retention cutoff for most models
+// - min, single-run mode: ECMWF's archive start (March 2024) — the page prunes
+//   the models a date predates, so deep ECMWF-only browsing is allowed.
+// - min, multi-run mode: most models' archive start (2 April 2026) — sampling
+//   before that gathers ECMWF-only runs, which poison training/calibration
+//   with single-model aggregates.
 const TRUTH_LAG_DAYS = 12;
-const RETENTION_FLOOR = "2025-09-01";
+const SINGLE_RUN_FLOOR = ARCHIVE_START_ECMWF;
+const GATHER_FLOOR = ARCHIVE_START_MOST_MODELS;
 const DEFAULT_OFFSET_DAYS = 14;
 
 function todayIsoUTC(): string {
@@ -53,7 +59,7 @@ const defaultRunDate = computed(() => addDaysIso(todayIsoUTC(), -DEFAULT_OFFSET_
 
 const runDate = computed<string>(() => {
   const r = route.query.runDate;
-  if (typeof r === "string" && r >= RETENTION_FLOOR && r <= maxRunDate.value) return r;
+  if (typeof r === "string" && r >= SINGLE_RUN_FLOOR && r <= maxRunDate.value) return r;
   return defaultRunDate.value;
 });
 
@@ -89,17 +95,7 @@ const showModels = ref(false);
 
 const { loading, error, hourly, daily, scorecard, availableModels, solar } = useVerification(current, runDate, runCycle);
 
-const {
-  stats: sampleStats,
-  runs: sampleRuns,
-  gathering,
-  progress,
-  error: sampleError,
-  storedCount,
-  gather,
-  store,
-  cancel,
-} = useSampleCollection(current, runDate, RETENTION_FLOOR);
+const { stats: sampleStats, runs: sampleRuns, gathering, progress, error: sampleError, storedCount, gather, store, cancel } = useSampleCollection(current, runDate, GATHER_FLOOR);
 
 function runGather(): void {
   void gather({ durationDays: durationDays.value, cyclesPerDay: cyclesPerDay.value });
@@ -130,7 +126,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
             <RunPicker
               :run-date="runDate"
               :cycle="runCycle"
-              :min="RETENTION_FLOOR"
+              :min="mode === 'multi' ? GATHER_FLOOR : SINGLE_RUN_FLOOR"
               :max="maxRunDate"
               :cycles="RUN_CYCLES"
               :show-cycle="mode === 'single'"

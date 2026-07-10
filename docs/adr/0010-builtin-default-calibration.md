@@ -22,8 +22,12 @@ accepted — extends ADR 0008's ladder.
   byte-for-byte (`gatherRuns → evaluateRun → calibrationPoints →
 fitCalibrationSet`) over ~12 reference locations spanning alpine, maritime,
   continental, tropical and southern-hemisphere climates, with run dates spread
-  across the single-runs archive's retention window so both hemispheres'
-  seasons contribute. The output is a generated TypeScript module
+  across the usable single-runs archive window. That window is bounded by the
+  archive itself: most models are archived only from **2 April 2026** (ECMWF
+  IFS HRES alone reaches back to March 2024, but ECMWF-only runs make
+  single-model aggregates whose raw scores the model-count factor caps —
+  unrepresentative points, so they are excluded). Seasonal coverage therefore
+  grows as the archive deepens. The output is a generated TypeScript module
   (`src/analysis/defaultCalibration.ts`) with fit metadata; regenerate by
   re-running the script.
 - **Provenance is carried on the curve** (`source: "builtin"`) and surfaced in

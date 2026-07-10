@@ -15,6 +15,15 @@ import { baseParams, buildOpenMeteoUrl, fetchOpenMeteo } from "./openMeteo";
 
 const SINGLE_RUNS_URL = "https://single-runs-api.open-meteo.com/v1/forecast";
 
+/** Earliest run date the archive holds for MOST models (open-meteo archives
+ *  most models from 2 April 2026). Requests before this yield ECMWF-only
+ *  batches — fine for browsing, unrepresentative for sampling/training. */
+export const ARCHIVE_START_MOST_MODELS = "2026-04-02";
+
+/** Earliest run date for ECMWF IFS HRES (9 km) — the one deeply archived
+ *  model, available from March 2024. The absolute floor of the archive. */
+export const ARCHIVE_START_ECMWF = "2024-03-01";
+
 // Every model worth attempting: anything not flagged `never` in the registry.
 // We send them all in one batch and prune misses at runtime (see fetchSingleRuns)
 // rather than pre-filtering on the static core/partial split — retention is a

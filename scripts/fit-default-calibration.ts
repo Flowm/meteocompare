@@ -4,8 +4,9 @@
 // Reuses the production pipeline byte-for-byte: gatherRuns (fetch single runs +
 // ERA5 truth, concurrency-capped, failures skipped) → evaluateRun →
 // calibrationPoints → fitCalibrationSet, pooled across a climatically diverse
-// set of reference locations with run dates spread over the single-runs
-// archive's retention window so both hemispheres' seasons contribute.
+// set of reference locations with run dates spread over the usable single-runs
+// archive window (most models are archived only from 2 April 2026, so seasonal
+// coverage grows as the archive deepens — regenerate periodically).
 //
 // Run with:  pnpm dlx tsx scripts/fit-default-calibration.ts
 // (Node's global fetch; the api layer's localStorage guard makes it free-tier.)
@@ -17,6 +18,7 @@ import { fileURLToPath } from "node:url";
 import { calibrationPoints } from "@/analysis/calibrationSample";
 import { gatherRuns, type RunRef } from "@/analysis/collectSample";
 import type { RunEvaluation } from "@/analysis/runEvaluation";
+import { ARCHIVE_START_MOST_MODELS } from "@/api/omSingleRuns";
 import { fitCalibrationSet, type CalibrationSet } from "@/domain/calibration";
 import { LEAD_BANDS } from "@/domain/scorecard";
 import { VERIFIED_VARIABLES } from "@/domain/verification";
@@ -26,7 +28,7 @@ import { addDaysIso } from "@/utils/date";
  *  Nordic, continental, monsoonal, equatorial, and southern-hemisphere
  *  members so no single regime dominates the pooled fit. */
 const LOCATIONS = [
-  { name: "Innsbruck", latitude: 47.2654, longitude: 11.3927 },
+  { name: "Munich", latitude: 48.1374, longitude: 11.5755 },
   { name: "London", latitude: 51.5072, longitude: -0.1276 },
   { name: "Lisbon", latitude: 38.7223, longitude: -9.1393 },
   { name: "Oslo", latitude: 59.9139, longitude: 10.7522 },
@@ -43,9 +45,13 @@ const LOCATIONS = [
 /** Runs per location, spread evenly across the usable archive window. */
 const RUNS_PER_LOCATION = 8;
 
-/** Oldest date the single-runs archive retains for most models (see
- *  VerificationView's RETENTION_FLOOR), padded past the ragged early edge. */
-const ARCHIVE_START = "2025-09-15";
+/** Oldest usable run date: most models are archived only from 2 April 2026
+ *  (ARCHIVE_START_MOST_MODELS). Reaching further back is possible for ECMWF
+ *  alone, but ECMWF-only runs produce single-model aggregates whose raw scores
+ *  are capped by the model-count factor — unrepresentative calibration points.
+ *  The window (and its seasonal coverage) grows as the archive deepens;
+ *  regenerate periodically. */
+const ARCHIVE_START = ARCHIVE_START_MOST_MODELS;
 
 /** Truth needs ERA5 to cover run+7d with its ~5-day lag; 14 is comfortably safe. */
 const TRUTH_LAG_DAYS = 14;

@@ -13,7 +13,8 @@ export type ModelKind = "global" | "regional-cam" | "regional-mid" | "ai" | "ens
  *  reports missing for the chosen date (see omSingleRuns.fetchSingleRuns). The
  *  core/partial split is informational — retention is a drifting per-model
  *  window, so any model can age out if you scroll back far enough.
- *  - `core`: archived deep and reliably (ECMWF goes back ~1 year).
+ *  - `core`: archived deep and reliably (ECMWF goes back to March 2024; most
+ *    other models only to 2 April 2026 — see omSingleRuns.ARCHIVE_START_*).
  *  - `partial`: shallower or patchier retention, drops out of older batches.
  *  - `never`: not archived at all, excluded entirely.
  */
