@@ -2,16 +2,34 @@
 import { computed } from "vue";
 
 import { signed, useUnits } from "@/composables/useUnits";
-import type { DailyVerification } from "@/domain/verification";
+import { applyCalibration, isCalibrated, type CalibrationSet } from "@/domain/calibration";
+import type { DailyVerification, VerifiedVariable } from "@/domain/verification";
 
 import HitMissStrip from "./HitMissStrip.vue";
 import PredictabilityBadge from "./PredictabilityBadge.vue";
 
 const props = defineProps<{
   day: DailyVerification;
+  /** Resolved calibration curves for the page's location (ADR 0008); null →
+   *  the badges show the stored raw scores unchanged. */
+  calibration?: CalibrationSet | null;
 }>();
 
 const { formatTemp, formatPrecip } = useUnits();
+
+// The day's lead anchor (window midpoint) — the same anchor the curves were
+// fitted with, so fit and display agree on the lead band.
+const leadAnchor = computed(() => (props.day.leadHoursStart + props.day.leadHoursEnd) / 2);
+
+/** The stored day-mean raw score mapped through the calibration ladder —
+ *  identity when no curve covers this (variable, band). */
+const shownPredictability = (variable: VerifiedVariable, raw: number): { value: number; calibrated: boolean } => ({
+  value: applyCalibration(props.calibration ?? null, variable, leadAnchor.value, raw),
+  calibrated: isCalibrated(props.calibration ?? null, variable, leadAnchor.value),
+});
+
+const tempPredictability = computed(() => (props.day.aggregate.temperature ? shownPredictability("temperature_2m", props.day.aggregate.temperature.predictability) : null));
+const precipPredictability = computed(() => (props.day.aggregate.precipitation ? shownPredictability("precipitation", props.day.aggregate.precipitation.predictability) : null));
 
 const dayLabel = computed(() => {
   // Day n starts on (runDate + n). UTC arithmetic on the ISO date keeps this
@@ -62,7 +80,13 @@ const leadLabel = computed(() => `Day ${props.day.dayIndex} · ${props.day.leadH
           <span class="text-paper-400"
             >|MAE| <span class="text-paper-100">{{ day.aggregate.temperature.mae.toFixed(1) }}<span class="text-paper-500">°C</span></span></span
           >
-          <PredictabilityBadge v-if="Number.isFinite(day.aggregate.temperature.predictability)" :value="day.aggregate.temperature.predictability" size="sm" class="ml-auto" />
+          <PredictabilityBadge
+            v-if="tempPredictability && Number.isFinite(tempPredictability.value)"
+            :value="tempPredictability.value"
+            :calibrated="tempPredictability.calibrated"
+            size="sm"
+            class="ml-auto"
+          />
         </div>
         <div v-if="day.aggregate.precipitation" class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
           <span class="text-paper-300 text-[10px] tracking-wide">Precip</span>
@@ -77,7 +101,13 @@ const leadLabel = computed(() => `Day ${props.day.dayIndex} · ${props.day.leadH
           <template v-else>
             <span class="text-paper-500 text-[10px] tracking-wide">dry day</span>
           </template>
-          <PredictabilityBadge v-if="Number.isFinite(day.aggregate.precipitation.predictability)" :value="day.aggregate.precipitation.predictability" size="sm" class="ml-auto" />
+          <PredictabilityBadge
+            v-if="precipPredictability && Number.isFinite(precipPredictability.value)"
+            :value="precipPredictability.value"
+            :calibrated="precipPredictability.calibrated"
+            size="sm"
+            class="ml-auto"
+          />
         </div>
       </div>
 

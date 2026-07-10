@@ -9,11 +9,14 @@ const props = withDefaults(
     value: number;
     label?: string;
     size?: "sm" | "md";
+    /** True when `value` is a calibrated hit frequency (ADR 0008) — switches
+     *  the tier scale (high ≥0.8 / mid ≥0.5) and the tooltip's claim. */
+    calibrated?: boolean;
   }>(),
-  { size: "md" },
+  { size: "md", calibrated: false },
 );
 
-const tier = computed(() => predictabilityTier(props.value));
+const tier = computed(() => predictabilityTier(props.value, props.calibrated ? "calibrated" : "raw"));
 
 // Each tier gets its own typographic register: sodium for "mid" (the neutral
 // instrument-default), sage for "high", coral for "low".
@@ -59,7 +62,11 @@ const defaultLabel = computed(() => (props.size === "sm" ? `${percent.value}%` :
   <span
     class="bg-ink-950/60 inline-flex items-center border font-mono tracking-wide tabular-nums"
     :class="[tone.ring, sizing]"
-    :title="`Predictability — estimated from how closely the models agree (inter-model spread). Uncalibrated. Higher = stronger agreement. Currently ${percent}%.`"
+    :title="
+      calibrated
+        ? `Predictability — of past forecasts with model agreement like this, ${percent}% verified close to what actually happened (calibrated against this device's verification data).`
+        : `Predictability — estimated from how closely the models agree (inter-model spread). Uncalibrated. Higher = stronger agreement. Currently ${percent}%.`
+    "
   >
     <!-- Segmented meter -->
     <span class="flex items-center gap-px" aria-hidden="true">

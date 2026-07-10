@@ -5,9 +5,12 @@
 // training save. Payloads are a handful of numbers per band, so localStorage.
 
 import { fitCalibrationSet, type CalibrationSet } from "@/domain/calibration";
+import { LEAD_BANDS } from "@/domain/scorecard";
+import { VERIFIED_VARIABLES } from "@/domain/verification";
 
 import { calibrationPoints } from "./calibrationSample";
 import { createLocalKeyedStore } from "./keyedStore";
+import { loadWeights } from "./learnedWeightsStore";
 import { listSamples } from "./sampleStore";
 
 const PREFIX = "meteocompare:calibration:";
@@ -34,6 +37,22 @@ export function savePooledCalibration(stored: StoredCalibration): void {
 
 export function clearPooledCalibration(): void {
   store.remove(POOLED_KEY);
+}
+
+/** Resolve the calibration ladder for a location (ADR 0008), merged per
+ *  (variable, lead band): the location's own stored curves win (exact cell or
+ *  in-reach, via the weights entry they ride on), bands they leave null fall to
+ *  the pooled tier, and a fully absent result is null — every band then
+ *  resolves to the raw-heuristic identity in `applyCalibration`. */
+export function resolveCalibration(lat: number, lon: number): CalibrationSet | null {
+  const local = loadWeights(lat, lon)?.calibration ?? null;
+  const pooled = loadPooledCalibration()?.set ?? null;
+  if (!local || !pooled) return local ?? pooled;
+  const merged = {} as CalibrationSet;
+  for (const v of VERIFIED_VARIABLES) {
+    merged[v] = { bands: LEAD_BANDS.map((_, i) => local[v]?.bands[i] ?? pooled[v]?.bands[i] ?? null) };
+  }
+  return merged;
 }
 
 /** Refit the pooled tier from every stored sample on the device. Async

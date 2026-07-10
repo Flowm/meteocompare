@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
+import type { DayPredictability } from "@/analysis/forecastEvaluation";
 import { useUnits } from "@/composables/useUnits";
 import { weatherLabel } from "@/domain/weatherCodes";
 
@@ -25,7 +26,7 @@ const props = defineProps<{
   precipSum: number | null;
   windSpeed: number | null;
   windDirection: number | null;
-  predictability: number;
+  predictability: DayPredictability;
   highlight?: boolean;
   models?: ModelRow[];
 }>();
@@ -127,7 +128,7 @@ const visibleModels = computed(() => props.models?.filter((m) => m.high != null 
       </div>
 
       <div class="mt-3 flex justify-center">
-        <PredictabilityBadge :value="predictability" size="sm" />
+        <PredictabilityBadge :value="predictability.overall" :calibrated="predictability.calibrated" size="sm" />
       </div>
     </div>
 

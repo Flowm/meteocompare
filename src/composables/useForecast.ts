@@ -1,5 +1,6 @@
 import { computed, onScopeDispose, ref, type Ref } from "vue";
 
+import { resolveCalibration } from "@/analysis/calibrationStore";
 import { evaluateForecast, type CurrentConditions, type DailyAggregate, type ForecastEvaluation, type HourlyAggregate } from "@/analysis/forecastEvaluation";
 import { loadWeights } from "@/analysis/learnedWeightsStore";
 import { fetchForecast, type ForecastResponse } from "@/api/omForecast";
@@ -70,10 +71,14 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
     onScopeDispose(() => channel.close());
   }
 
+  // The calibration ladder resolves per location (ADR 0008) and is always on —
+  // no curve resolves to the raw heuristic, so there is nothing to toggle.
+  const calibration = computed(() => resolveCalibration(location.value.latitude, location.value.longitude));
+
   const evaluation = computed<ForecastEvaluation | null>(() => {
     const data = raw.value;
     if (!data) return null;
-    return evaluateForecast({ raw: data, lat: location.value.latitude, lon: location.value.longitude, multipliers: multipliers.value });
+    return evaluateForecast({ raw: data, lat: location.value.latitude, lon: location.value.longitude, multipliers: multipliers.value, calibration: calibration.value });
   });
 
   const current = computed(() => evaluation.value?.current ?? null);

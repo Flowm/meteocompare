@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest";
 import { aggPoint } from "@/test/fixtures";
 
 import type { AggregatePoint } from "./aggregate";
-import { predictabilityFor, predictabilityTier, overallPredictability } from "./predictability";
+import { predictabilityFor, predictabilityTier } from "./predictability";
 
 function mkPoint(perModel: Record<string, number | null>, weights: Record<string, number>, value: number, stdDev: number): AggregatePoint {
   return aggPoint(value, { time: "2026-05-20T00:00", stdDev, perModel, weights });
@@ -82,26 +82,20 @@ describe("predictabilityFor", () => {
 });
 
 describe("predictabilityTier", () => {
-  it("maps numbers to tiers", () => {
+  it("maps numbers to tiers on the raw scale by default", () => {
     expect(predictabilityTier(0.9)).toBe("high");
     expect(predictabilityTier(0.5)).toBe("mid");
     expect(predictabilityTier(0.2)).toBe("low");
   });
-});
 
-describe("overallPredictability", () => {
-  it("averages the finite parts", () => {
-    expect(overallPredictability([0.6, 0.9, 0.3])).toBeCloseTo(0.6, 5);
-  });
-
-  it("skips non-finite parts rather than counting them as zero", () => {
-    // NaN/null are dropped — the mean is over the two finite parts, not three.
-    expect(overallPredictability([0.6, NaN, 0.8])).toBeCloseTo(0.7, 5);
-    expect(overallPredictability([0.6, null, undefined])).toBeCloseTo(0.6, 5);
-  });
-
-  it("returns 0 when nothing is finite", () => {
-    expect(overallPredictability([NaN, null, undefined])).toBe(0);
-    expect(overallPredictability([])).toBe(0);
+  it("uses the stricter NWS-aligned cutoffs on the calibrated scale (ADR 0008)", () => {
+    // 0.75 is "high" for the heuristic but only "mid" as a verified frequency;
+    // 0.45 is "mid" raw but coin-flip territory — "low" — calibrated.
+    expect(predictabilityTier(0.75, "raw")).toBe("high");
+    expect(predictabilityTier(0.75, "calibrated")).toBe("mid");
+    expect(predictabilityTier(0.45, "raw")).toBe("mid");
+    expect(predictabilityTier(0.45, "calibrated")).toBe("low");
+    expect(predictabilityTier(0.8, "calibrated")).toBe("high");
+    expect(predictabilityTier(0.5, "calibrated")).toBe("mid");
   });
 });

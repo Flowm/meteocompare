@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
+import { resolveCalibration } from "@/analysis/calibrationStore";
 import AppFooter from "@/components/AppFooter.vue";
 import { type ChartViewId } from "@/components/chartHelpers";
 import CollapsibleSection from "@/components/CollapsibleSection.vue";
@@ -30,6 +31,11 @@ const VERIFY_VARIABLES: ChartViewId[] = ["temperature_2m", "precipitation"];
 const route = useRoute();
 const router = useRouter();
 const { current, label: locationLabel } = useLocation();
+
+// The location's resolved calibration curves (ADR 0008) — the daily breakdown
+// shows calibrated per-variable predictability where curves exist, so this page
+// stays the standing sanity check of the calibration itself.
+const calibration = computed(() => resolveCalibration(current.value.latitude, current.value.longitude));
 
 // Date bounds (see ADR 0001 + grilling notes):
 // - max = today − 12 days: ERA5-Seamless ~5-day lag + 7-day forward window
@@ -210,7 +216,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
                  beside measured error). The per-model lens lives in the scorecard above. -->
             <CollapsibleSection v-if="daily && daily.length" title="Daily breakdown">
               <div class="no-scrollbar -mx-2 flex snap-x gap-2 overflow-x-auto px-2 pt-1 pb-3">
-                <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" />
+                <VerificationDayCard v-for="d in daily" :key="d.dayIndex" :day="d" :calibration="calibration" />
               </div>
             </CollapsibleSection>
           </div>

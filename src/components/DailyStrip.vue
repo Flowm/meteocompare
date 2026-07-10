@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import { dailyOverallPredictability, type DailyAggregate } from "@/analysis/forecastEvaluation";
+import type { DailyAggregate, DayPredictability } from "@/analysis/forecastEvaluation";
 import { MODELS } from "@/domain/models";
 
 import DayCard, { type ModelRow } from "./DayCard.vue";
@@ -20,7 +20,7 @@ interface DayRow {
   precipSum: number | null;
   windSpeed: number | null;
   windDirection: number | null;
-  predictability: number;
+  predictability: DayPredictability;
   models: ModelRow[];
 }
 
@@ -46,7 +46,16 @@ const days = computed<DayRow[]>(() =>
       precipSum: props.daily.aggregate.precipitation_sum[i]?.value ?? null,
       windSpeed: props.daily.aggregate.wind_speed_10m_max[i]?.value ?? null,
       windDirection: props.daily.aggregate.wind_direction_10m_dominant[i]?.value ?? null,
-      predictability: dailyOverallPredictability(props.daily, i),
+      // Min of the two verified variables, calibrated where curves exist —
+      // computed once in forecastEvaluation (ADR 0009).
+      predictability: props.daily.dayPredictability[i] ?? {
+        overall: 0,
+        temperature: null,
+        precipitation: null,
+        temperatureCalibrated: false,
+        precipitationCalibrated: false,
+        calibrated: false,
+      },
       models,
     };
   }),

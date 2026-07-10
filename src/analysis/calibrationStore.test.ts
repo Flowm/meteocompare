@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MIN_POINTS_PER_BAND } from "@/domain/calibration";
 import type { DailyVerification } from "@/domain/verification";
 
-import { clearPooledCalibration, loadPooledCalibration, refitPooledCalibration, savePooledCalibration } from "./calibrationStore";
+import { clearPooledCalibration, loadPooledCalibration, refitPooledCalibration, resolveCalibration, savePooledCalibration } from "./calibrationStore";
+import { saveWeights } from "./learnedWeightsStore";
 import type { RunEvaluation } from "./runEvaluation";
 import type { LocationSample } from "./sample";
 import { listSamples } from "./sampleStore";
@@ -51,6 +52,32 @@ describe("calibrationStore — pooled tier", () => {
     // 100 temperature outcomes pooled across the two samples → band 0 fitted.
     expect(pooled?.set.temperature_2m.bands[0]?.n).toBe(2 * MIN_POINTS_PER_BAND);
     expect(pooled?.set.precipitation.bands[0]).toBeNull();
+  });
+
+  it("resolves the ladder per band: local wins, missing bands fall to pooled, else null", () => {
+    const curve = (p: number) => ({
+      bins: [
+        { raw: 0, p },
+        { raw: 1, p },
+      ],
+      n: 60,
+    });
+    // Nothing stored at all → null (raw-heuristic identity).
+    expect(resolveCalibration(48.12, 11.38)).toBeNull();
+    // Pooled only → pooled.
+    savePooledCalibration({ set: { temperature_2m: { bands: [curve(0.6), curve(0.7), null] }, precipitation: { bands: [null, null, null] } }, fittedAt: "2026-07-01T00:00:00Z" });
+    expect(resolveCalibration(48.12, 11.38)?.temperature_2m.bands[0]?.bins[0]?.p).toBe(0.6);
+    // A local fit with band 0 only: band 0 from the location, band 1 from pooled, band 2 null.
+    saveWeights(48.12, 11.38, {
+      multipliers: {},
+      trainedAt: "2026-07-02T00:00:00Z",
+      improvement: 0,
+      calibration: { temperature_2m: { bands: [curve(0.9), null, null] }, precipitation: { bands: [null, null, null] } },
+    });
+    const merged = resolveCalibration(48.12, 11.38);
+    expect(merged?.temperature_2m.bands[0]?.bins[0]?.p).toBe(0.9);
+    expect(merged?.temperature_2m.bands[1]?.bins[0]?.p).toBe(0.7);
+    expect(merged?.temperature_2m.bands[2]).toBeNull();
   });
 
   it("leaves the previous pooled fit in place when the sample read fails", async () => {

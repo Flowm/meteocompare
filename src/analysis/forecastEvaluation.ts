@@ -8,9 +8,10 @@
 import { DAILY_VARS, extractDailyByModel, extractHourlyByModel, HOURLY_VARS, solarFrom, type DailyVar, type ForecastResponse, type HourlyVar } from "@/api/omForecast";
 import type { AggregatePoint } from "@/domain/aggregate";
 import { aggregateVariables } from "@/domain/aggregateVariables";
+import { applyCalibration, isCalibrated, type CalibrationSet } from "@/domain/calibration";
 import { MODEL_IDS, MODELS } from "@/domain/models";
-import { overallPredictability } from "@/domain/predictability";
 import { dailyBaseVariable } from "@/domain/variables";
+import type { VerifiedVariable } from "@/domain/verification";
 
 // Structurally assignable to HourlySeries (the unified chart contract):
 // `aggregate`/`perModel` are keyed by the same variable ids, just over the
@@ -27,6 +28,24 @@ export interface DailyAggregate {
   aggregate: Record<DailyVar, AggregatePoint[]>;
   predictability: Record<DailyVar, number[]>;
   perModel: Record<DailyVar, Record<string, (number | null)[]>>;
+  /** The day cards' predictability view-model, one entry per `times` day. */
+  dayPredictability: DayPredictability[];
+}
+
+/** One forecast day's predictability collapse (ADR 0009): the two verified
+ *  variables — calibrated where a curve exists (ADR 0008) — and their min. */
+export interface DayPredictability {
+  /** Min of the finite per-variable values; 0 when neither is finite. */
+  overall: number;
+  /** Per-variable values; null when the day has no finite hourly raw score. */
+  temperature: number | null;
+  precipitation: number | null;
+  temperatureCalibrated: boolean;
+  precipitationCalibrated: boolean;
+  /** Whether `overall` sits on the calibrated tier scale: at least one finite
+   *  part, and every finite part came through a curve — a mixed day stays on
+   *  the raw scale, because the min may be the uncalibrated part. */
+  calibrated: boolean;
 }
 
 /** The slice of the wire response's `current` block the UI actually renders —
@@ -54,11 +73,14 @@ export interface EvaluateForecastInputs {
   /** Trained-weight multipliers for this location (ADR 0007). Absent → the
    *  heuristic weighting, byte-for-byte unchanged. */
   multipliers?: Record<string, number>;
+  /** Resolved calibration curves for this location (ADR 0008). Absent/null →
+   *  the day cards publish the raw heuristic (identity fallback). */
+  calibration?: CalibrationSet | null;
 }
 
 /** Aggregate one fetched forecast. Returns null when either time axis is empty
  *  (nothing to aggregate — the view gates on both surfaces anyway). */
-export function evaluateForecast({ raw, lat, lon, multipliers }: EvaluateForecastInputs): ForecastEvaluation | null {
+export function evaluateForecast({ raw, lat, lon, multipliers, calibration }: EvaluateForecastInputs): ForecastEvaluation | null {
   const hourlyTimes = raw.hourly.time;
   const dailyTimes = raw.daily.time;
   const firstHourlyTime = hourlyTimes[0];
@@ -95,9 +117,17 @@ export function evaluateForecast({ raw, lat, lon, multipliers }: EvaluateForecas
     multipliers,
   });
 
+  const hourly: HourlyAggregate = { times: hourlyTimes, aggregate: hourlyAgg.aggregate, predictability: hourlyAgg.predictability, perModel: hourlyPerModel };
+
   return {
-    hourly: { times: hourlyTimes, aggregate: hourlyAgg.aggregate, predictability: hourlyAgg.predictability, perModel: hourlyPerModel },
-    daily: { times: dailyTimes, aggregate: dailyAgg.aggregate, predictability: dailyAgg.predictability, perModel: dailyPerModel },
+    hourly,
+    daily: {
+      times: dailyTimes,
+      aggregate: dailyAgg.aggregate,
+      predictability: dailyAgg.predictability,
+      perModel: dailyPerModel,
+      dayPredictability: dailyTimes.map((date, i) => dayPredictabilityFor(hourly, date, i, calibration ?? null)),
+    },
     solar: solarFrom(raw),
     current: {
       time: raw.current.time,
@@ -108,11 +138,57 @@ export function evaluateForecast({ raw, lat, lon, multipliers }: EvaluateForecas
   };
 }
 
-/** The forecast view's per-day "overall predictability" collapse: the unweighted
- *  mean of the day's temperature, precipitation, and weather-code predictabilities.
- *  The single definition of *which* variables compose it — CONTEXT.md flags this
- *  collapse as "overall predictability (under review)", so it lives in one place
- *  rather than inlined in each card. */
-export function dailyOverallPredictability(daily: DailyAggregate, i: number): number {
-  return overallPredictability([daily.predictability.temperature_2m_max[i], daily.predictability.precipitation_sum[i], daily.predictability.weather_code[i]]);
+/** The hourly variables whose day-mean raw scores the day cards publish. The
+ *  day-mean of the HOURLY raw predictability is deliberately the statistic here
+ *  — it is what stored samples carry per verified day, so it is what the
+ *  calibration curves are fitted on; feeding the daily-cadence score through a
+ *  curve would silently mix two distributions (see the plan doc). */
+const DAY_RAW_VARIABLES: Record<VerifiedVariable, HourlyVar> = {
+  temperature_2m: "temperature_2m",
+  precipitation: "precipitation",
+};
+
+/** Day-mean of the finite hourly raw scores for one calendar day, or null when
+ *  the day has none (e.g. beyond a short hourly axis). */
+function dayMeanRaw(hourly: HourlyAggregate, date: string, variable: VerifiedVariable): number | null {
+  let sum = 0;
+  let n = 0;
+  const series = hourly.predictability[DAY_RAW_VARIABLES[variable]];
+  for (let h = 0; h < hourly.times.length; h++) {
+    if (!hourly.times[h]?.startsWith(date)) continue;
+    const v = series[h];
+    if (v != null && Number.isFinite(v)) {
+      sum += v;
+      n += 1;
+    }
+  }
+  return n === 0 ? null : sum / n;
+}
+
+/** One day's predictability view-model: per-variable day-mean raw scores mapped
+ *  through the calibration ladder (identity when no curve — ADR 0008), collapsed
+ *  to their min (ADR 0009). Weather code is deliberately excluded: its agreement
+ *  score partly proxies the precipitation call and is uncalibrated. */
+function dayPredictabilityFor(hourly: HourlyAggregate, date: string, dayIndex: number, calibration: CalibrationSet | null): DayPredictability {
+  // The day's lead anchor — its window midpoint, matching the verification
+  // extraction so fit and apply see the same lead-band assignment.
+  const leadHours = dayIndex * 24 + 12;
+
+  const part = (variable: VerifiedVariable): { value: number | null; calibrated: boolean } => {
+    const raw = dayMeanRaw(hourly, date, variable);
+    if (raw === null) return { value: null, calibrated: false };
+    return { value: applyCalibration(calibration, variable, leadHours, raw), calibrated: isCalibrated(calibration, variable, leadHours) };
+  };
+
+  const temperature = part("temperature_2m");
+  const precipitation = part("precipitation");
+  const finite = [temperature, precipitation].filter((p) => p.value !== null);
+  return {
+    overall: finite.length === 0 ? 0 : Math.min(...finite.map((p) => p.value as number)),
+    temperature: temperature.value,
+    precipitation: precipitation.value,
+    temperatureCalibrated: temperature.calibrated,
+    precipitationCalibrated: precipitation.calibrated,
+    calibrated: finite.length > 0 && finite.every((p) => p.calibrated),
+  };
 }

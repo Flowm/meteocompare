@@ -1,6 +1,6 @@
 import type { AggregatePoint } from "./aggregate";
 import { effectiveModelCount } from "./models";
-import { clamp01, meanFinite } from "./num";
+import { clamp01 } from "./num";
 import { VARIABLES, type Variable } from "./variables";
 import { severitySlug } from "./weatherCodes";
 
@@ -48,20 +48,25 @@ function weatherCodePredictability(point: AggregatePoint): number {
   return clamp01(agreementW);
 }
 
-/** UI-side "overall predictability": the unweighted mean of the finite per-variable
- *  parts (non-finite parts — e.g. a variable with no data — are skipped, not
- *  counted as zero). Returns 0 when nothing is finite. This is the single
- *  definition of the collapse CONTEXT.md flags as "overall predictability (under
- *  review)"; the forecast view's badge and the daily strip both route through it
- *  so they can never drift apart. */
-export function overallPredictability(parts: readonly (number | null | undefined)[]): number {
-  return meanFinite(parts);
-}
-
 export type PredictabilityTier = "high" | "mid" | "low";
 
-export function predictabilityTier(c: number): PredictabilityTier {
-  if (c >= 0.7) return "high";
-  if (c >= 0.4) return "mid";
+/** Which scale a predictability value lives on: `calibrated` = a verified hit
+ *  frequency from a calibration curve; `raw` = the agreement heuristic. */
+export type PredictabilityScale = "raw" | "calibrated";
+
+/** Tier cutoffs per scale (ADR 0008). The calibrated scale follows NWS
+ *  confidence conventions (warnings anchor near 80%, watches near 50%); the raw
+ *  scale keeps the cutoffs tuned to the heuristic score's distribution — one
+ *  set for both would either mark coin-flips "mid" or make untrained locations
+ *  read uniformly worse. */
+const TIER_CUTOFFS: Record<PredictabilityScale, { high: number; mid: number }> = {
+  raw: { high: 0.7, mid: 0.4 },
+  calibrated: { high: 0.8, mid: 0.5 },
+};
+
+export function predictabilityTier(c: number, scale: PredictabilityScale = "raw"): PredictabilityTier {
+  const cut = TIER_CUTOFFS[scale];
+  if (c >= cut.high) return "high";
+  if (c >= cut.mid) return "mid";
   return "low";
 }

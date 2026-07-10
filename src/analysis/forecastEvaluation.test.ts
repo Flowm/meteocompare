@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
 
 import { DAILY_VARS, HOURLY_VARS, type ForecastResponse } from "@/api/omForecast";
+import type { CalibrationSet } from "@/domain/calibration";
 
-import { dailyOverallPredictability, evaluateForecast } from "./forecastEvaluation";
+import { evaluateForecast } from "./forecastEvaluation";
 
 const N = 24;
 const hourlyTimes = Array.from({ length: N }, (_, i) => `2026-05-20T${String(i).padStart(2, "0")}:00`);
@@ -76,13 +77,73 @@ describe("evaluateForecast", () => {
   });
 });
 
-describe("dailyOverallPredictability", () => {
-  it("collapses temperature, precipitation and weather-code predictability for one day", () => {
+describe("dayPredictability", () => {
+  it("collapses the two verified variables to their min on the raw scale when uncalibrated (ADR 0009)", () => {
     const ev = evaluateForecast({ raw: makeResponse(), lat: 48, lon: 11 });
     expect(ev).not.toBeNull();
     if (!ev) return;
-    const collapsed = dailyOverallPredictability(ev.daily, 0);
-    expect(collapsed).toBeGreaterThanOrEqual(0);
-    expect(collapsed).toBeLessThanOrEqual(1);
+    expect(ev.daily.dayPredictability).toHaveLength(2);
+    const day0 = ev.daily.dayPredictability[0]!;
+    expect(day0.temperature).not.toBeNull();
+    expect(day0.precipitation).not.toBeNull();
+    expect(day0.overall).toBe(Math.min(day0.temperature!, day0.precipitation!));
+    expect(day0.calibrated).toBe(false);
+    expect(day0.temperatureCalibrated).toBe(false);
+  });
+
+  it("marks the day-1 axis-gap day as having no parts (hourly axis is 24 h, day 1 has no hours)", () => {
+    const ev = evaluateForecast({ raw: makeResponse(), lat: 48, lon: 11 });
+    const day1 = ev?.daily.dayPredictability[1];
+    expect(day1?.temperature).toBeNull();
+    expect(day1?.precipitation).toBeNull();
+    expect(day1?.overall).toBe(0);
+    expect(day1?.calibrated).toBe(false);
+  });
+
+  it("maps the day-mean raw scores through a supplied calibration curve and flags the scale", () => {
+    // A flat curve pinning every band-0 temperature raw score to 0.9 and every
+    // precipitation raw score to 0.42 — outputs must be exactly those values.
+    const flatCurve = (p: number) => ({
+      bins: [
+        { raw: 0, p },
+        { raw: 1, p },
+      ],
+      n: 60,
+    });
+    const calibration: CalibrationSet = {
+      temperature_2m: { bands: [flatCurve(0.9), null, null] },
+      precipitation: { bands: [flatCurve(0.42), null, null] },
+    };
+    const ev = evaluateForecast({ raw: makeResponse(), lat: 48, lon: 11, calibration });
+    const day0 = ev?.daily.dayPredictability[0];
+    expect(day0?.temperature).toBeCloseTo(0.9, 9);
+    expect(day0?.precipitation).toBeCloseTo(0.42, 9);
+    expect(day0?.overall).toBeCloseTo(0.42, 9); // min of the two
+    expect(day0?.calibrated).toBe(true);
+    expect(day0?.temperatureCalibrated).toBe(true);
+  });
+
+  it("keeps a mixed day (one variable calibrated, one raw) on the raw scale", () => {
+    const calibration: CalibrationSet = {
+      temperature_2m: {
+        bands: [
+          {
+            bins: [
+              { raw: 0, p: 0.9 },
+              { raw: 1, p: 0.9 },
+            ],
+            n: 60,
+          },
+          null,
+          null,
+        ],
+      },
+      precipitation: { bands: [null, null, null] },
+    };
+    const ev = evaluateForecast({ raw: makeResponse(), lat: 48, lon: 11, calibration });
+    const day0 = ev?.daily.dayPredictability[0];
+    expect(day0?.temperatureCalibrated).toBe(true);
+    expect(day0?.precipitationCalibrated).toBe(false);
+    expect(day0?.calibrated).toBe(false);
   });
 });
