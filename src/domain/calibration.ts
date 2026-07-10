@@ -150,7 +150,10 @@ export function fitCalibrationSet(
   for (const variable of variables) {
     const bands = LEAD_BANDS.map((_, bandIndex) => {
       const curve = fitBand(points.filter((p) => p.variable === variable && bandIndexFor(p.leadHours) === bandIndex));
-      return curve && source ? { ...curve, source } : curve;
+      // fitBand returns a fresh object, so stamping in place is safe (and keeps
+      // the no-map-spread lint quiet).
+      if (curve && source) curve.source = source;
+      return curve;
     });
     set[variable] = { bands };
   }
