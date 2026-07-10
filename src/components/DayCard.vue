@@ -34,6 +34,27 @@ const props = defineProps<{
 const { formatTemp, formatPercent, formatPrecip, formatWind, compassPoint } = useUnits();
 
 const expanded = ref(false);
+const predictabilityExpanded = ref(false);
+
+/** The badge popover's two per-variable rows, each carrying its own state's
+ *  claim: calibrated = the reference-classed verified frequency (ADR 0008),
+ *  raw = honest "model agreement, uncalibrated" wording. */
+const predictabilityRows = computed(() => {
+  const row = (label: string, value: number | null, calibrated: boolean, event: string) => {
+    if (value == null || !Number.isFinite(value)) return null;
+    const pct = Math.round(value * 100);
+    return {
+      label,
+      pct,
+      calibrated,
+      note: calibrated ? `${Math.round(value * 10)} of 10 past forecasts this confident ${event}` : "model agreement — uncalibrated",
+    };
+  };
+  return [
+    row("Temp", props.predictability.temperature, props.predictability.temperatureCalibrated, "landed within 2 °C of the actual high"),
+    row("Rain", props.predictability.precipitation, props.predictability.precipitationCalibrated, "called the wet/dry day correctly"),
+  ].filter((r) => r !== null);
+});
 
 /** The arrow visually points where the wind is going TO. Meteorological convention
  *  reports the direction the wind is coming FROM, so we rotate by direction + 180°. */
@@ -128,9 +149,40 @@ const visibleModels = computed(() => props.models?.filter((m) => m.high != null 
       </div>
 
       <div class="mt-3 flex justify-center">
-        <PredictabilityBadge :value="predictability.overall" :calibrated="predictability.calibrated" size="sm" />
+        <!-- Clicking the badge reveals the two per-variable parts behind the
+             min collapse (ADR 0009) — its own toggle, not the card's. -->
+        <button
+          type="button"
+          class="cursor-pointer"
+          :aria-expanded="predictabilityExpanded"
+          aria-label="Predictability details"
+          @click.stop="predictabilityExpanded = !predictabilityExpanded"
+        >
+          <PredictabilityBadge :value="predictability.overall" :calibrated="predictability.calibrated" size="sm" />
+        </button>
       </div>
     </div>
+
+    <!-- Predictability breakdown (badge click to toggle): the min's two parts. -->
+    <Transition
+      enter-active-class="overflow-hidden transition-all duration-200 ease-out"
+      leave-active-class="overflow-hidden transition-all duration-150 ease-in"
+      enter-from-class="max-h-0 opacity-0"
+      enter-to-class="max-h-48 opacity-100"
+      leave-from-class="max-h-48 opacity-100"
+      leave-to-class="max-h-0 opacity-0"
+    >
+      <div v-if="predictabilityExpanded && predictabilityRows.length" class="border-ink-700 bg-ink-950/40 border-t px-3 py-2" @click.stop>
+        <div class="text-paper-400 mb-1.5 font-mono text-[9px] tracking-wide">Predictability · least certain counts</div>
+        <div v-for="r in predictabilityRows" :key="r.label" class="py-0.5 font-mono text-[10px]">
+          <div class="flex items-baseline justify-between gap-2">
+            <span class="text-paper-400">{{ r.label }}</span>
+            <span class="text-paper-100 tabular-nums">{{ r.pct }}%</span>
+          </div>
+          <div class="text-paper-500 text-[9px] leading-snug tracking-wide">{{ r.note }}</div>
+        </div>
+      </div>
+    </Transition>
 
     <!-- Per-model breakdown (click to toggle) -->
     <Transition

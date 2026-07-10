@@ -35,7 +35,7 @@ Outcomes come from the same stored records: temperature hit =
 
 ## Phases
 
-### Phase 1 — Calibration domain core (pure) ✅/☐
+### Phase 1 — Calibration domain core (pure) ✅
 
 New `src/domain/calibration.ts` — framework-free, fully unit-tested:
 
@@ -58,7 +58,7 @@ New `src/domain/calibration.ts` — framework-free, fully unit-tested:
 - Tests: known synthetic relationships recover expected curves; monotonicity
   enforced; gates respected; identity fallback; band clamping.
 
-### Phase 2 — Storage + training-flow integration ☐
+### Phase 2 — Storage + training-flow integration ✅
 
 - Extend `StoredWeights` with optional `calibration?: CalibrationSet`
   (additive — no migration; ADR 0008 "beside trained weights", inherits the
@@ -72,7 +72,7 @@ New `src/domain/calibration.ts` — framework-free, fully unit-tested:
 - Tests: flow fits + persists calibration; pooled refit merges all samples;
   absent calibration stays absent (old entries load unchanged).
 
-### Phase 3 — Resolution ladder + application (forecast & verification) ☐
+### Phase 3 — Resolution ladder + application (forecast & verification) ✅
 
 - `resolveCalibration(lat, lon)` in the store module: exact-cell entry's
   calibration → nearest in-reach entry's → pooled → null. Mirrors
@@ -94,7 +94,7 @@ precipitation, calibrated }[]` — per-variable day-mean of hourly raw scores
 - Tests: evaluateForecast with a fake curve (calibrated values + min overall +
   fallback when null); tier scales.
 
-### Phase 4 — Badge UI + copy ☐
+### Phase 4 — Badge UI + copy ✅
 
 - `PredictabilityBadge`: `calibrated` prop switches tier scale + tooltip copy
   (calibrated: reference-classed — "N of 10 past forecasts this confident

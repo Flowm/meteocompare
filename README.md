@@ -8,7 +8,7 @@ Frontend-only (Vue 3 + Vite). Forecasts come straight from [open-meteo.com](http
 
 - **21 forecast models/products**, automatically dropped in/out based on geographic coverage and forecast horizon.
 - **Aggregate-first UI**: temperature + ±1σ predictability band, precipitation bars, daily strip with weather icon / high / low / precip prob / wind.
-- **Predictability signal** per timestep — derived from inter-model spread (agreement) normalised against typical seasonal spread, a model-count penalty, and lead-time decay encoded in the model weights. An _uncalibrated, agreement-based_ estimate — a "poor man's" predictability; see ADR 0005.
+- **Predictability signal** per timestep — derived from inter-model spread (agreement) normalised against typical seasonal spread, a model-count penalty, and lead-time decay encoded in the model weights (ADR 0005). On daily surfaces it is **calibrated against on-device verification data** where available, publishing the observed frequency of past forecasts verifying within tolerance (ADR 0008); elsewhere it stays an _uncalibrated, agreement-based_ estimate.
 - **Per-model overlay** (opt-in) — one line per contributing model drawn over the aggregate, with per-model toggles, switchable between temperature, precipitation, precipitation probability, wind speed, and cloud cover.
 - **Window toggle** — 24 h / 3 d / 7 d on both charts.
 - **Locations** — open-meteo geocoding search, browser geolocation, URL-shareable state, favourites and recent-search in localStorage.
@@ -32,8 +32,10 @@ Per timestep and per variable:
 
 ## How the predictability signal works
 
-Predictability is computed from **agreement** (inter-model spread). It is an
-_uncalibrated_ estimate — see the limitations and ADR 0005. For each numeric variable:
+Predictability has two states behind one label (ADR 0008): a **raw** agreement
+heuristic everywhere, and a **calibrated** verified frequency on the daily
+surfaces wherever on-device verification data allows. The raw score is computed
+from **agreement** (inter-model spread). For each numeric variable:
 
 ```
 spreadScore    = clamp(1 − stdDev / typicalSpread, 0, 1)
@@ -55,7 +57,22 @@ Lead-time decay is handled entirely in the model weighting layer (not as a separ
 multiplier here): CAMs fade out by 60 h, regionals by 120 h, globals decay past 72 h,
 and AI plus ensemble-mean products follow global decay with a smaller vote.
 
-The badge maps the result to one of three tiers — high (≥70 %, emerald), mid (≥40 %, amber), low (rose).
+### Calibration (ADR 0008)
+
+Training a location (see Training) also fits **calibration curves**: monotone
+maps from the raw score to the observed frequency of past forecasts verifying
+"close enough" — |daily t_max error| ≤ 2 °C for temperature, a correct wet/dry
+day call (wet = ≥ 1 mm/day, the WMO threshold) for precipitation. Curves are
+fitted per variable per lead-time band (0–2d / 2–4d / 4–7d) and resolve through
+a ladder: the location's own curves (with the trained weights' reach), else the
+device-pooled curves, else the identity — the raw heuristic unchanged. Where a
+curve applies, the badge's percentage means "N% of past forecasts this
+confident verified within tolerance", and the tooltip says so.
+
+Each forecast day card shows the **min** of the two verified variables — the
+day is as trustworthy as its least certain headline variable (ADR 0009);
+clicking the badge reveals the two parts. Tiers: calibrated high ≥ 80 % / mid
+≥ 50 % (NWS-aligned); raw high ≥ 70 % / mid ≥ 40 %.
 
 ## Models
 
@@ -186,7 +203,7 @@ Previews are skipped for PRs from forks, which can't access the deploy secrets.
 ## Limitations
 
 - **No bias correction.** Weights are static — no weight calibration against ERA5 reanalysis. Some models systematically run cold/warm or under/over-predict precipitation in some regions; that bias passes through to the aggregate.
-- **No ensemble members.** We pull deterministic runs only, not full ensemble distributions. Predictability is derived from inter-model spread (model agreement), not from individual ensemble forecasts — so it is an uncalibrated proxy, not a probability (see ADR 0005).
+- **No ensemble members.** We pull deterministic runs only, not full ensemble distributions. Predictability is derived from inter-model spread (model agreement), not from individual ensemble forecasts. Raw, it is an uncalibrated proxy (ADR 0005); where the device has verification data, the daily signal is calibrated into a verified frequency (ADR 0008) — but a chaotic, initial-condition-sensitive day can still read calm, because no ensemble is run.
 - **Verification covers temperature and precipitation only.** ERA5-Seamless also provides wind and cloud-cover truth, but the verification page does not yet score them.
 
 ## Acknowledgements
