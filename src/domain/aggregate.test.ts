@@ -3,8 +3,20 @@ import { describe, it, expect } from "vitest";
 import { PARIS, makeTimes, modelSubset } from "@/test/fixtures";
 
 import { aggregateSeries } from "./aggregate";
+import type { Variable } from "./variables";
+import { modelWeight } from "./weighting";
 
 const subset = modelSubset();
+
+/** Per-model multipliers that cancel the shipped fitted builtin tier (ADR 0011)
+ *  so every model in `subset` carries an equal weight at (lat, lon) for `variable`
+ *  at lead 0. These aggregation tests exercise the blend *math* (circular mean,
+ *  weighted-mode tie-breaks), which the old recipe fed equal weights by accident;
+ *  neutralising keeps that condition explicit and independent of the fitted
+ *  numbers, so the math is what's under test — the recipe is tested in
+ *  weighting.test.ts. */
+const flatWeights = (lat: number, lon: number, variable: Variable): Record<string, number> =>
+  Object.fromEntries(subset.map((m) => [m.id, 1 / modelWeight(m, 0, lat, lon, variable)]));
 
 describe("aggregateSeries (temperature)", () => {
   it("computes a weighted mean and zero stddev for unanimous inputs", () => {
@@ -73,6 +85,8 @@ describe("aggregateSeries (temperature)", () => {
 describe("aggregateSeries (wind_direction_10m)", () => {
   const baseTime = new Date("2026-05-20T00:00:00Z");
   const times = makeTimes(1, "2026-05-20T00:00:00Z");
+  // Equal weights isolate the circular-mean math from the fitted default weights.
+  const flatWind = flatWeights(PARIS.lat, PARIS.lon, "wind_direction_10m");
 
   it("averages angles that straddle 0/360° correctly", () => {
     // 350° and 10° should average to 0°/360°, not 180°.
@@ -90,6 +104,7 @@ describe("aggregateSeries (wind_direction_10m)", () => {
         lat: PARIS.lat,
         lon: PARIS.lon,
         baseTime,
+        multipliers: flatWind,
       },
     );
     // Allow either side of the wrap.
@@ -116,6 +131,7 @@ describe("aggregateSeries (wind_direction_10m)", () => {
         lat: PARIS.lat,
         lon: PARIS.lon,
         baseTime,
+        multipliers: flatWind,
       },
     );
     expect(out[0]?.value).toBeCloseTo(180, 0);
@@ -137,6 +153,7 @@ describe("aggregateSeries (wind_direction_10m)", () => {
         lat: PARIS.lat,
         lon: PARIS.lon,
         baseTime,
+        multipliers: flatWind,
       },
     );
     // Mean resultant length → 0, so circular stddev should be huge.
@@ -197,14 +214,17 @@ describe("aggregateSeries (weather_code)", () => {
 });
 
 describe("aggregateSeries (weather_code) — severity-weighted mode tie-break", () => {
-  // A mid-Atlantic point where none of the four models has a home-region bonus,
-  // so every weight is exactly 0.25 and the two-stage selection is exact rather
-  // than "somewhere in the group".
+  // A mid-Atlantic point (no home-region bonus) plus multipliers that cancel the
+  // fitted builtin tier, so every weight is exactly 0.25 and the two-stage
+  // selection is exact rather than "somewhere in the group". Without the
+  // neutralisation the fitted weights (e.g. ecmwf ≫ the rest) would decide by raw
+  // magnitude and hide the tie-break under test.
   const OCEAN = { lat: 0, lon: -30 };
   const baseTime = new Date("2026-05-20T00:00:00Z");
   const times = makeTimes(1, "2026-05-20T00:00:00Z");
+  const flat = flatWeights(OCEAN.lat, OCEAN.lon, "weather_code");
   const code = (series: Record<string, number[]>): number | null =>
-    aggregateSeries(times, series, { variable: "weather_code", models: subset, lat: OCEAN.lat, lon: OCEAN.lon, baseTime })[0]?.value ?? null;
+    aggregateSeries(times, series, { variable: "weather_code", models: subset, lat: OCEAN.lat, lon: OCEAN.lon, baseTime, multipliers: flat })[0]?.value ?? null;
 
   it("picks the modal severity slug, then the modal code within it", () => {
     // Slugs: rain 0.75 (61, 63, 63) vs snow 0.25 (71) → rain wins. Within rain:

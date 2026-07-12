@@ -13,8 +13,10 @@ function times(): string[] {
 }
 
 // One run where ecmwf_ifs tracks truth exactly and gfs_seamless runs +6 °C warm.
-// Both are global with no home region, so they carry equal heuristic weight —
-// the only way to improve the aggregate is to up-weight the better model.
+// Both are global with no home region; the fitted default ladder (ADR 0011) is
+// the base weight now, and the trainer fits a per-model residual on top — the
+// only way to improve the aggregate is to up-weight the accurate model relative
+// to the biased one.
 function mkRun(runDate: string): RunEvaluation {
   const t = times();
   const truth = Array.from({ length: N }, (_, i) => 10 + Math.sin(i / 3) * 5);

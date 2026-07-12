@@ -66,23 +66,32 @@ describe("learnedWeightsStore", () => {
     });
   });
 
-  describe("record versioning / migration", () => {
+  describe("record / recipe versioning", () => {
     const PREFIX = "meteocompare:weights:";
 
-    it("still loads a bare (pre-envelope, v0) record written by an older install", () => {
-      // Older devices stored StoredWeights directly, with no { v, data } wrapper.
+    it("drops a bare (pre-envelope, v0) record — a decay-recipe fit that would double-apply", () => {
+      // Older devices stored StoredWeights directly under the hand-tuned decay
+      // recipe; re-applying those residuals on top of the fitted builtin tier
+      // would double-count the lead-time correction (ADR 0011), so v0 is dropped.
       const legacy = { multipliers: { ecmwf_ifs: 1.6 }, trainedAt: "2026-01-01T00:00:00Z", improvement: 0.9 };
       localStorage.setItem(PREFIX + sampleKey(INNSBRUCK.lat, INNSBRUCK.lon), JSON.stringify(legacy));
-      expect(loadWeights(INNSBRUCK.lat, INNSBRUCK.lon)?.multipliers.ecmwf_ifs).toBe(1.6);
-      // …and it is surfaced by listWeights just like an enveloped one.
-      expect(listWeights().map((e) => e.weights.multipliers.ecmwf_ifs)).toEqual([1.6]);
+      expect(loadWeights(INNSBRUCK.lat, INNSBRUCK.lon)).toBeNull();
+      expect(listWeights()).toHaveLength(0);
     });
 
-    it("writes new records inside a versioned envelope", () => {
+    it("drops an enveloped v1 record — the previous (decay) recipe version", () => {
+      const stale = { v: 1, data: { multipliers: { ecmwf_ifs: 1.6 }, trainedAt: "2026-01-01T00:00:00Z", improvement: 0.9 } };
+      localStorage.setItem(PREFIX + sampleKey(INNSBRUCK.lat, INNSBRUCK.lon), JSON.stringify(stale));
+      expect(loadWeights(INNSBRUCK.lat, INNSBRUCK.lon)).toBeNull();
+      expect(listWeights()).toHaveLength(0);
+    });
+
+    it("round-trips a current (v2, ladder-recipe) record and stamps the version", () => {
       saveWeights(INNSBRUCK.lat, INNSBRUCK.lon, { multipliers: { gfs_seamless: 1.2 }, trainedAt: "t", improvement: 0 });
       const raw = JSON.parse(localStorage.getItem(PREFIX + sampleKey(INNSBRUCK.lat, INNSBRUCK.lon))!) as { v: number; data: unknown };
-      expect(raw.v).toBe(1);
+      expect(raw.v).toBe(2);
       expect(raw.data).toMatchObject({ multipliers: { gfs_seamless: 1.2 } });
+      expect(loadWeights(INNSBRUCK.lat, INNSBRUCK.lon)?.multipliers.gfs_seamless).toBe(1.2);
     });
 
     it("drops a record whose JSON is corrupt (parse-null-on-error)", () => {

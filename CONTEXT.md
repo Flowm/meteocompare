@@ -2,7 +2,7 @@
 
 Multi-model weather forecast comparison. The app pulls operational forecast products from many models via open-meteo, weights them, and produces a single aggregate forecast (the _best estimate_) plus a per-timestep _predictability_ signal. A secondary verification surface compares past forecasts against a reference reanalysis field to expose which models (and the aggregate) were actually right.
 
-We follow the three-output frame the multi-model industry uses: **Best estimate** (the blended value), **Probabilistic** (likelihood of an event — today only the grafted precipitation probability), and **Predictability** (how trustworthy the forecast is, estimated from inter-model spread and — where verification data allows — calibrated against measured outcomes). We are a _poor man's ensemble_ with a partially closed verification loop: per-location trained weights (ADR 0007) and calibrated predictability for the verified variables (ADR 0008); heuristics fill every gap. See ADR 0005.
+We follow the three-output frame the multi-model industry uses: **Best estimate** (the blended value), **Probabilistic** (likelihood of an event — today only the grafted precipitation probability), and **Predictability** (how trustworthy the forecast is, estimated from inter-model spread and — where verification data allows — calibrated against measured outcomes). We are a _poor man's ensemble_ with a partially closed verification loop: fitted default weights (ADR 0011), per-location trained weights (ADR 0007), and calibrated predictability for the verified variables (ADR 0008); heuristics fill the remaining gaps. See ADR 0005.
 
 ## Language
 
@@ -17,7 +17,7 @@ open-meteo derives `precipitation_probability` only from ensembles, so determini
 _Avoid_: registering a graft source as a Model.
 
 **Model class**:
-Resolution/product-and-scope tier: `global`, `regional-mid`, `regional-cam` (convection-allowing), `ai` (machine-learned single forecast product), or `ensemble-mean` (mean of ensemble members exposed as one forecast product). Drives lead-time decay, the precipitation (amount + probability) boost, and how strongly a model contributes relative to deterministic NWP products.
+Resolution/product-and-scope tier: `global`, `regional-mid`, `regional-cam` (convection-allowing), `ai` (machine-learned single forecast product), or `ensemble-mean` (mean of ensemble members exposed as one forecast product). Drives the precipitation (amount + probability) boost and the class tier of the **weight ladder** — the fitted fallback weighting for models without per-model **default weights** (ADR 0011; formerly the hand-tuned per-class decay curves).
 
 **Home region**:
 The geographic bounding box where a regional model has a structural advantage. Drives the region bonus inside the weighting recipe. Global models have no home region.
@@ -33,7 +33,7 @@ _Avoid_: issue date, cycle date.
 The hour-of-day a run was issued (00 / 06 / 12 / 18 Z), selectable on the verification page; defaults to 00Z. Models publish different cycles (e.g. ECMWF issues 00/12Z), so picking a non-00Z cycle naturally drops the models that don't issue it — the single-runs API reports them missing and they're pruned (see "Available models").
 
 **Lead time**:
-Hours elapsed since run start. A value forecast 36 h into the future has lead time 36 h. Drives lead-time decay in the weighting recipe.
+Hours elapsed since run start. A value forecast 36 h into the future has lead time 36 h. Selects the **lead-time band**, and with it the **weight ladder** multiplier, in the weighting recipe.
 
 **Available models**:
 The subset of registered models for which the single-runs API actually returned data for a given run (date + cycle). Retention varies per model — and not every model issues every cycle — so this is a runtime fact, not a static list.
@@ -145,7 +145,7 @@ A single 0–100 number blending a model's temperature MAE, precip amount error 
 _Avoid_: skill (a skill score is improvement over a reference like climatology — this is not that), accuracy (too vague).
 
 **Lead-time band**:
-A coarse lead-hour bucket (0–48 h / 48–96 h / 96–168 h) the scorecard scores separately, exposing how a model's composite decays with lead time. Empty bands read as coverage gaps. Also the bucketing of the **calibration curve** — one curve per band, because lead-time error climatology dominates forecast error and a single all-lead curve would bake the typical-spread heuristic's biases into the published probability (ADR 0008).
+A coarse lead-hour bucket (0–48 h / 48–96 h / 96–168 h / 168–240 h) the scorecard scores separately, exposing how a model's composite decays with lead time. Empty bands read as coverage gaps. Also the bucketing of the **calibration curve** — one curve per band, because lead-time error climatology dominates forecast error and a single all-lead curve would bake the typical-spread heuristic's biases into the published probability (ADR 0008) — and of the **weight ladder**'s fitted multipliers (ADR 0011). The one partition, shared by all three consumers; the 7–10d band exists because the forecast page shows 10 days and only the long-range models reach it.
 
 **Coverage**:
 The hours a model actually returned data for within the window — a runtime fact (retention varies per model and run date). Sub-full-coverage models are flagged `*` and still ranked; their empty lead bands show the gap. Distinct from **Available models**, which is the binary did-it-return-anything set.
@@ -153,8 +153,16 @@ The hours a model actually returned data for within the window — a runtime fac
 ### Training
 
 **Trained weights**:
-Per-model weight **multipliers** fitted on top of the heuristic weighting from a location's stored verification sample (ADR 0007), persisted on-device and applied to the aggregate only when the user opts in via the settings toggle. A multiplier of 1 leaves the heuristic unchanged. **Training** is the act of fitting; **trained weights** are the stored result. The per-model scorecard scores these as the **Aggregate (tuned)** row.
+Per-model weight **multipliers** fitted from a location's stored verification sample (ADR 0007), persisted on-device and applied to the aggregate only when the user opts in via the settings toggle. The device tier of the **weight ladder**: fitted as residuals on top of the **default weights**, one multiplier per model — _not_ per band; the per-band device variant failed its pre-registered gate (ADR 0011) and was rejected. A multiplier of 1 leaves the tier below unchanged. **Training** is the act of fitting; **trained weights** are the stored result. The per-model scorecard scores these as the **Aggregate (tuned)** row.
 _Avoid_: _training weights_ (blurs the act and the result); _tuned weights_ as a separate concept (it is the same thing — "tuned" survives only in the scorecard's **Aggregate (tuned)** row label).
+
+**Default weights**:
+The shipped per-model, per-band weight multipliers fitted offline from verification samples at the reference locations (the ADR 0010 pattern applied to weights; ADR 0011). Always on — they are the app's lead-time weighting, replacing the earlier hand-tuned per-class decay curves. Models the offline fit has never seen (open-meteo archives a new model only from its addition date) resolve to their **model class**'s fitted multipliers instead.
+_Avoid_: _global weights_ (reads as "fitted for the globe" — it is a reference-location default, not a per-place fit); _decay_ for the fitted multipliers (the curve-shaped hand-tuned mechanism is gone; bands and multipliers are the vocabulary).
+
+**Weight ladder**:
+The resolution order for one model's weight multiplier in one **lead-time band**: **default weights** (per-model → per-class → 1, each band resolving independently), multiplied by the device **trained weights** residual where the user opted in. The weights sibling of the calibration curve's fallback ladder — same shape, same honesty rule: lower tiers are broader claims.
+_Avoid_: conflating with the calibration ladder (same pattern, different signal).
 
 **Training location**:
 The gridded location whose stored sample a fit was computed from — and the center of any **reach**. The training page is scoped to one training location at a time; the trained-weights overview at the bottom lists every training location stored on the device.

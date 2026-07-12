@@ -12,15 +12,28 @@
 import type { CalibrationSet } from "@/domain/calibration";
 import { haversineKm } from "@/domain/geo";
 
-import { createLocalKeyedStore } from "./keyedStore";
+import { createLocalKeyedStore, type Migrate } from "./keyedStore";
 import { sampleKey } from "./sampleStore";
 
 const PREFIX = "meteocompare:weights:";
 
-/** Record schema version. v1 is the first *enveloped* shape; bare pre-envelope
- *  records are migrated forward from v0 unchanged (the payload is structurally
- *  identical, only the wrapper is new). */
-const WEIGHTS_VERSION = 1;
+/** Record version — doubles as the weight *recipe* version. Bumped to 2 when the
+ *  fitted weight ladder (ADR 0011) replaced the hand-tuned lead-time decay:
+ *  multipliers stored under the old recipe were fitted as residuals on top of the
+ *  decay, so re-applying them on top of the ladder's builtin tier (which already
+ *  carries that lead-time correction) would DOUBLE-APPLY it. Such records are
+ *  therefore dropped on read (see `dropStaleRecipe`), not migrated — the fit isn't
+ *  transformable into the new recipe, only re-fitted. The calibration set riding
+ *  inside a dropped record goes with it (device-pooled + built-in calibration
+ *  tiers still resolve below it); the stored SAMPLES live in a separate store and
+ *  persist, so the user just retrains. (v0 = bare pre-envelope, v1 = enveloped
+ *  decay-recipe fit — both pre-ladder, both dropped.) */
+const WEIGHTS_VERSION = 2;
+
+/** Drop any record written under a pre-ladder recipe (v0 bare, v1 decay). There
+ *  is no forward migration: a decay-era multiplier is meaningless against the
+ *  fitted builtin tier, so `null` (treat as absent) is the only safe answer. */
+const dropStaleRecipe: Migrate<StoredWeights> = () => null;
 
 /** Reach radii offered in the UI (km). 0 = "this point only" (no reach). */
 export const REACH_PRESETS_KM = [0, 25, 50, 100, 250] as const;
@@ -53,8 +66,9 @@ export interface WeightEntry {
 
 // The synchronous localStorage machinery — availability guard, JSON codec, and
 // record versioning — lives in keyedStore; only the reach-resolution logic below
-// is specific to weights. Bare pre-envelope records migrate forward unchanged.
-const store = createLocalKeyedStore<StoredWeights>({ prefix: PREFIX, version: WEIGHTS_VERSION });
+// is specific to weights. Pre-ladder records (any version below WEIGHTS_VERSION)
+// are dropped on read, not migrated (see the WEIGHTS_VERSION note).
+const store = createLocalKeyedStore<StoredWeights>({ prefix: PREFIX, version: WEIGHTS_VERSION, migrate: dropStaleRecipe });
 
 /** The training center to measure reach from: the stored exact coords when
  *  present, else the grid-cell center parsed back from the key. */

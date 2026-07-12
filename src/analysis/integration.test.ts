@@ -16,7 +16,9 @@ import { describe, expect, it } from "vitest";
 
 import type { ForecastResponse } from "@/api/omForecast";
 import type { HistoricalWeatherResponse } from "@/api/omHistoricalWeather";
+import { getModel } from "@/domain/models";
 import { AGGREGATE_ROW_ID } from "@/domain/scorecard";
+import { modelWeight } from "@/domain/weighting";
 import { array, makeTimes, PARIS } from "@/test/fixtures";
 
 import { fitWeights, MIN_TRAIN_RUNS, MIN_VAL_RUNS } from "./learnedWeights";
@@ -129,10 +131,18 @@ describe("real chain: evaluateRun → aggregateSample → fitWeights", () => {
     // Every model was present and scorable in every run.
     expect(byId.get("ecmwf_ifs")!.n).toBe(RUN_COUNT);
     expect(byId.get("gfs_seamless")!.n).toBe(RUN_COUNT);
-    // The equal-weight aggregate splits the warm bias between the two models.
+    // The aggregate blends the two models by their fitted default weights (ADR
+    // 0011): the whole 48 h window is band 0, so a single band-0 weight applies,
+    // and the aggregate bias is gfs's weight-share of its +5 °C. ecmwf (accurate)
+    // now outweighs gfs (biased), so the aggregate sits well below the old
+    // equal-weight midpoint. Derived from the real recipe so a regen can't fool it.
     expect(byId.get("gfs_seamless")!.tempBiasMean).toBeCloseTo(GFS_BIAS, 6);
     expect(byId.get("ecmwf_ifs")!.tempBiasMean).toBeCloseTo(0, 6);
-    expect(byId.get(AGGREGATE_ROW_ID)!.tempBiasMean).toBeCloseTo(GFS_BIAS / 2, 6);
+    const wEcmwf = modelWeight(getModel("ecmwf_ifs")!, 0, PARIS.lat, PARIS.lon, "temperature_2m");
+    const wGfs = modelWeight(getModel("gfs_seamless")!, 0, PARIS.lat, PARIS.lon, "temperature_2m");
+    const expectedAggBias = (wGfs / (wEcmwf + wGfs)) * GFS_BIAS;
+    expect(byId.get(AGGREGATE_ROW_ID)!.tempBiasMean).toBeCloseTo(expectedAggBias, 6);
+    expect(expectedAggBias).toBeLessThan(GFS_BIAS / 2); // ecmwf out-weighs gfs → below the equal-weight split
   });
 
   it("fitWeights down-weights the biased model and helps out-of-sample", () => {

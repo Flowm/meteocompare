@@ -7,47 +7,71 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 
 import { DEFAULT_CALIBRATION_META } from "@/analysis/defaultCalibration";
+import { DEFAULT_WEIGHTS, DEFAULT_WEIGHTS_META } from "@/analysis/defaultWeights";
 import AppFooter from "@/components/AppFooter.vue";
 import LocationBar from "@/components/LocationBar.vue";
 import { TEMP_HIT_TOLERANCE_C, WET_DAY_THRESHOLD_MM } from "@/domain/calibration";
 import { MODELS, type ModelKind } from "@/domain/models";
 import { TIER_CUTOFFS } from "@/domain/predictability";
 import { LEAD_BANDS } from "@/domain/scorecard";
-import { leadFactorForKind } from "@/domain/weighting";
 
 const GITHUB_URL = "https://github.com/Flowm/meteocompare";
 
-// — §02 · lead-time-decay diagram, generated from the real weighting curves —
-// The plot maps lead 0…MAX_LEAD_H onto x PLOT_X0…PLOT_X1 and multiplier 1…0 onto
-// y PLOT_Y0…PLOT_Y1, so the paths trace leadFactorForKind exactly and can't drift
-// from domain/weighting.ts. The curves are piecewise-linear; sampling at a fixed
-// step keeps every breakpoint on-grid without hand-plotting coordinates.
-const DECAY_MAX_LEAD_H = 240;
+// — §02 · default-weights diagram, generated from the shipped fitted ladder —
+// Per model *class*, the effective weight multiplier in each lead band (ADR
+// 0011), read straight from analysis/defaultWeights so the plot can't drift from
+// the fit. These are STEPS, not curves: the fit is piecewise-constant per band,
+// so the drawing is too. The plot maps each band onto an equal x-slice
+// PLOT_X0…PLOT_X1 and multiplier 0…WEIGHT_MAX onto y PLOT_Y1…PLOT_Y0; the dashed
+// midline is 1.0 (neutral — above it a class is up-weighted, below it down). A
+// class band the offline fit never gated resolves to that neutral 1.0, exactly
+// the per-model → per-class → 1 fall-through the live weighting uses.
+const WEIGHT_MAX = 2; // the fitting grid's ceiling (bandWeights MULT_MAX)
 const PLOT_X0 = 40;
 const PLOT_X1 = 472;
-const PLOT_Y0 = 16; // multiplier 1.0
+const PLOT_Y0 = 16; // multiplier WEIGHT_MAX (top)
 const PLOT_Y1 = 144; // multiplier 0
-const DECAY_STEP_H = 4;
+const BAND_W = (PLOT_X1 - PLOT_X0) / LEAD_BANDS.length;
 
-const decayX = (leadHours: number): number => PLOT_X0 + (leadHours / DECAY_MAX_LEAD_H) * (PLOT_X1 - PLOT_X0);
-const decayY = (mult: number): number => PLOT_Y0 + (1 - mult) * (PLOT_Y1 - PLOT_Y0);
+const weightX = (bandIndex: number): number => PLOT_X0 + bandIndex * BAND_W;
+const weightY = (mult: number): number => PLOT_Y0 + (1 - mult / WEIGHT_MAX) * (PLOT_Y1 - PLOT_Y0);
+const NEUTRAL_Y = weightY(1);
 
-/** SVG polyline points for one model class's decay curve across the plot. */
-function decayPoints(kind: ModelKind): string {
+/** Effective per-class multiplier per band (null / missing → neutral 1.0). */
+function classMultipliers(kind: ModelKind): number[] {
+  const slots = DEFAULT_WEIGHTS?.perClass[kind] ?? [];
+  return LEAD_BANDS.map((_, i) => slots[i] ?? 1);
+}
+
+/** SVG polyline points tracing one class's per-band step function: a flat segment
+ *  across each band, connected by verticals at the band edges. */
+function stepPoints(mults: number[]): string {
   const pts: string[] = [];
-  for (let lead = 0; lead <= DECAY_MAX_LEAD_H; lead += DECAY_STEP_H) {
-    pts.push(`${decayX(lead).toFixed(1)},${decayY(leadFactorForKind(kind, lead)).toFixed(1)}`);
-  }
+  mults.forEach((m, i) => {
+    const y = weightY(m).toFixed(1);
+    pts.push(`${weightX(i).toFixed(1)},${y}`, `${weightX(i + 1).toFixed(1)},${y}`);
+  });
   return pts.join(" ");
 }
 
-const DECAY_CURVES: { kind: ModelKind; stroke: string; dashed: boolean; points: string }[] = [
-  { kind: "regional-cam", stroke: "var(--color-heat-400)", dashed: false, points: decayPoints("regional-cam") },
-  { kind: "regional-mid", stroke: "var(--color-cold-400)", dashed: false, points: decayPoints("regional-mid") },
-  { kind: "global", stroke: "var(--color-sodium-300)", dashed: false, points: decayPoints("global") },
-  // AI & ensemble-mean share one curve (0.75 × global); shown once, dashed.
-  { kind: "ai", stroke: "var(--color-rain-400)", dashed: true, points: decayPoints("ai") },
+const WEIGHT_CLASSES: { kind: ModelKind; label: string; stroke: string }[] = [
+  { kind: "global", label: "global", stroke: "var(--color-sodium-300)" },
+  { kind: "regional-mid", label: "regional mid-res", stroke: "var(--color-cold-400)" },
+  { kind: "regional-cam", label: "convection-allowing", stroke: "var(--color-heat-400)" },
+  { kind: "ai", label: "AI", stroke: "var(--color-rain-400)" },
+  { kind: "ensemble-mean", label: "ensemble mean", stroke: "var(--color-paper-300)" },
 ];
+
+/** One stepped line per class — empty when no default fit has shipped yet. */
+const WEIGHT_STEPS = DEFAULT_WEIGHTS ? WEIGHT_CLASSES.map((c) => ({ kind: c.kind, label: c.label, stroke: c.stroke, points: stepPoints(classMultipliers(c.kind)) })) : [];
+
+// Band-edge x positions (excluding the outer axis) for the vertical gridlines,
+// and band-label anchor x positions (centred in each slice).
+const BAND_EDGES = LEAD_BANDS.slice(1).map((_, i) => weightX(i + 1));
+const BAND_LABEL_X = LEAD_BANDS.map((_, i) => weightX(i) + BAND_W / 2);
+
+const WEIGHTS_META = DEFAULT_WEIGHTS_META;
+const WEIGHTS_PROVENANCE = WEIGHTS_META ? `fitted at ${WEIGHTS_META.locations.length} reference locations worldwide · ${WEIGHTS_META.generatedAt.slice(0, 10)}` : "";
 
 const route = useRoute();
 // Same convention as the header's view switcher: keep the location (and any
@@ -64,7 +88,7 @@ const METHOD_STEPS = [
   {
     n: "02",
     title: "Weigh",
-    body: "Survivors start at weight 1. Regional specialists earn +0.2–0.3 on home turf, convection-allowing models get ×1.3 on precipitation, and every class decays on its own lead-time curve (below). Locally trained multipliers, if you've fitted any, apply on top.",
+    body: "Survivors start at weight 1. Regional specialists earn +0.2–0.3 on home turf, convection-allowing models get ×1.3 on precipitation, and each model is scaled by a fitted per-lead-band multiplier (below). Locally trained multipliers, if you've fitted any, apply on top.",
   },
   {
     n: "03",
@@ -269,56 +293,38 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
             </div>
           </div>
 
-          <!-- Lead-time decay: the four curves are generated from
-               leadFactorForKind in domain/weighting.ts (see the script above), so
-               the diagram tracks the code — CAM 1→0 over 24–60 h; mid 1→0.3 over
-               48–120 h; global 1→0.4 over 72–240 h; AI & ensemble-mean at 0.75 ×
-               the global curve. Axes, gridline, ticks and labels stay static. -->
-          <figure class="registration border-ink-700 bg-ink-900/60 mt-5 border p-4 sm:p-5">
-            <figcaption class="eyebrow mb-4">Lead-time decay · weight multiplier vs forecast hour</figcaption>
+          <!-- Fitted default weights (ADR 0011): one stepped line per model class,
+               its effective multiplier per lead band, read live from
+               analysis/defaultWeights (see the script above) so the diagram tracks
+               the shipped fit. The dashed midline is 1.0 — neutral; above it a
+               class is up-weighted, below it down-weighted. Axes, gridline and band
+               labels stay static. -->
+          <figure v-if="WEIGHT_STEPS.length" class="registration border-ink-700 bg-ink-900/60 mt-5 border p-4 sm:p-5">
+            <figcaption class="eyebrow mb-4">Default weights · fitted multiplier per lead band</figcaption>
             <div class="graph-paper">
-              <svg viewBox="0 0 480 176" class="h-auto w-full" role="img" aria-label="Weight multiplier versus forecast lead time for each model class">
+              <svg viewBox="0 0 480 176" class="h-auto w-full" role="img" aria-label="Fitted weight multiplier per lead-time band for each model class">
                 <line x1="40" y1="16" x2="40" y2="144" stroke="var(--color-ink-600)" stroke-width="1" />
                 <line x1="40" y1="144" x2="472" y2="144" stroke="var(--color-ink-600)" stroke-width="1" />
-                <line x1="40" y1="80" x2="472" y2="80" stroke="var(--color-ink-700)" stroke-width="1" stroke-dasharray="2 4" />
-                <polyline
-                  v-for="c in DECAY_CURVES"
-                  :key="c.kind"
-                  :points="c.points"
-                  fill="none"
-                  :stroke="c.stroke"
-                  stroke-width="1.5"
-                  :stroke-dasharray="c.dashed ? '4 3' : undefined"
-                />
-                <text x="34" y="20" text-anchor="end" class="decay-label">1.0</text>
-                <text x="34" y="84" text-anchor="end" class="decay-label">0.5</text>
-                <text x="34" y="148" text-anchor="end" class="decay-label">0</text>
-                <line x1="83.2" y1="144" x2="83.2" y2="148" stroke="var(--color-ink-600)" />
-                <line x1="148" y1="144" x2="148" y2="148" stroke="var(--color-ink-600)" />
-                <line x1="256" y1="144" x2="256" y2="148" stroke="var(--color-ink-600)" />
-                <line x1="342.4" y1="144" x2="342.4" y2="148" stroke="var(--color-ink-600)" />
-                <line x1="472" y1="144" x2="472" y2="148" stroke="var(--color-ink-600)" />
-                <text x="83.2" y="160" text-anchor="middle" class="decay-label">24 h</text>
-                <text x="148" y="160" text-anchor="middle" class="decay-label">60 h</text>
-                <text x="256" y="160" text-anchor="middle" class="decay-label">120 h</text>
-                <text x="342.4" y="160" text-anchor="middle" class="decay-label">168 h</text>
-                <text x="472" y="160" text-anchor="end" class="decay-label">240 h</text>
+                <!-- band-edge gridlines -->
+                <line v-for="x in BAND_EDGES" :key="x" :x1="x" y1="16" :x2="x" y2="144" stroke="var(--color-ink-800)" stroke-width="1" />
+                <!-- neutral 1.0 reference -->
+                <line x1="40" :y1="NEUTRAL_Y" x2="472" :y2="NEUTRAL_Y" stroke="var(--color-ink-700)" stroke-width="1" stroke-dasharray="2 4" />
+                <polyline v-for="c in WEIGHT_STEPS" :key="c.kind" :points="c.points" fill="none" :stroke="c.stroke" stroke-width="1.5" />
+                <text x="34" y="20" text-anchor="end" class="axis-label">2.0</text>
+                <text x="34" :y="NEUTRAL_Y + 4" text-anchor="end" class="axis-label">1.0</text>
+                <text x="34" y="148" text-anchor="end" class="axis-label">0</text>
+                <text v-for="(x, i) in BAND_LABEL_X" :key="i" :x="x" y="160" text-anchor="middle" class="axis-label">{{ LEAD_BANDS[i]?.label }}</text>
               </svg>
             </div>
             <div class="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
-              <span class="text-paper-300 flex items-center gap-1.5 font-mono text-[10px] tracking-wide"
-                ><span class="bg-heat-400 h-0.5 w-4" aria-hidden="true" />convection-allowing · out by 60 h</span
-              >
-              <span class="text-paper-300 flex items-center gap-1.5 font-mono text-[10px] tracking-wide"
-                ><span class="bg-cold-400 h-0.5 w-4" aria-hidden="true" />regional mid-res · floor 0.3</span
-              >
-              <span class="text-paper-300 flex items-center gap-1.5 font-mono text-[10px] tracking-wide"
-                ><span class="bg-sodium-300 h-0.5 w-4" aria-hidden="true" />global · floor 0.4</span
-              >
-              <span class="text-paper-300 flex items-center gap-1.5 font-mono text-[10px] tracking-wide"
-                ><span class="bg-rain-400 h-0.5 w-4" aria-hidden="true" />AI &amp; ensemble-mean · 0.75 × global</span
+              <span v-for="c in WEIGHT_STEPS" :key="c.kind" class="text-paper-300 flex items-center gap-1.5 font-mono text-[10px] tracking-wide"
+                ><span class="h-0.5 w-4" :style="{ backgroundColor: c.stroke }" aria-hidden="true" />{{ c.label }}</span
               >
             </div>
+            <p class="text-paper-400 mt-4 text-xs leading-relaxed">
+              {{ WEIGHTS_PROVENANCE }} — a single pooled default, not a per-place fit. Every model carries its own fitted multiplier; a model the fit has never seen (or a class
+              band too thin to fit) falls back to the class line shown here, then to a neutral 1.0.
+            </p>
           </figure>
         </section>
 
@@ -494,7 +500,7 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
 </template>
 
 <style scoped>
-.decay-label {
+.axis-label {
   font: 10px/1 var(--font-mono);
   fill: var(--color-paper-400);
   letter-spacing: 0.05em;

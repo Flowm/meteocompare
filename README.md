@@ -8,7 +8,7 @@ Frontend-only (Vue 3 + Vite). Forecasts come straight from [open-meteo.com](http
 
 - **21 forecast models/products**, automatically dropped in/out based on geographic coverage and forecast horizon.
 - **Aggregate-first UI**: temperature + ±1σ predictability band, precipitation bars, daily strip with weather icon / high / low / precip prob / wind.
-- **Predictability signal** per timestep — derived from inter-model spread (agreement) normalised against typical seasonal spread, a model-count penalty, and lead-time decay encoded in the model weights (ADR 0005). On daily surfaces it is **calibrated against on-device verification data** where available, publishing the observed frequency of past forecasts verifying within tolerance (ADR 0008); elsewhere it stays an _uncalibrated, agreement-based_ estimate.
+- **Predictability signal** per timestep — derived from inter-model spread (agreement) normalised against typical seasonal spread, a model-count penalty, and the lead-time weighting carried by the fitted model weights (ADR 0005). On daily surfaces it is **calibrated against on-device verification data** where available, publishing the observed frequency of past forecasts verifying within tolerance (ADR 0008); elsewhere it stays an _uncalibrated, agreement-based_ estimate.
 - **Per-model overlay** (opt-in) — one line per contributing model drawn over the aggregate, with per-model toggles, switchable between temperature, precipitation, precipitation probability, wind speed, and cloud cover.
 - **Window toggle** — 24 h / 3 d / 7 d on both charts.
 - **Locations** — open-meteo geocoding search, browser geolocation, URL-shareable state, favourites and recent-search in localStorage.
@@ -23,7 +23,7 @@ Per timestep and per variable:
 2. **Weight them.**
    - Base weight = 1.
    - Region bonus of +0.2 (mid-resolution) or +0.3 (convection-allowing) when the location is inside the model's home region.
-   - Lead-time decay per model class: convection-allowing models fade out by 60 h, mid-resolution regionals by 120 h, globals decay gently from 72 h → 0.4× by 240 h, and AI plus ensemble-mean products follow global decay with a smaller vote.
+   - Fitted lead-time weighting: each model carries a per-lead-band multiplier fitted offline from verification at reference locations worldwide (ADR 0011), which replaced the earlier hand-tuned per-class decay. Models the fit hasn't seen fall back to their model class's multipliers, and every model's weight still drops to 0 past its max useful lead time.
    - Variable boost: CAMs get ×1.3 for precipitation and precipitation probability, since they explicitly resolve convection.
 3. **Aggregate**:
    - **Temperature / precip / cloud cover / wind speed** → weighted mean + weighted standard deviation.
@@ -53,9 +53,9 @@ Wind direction uses the same formula with circular standard deviation in degrees
 Weather codes have no meaningful stdDev, so they use severity-group agreement instead:
 `predictability = clamp(weightShare(same severity group) × modelFactor, 0, 1)`.
 
-Lead-time decay is handled entirely in the model weighting layer (not as a separate
-multiplier here): CAMs fade out by 60 h, regionals by 120 h, globals decay past 72 h,
-and AI plus ensemble-mean products follow global decay with a smaller vote.
+Lead-time weighting is handled entirely in the model weighting layer (not as a separate
+multiplier here): each model's per-lead-band weight multiplier is fitted offline (ADR
+0011), and a model's weight drops to 0 past its max useful lead time.
 
 ### Calibration (ADR 0008)
 
@@ -123,7 +123,7 @@ clicking the badge reveals the two parts. Tiers: calibrated high ≥ 80 % / mid
 │  LocationBar                     │  │  useLocation     │  │  models.ts                     │
 │  AggregateSummary                │  │   ─ URL sync     │  │   ─ registry + bboxes          │
 │  HourlySeriesChart  (shared)     │  │   ─ favourites   │  │  weighting.ts                  │
-│  DailyStrip / DayCard            │  │  useForecast     │  │   ─ region bonus + decay       │
+│  DailyStrip / DayCard            │  │  useForecast     │  │   ─ region bonus + fitted wts  │
 │  VerificationDayCard            ►│◄─┤   ─ fetch+aggreg.│◄─┤  aggregate.ts                  │
 │  HitMissStrip                    │  │  useVerification │  │  aggregateVariables.ts (triad) │
 │  WeatherIcon/PredictabilityBadge │  │   ─ fetch+score  │  │  predictability.ts             │
