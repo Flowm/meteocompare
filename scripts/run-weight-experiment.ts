@@ -7,8 +7,12 @@
 // src/ or the shipping app — it drives the gated ladder offline, exactly as the
 // tests do, and writes a results document + raw JSON.
 //
-// Run with:  pnpm dlx tsx scripts/run-weight-experiment.ts [--smoke]
-//   --smoke : 2 locations x 6 runs, to validate the pipeline end-to-end first.
+// Run with:  pnpm dlx tsx scripts/run-weight-experiment.ts [--smoke] [--cache-dir <path>]
+//   --smoke     : 2 locations x 6 runs, to validate the pipeline end-to-end first.
+//   --cache-dir : reuse (and top up) a directory of cached RunEvaluation JSON
+//                 instead of re-fetching; defaults to the shared cache the weight
+//                 scripts fill (see scripts/lib/collectRuns). fit-default-weights
+//                 samples the same 24 × 00Z dates, so the two share a cache verbatim.
 // (Node's global fetch; the api layer's localStorage guard makes it free-tier.)
 //
 // Faithfulness note ("evaluate == train"): the FIT uses the exported WP2 entry
@@ -20,51 +24,32 @@
 // real recipe functions (modelWeight / ladderModelWeight / bandIndexFor), never
 // re-implemented. assertLadderParity() guards the one small duplication.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { buildPanels, fitBuiltinSet, fitDeviceResiduals, type RunPanel } from "@/analysis/bandWeights";
-import { gatherRuns, type RunRef } from "@/analysis/collectSample";
+import type { RunRef } from "@/analysis/collectSample";
 import { MIN_TRAIN_RUNS, MIN_VAL_RUNS, VAL_FRACTION } from "@/analysis/learnedWeights";
 import type { RunEvaluation } from "@/analysis/runEvaluation";
-import { ARCHIVE_START_MOST_MODELS } from "@/api/omSingleRuns";
 import { getModel, type ModelDef } from "@/domain/models";
 import { LEAD_BANDS, scoreScope, type LeadBand } from "@/domain/scorecard";
 import type { Variable } from "@/domain/weighting";
 import { modelWeight } from "@/domain/weighting";
 import { bandIndexFor, ladderModelWeight, type BuiltinWeightSet, type DeviceBandWeights } from "@/domain/weightLadder";
-import { addDaysIso } from "@/utils/date";
+
+import { ARCHIVE_START, cacheDirFromArgv, gatherCached, runDates } from "./lib/collectRuns";
+import { REFERENCE_LOCATIONS, type RefLocation } from "./lib/referenceLocations";
 
 // ---------------------------------------------------------------------------
 // Protocol constants
 // ---------------------------------------------------------------------------
-
-/** The 12 ADR-0010 reference locations, verbatim from fit-default-calibration.ts. */
-const LOCATIONS = [
-  { name: "Munich", latitude: 48.1374, longitude: 11.5755 },
-  { name: "London", latitude: 51.5072, longitude: -0.1276 },
-  { name: "Lisbon", latitude: 38.7223, longitude: -9.1393 },
-  { name: "Oslo", latitude: 59.9139, longitude: 10.7522 },
-  { name: "New York", latitude: 40.7128, longitude: -74.006 },
-  { name: "Denver", latitude: 39.7392, longitude: -104.9903 },
-  { name: "Seattle", latitude: 47.6062, longitude: -122.3321 },
-  { name: "Tokyo", latitude: 35.6762, longitude: 139.6503 },
-  { name: "Singapore", latitude: 1.3521, longitude: 103.8198 },
-  { name: "Sydney", latitude: -33.8688, longitude: 151.2093 },
-  { name: "São Paulo", latitude: -23.5505, longitude: -46.6333 },
-  { name: "Cape Town", latitude: -33.9249, longitude: 18.4241 },
-] as const;
 
 /** ~24 runs per location, all 00Z. */
 const RUNS_PER_LOCATION = 24;
 /** Newest usable run: today − (10 forecast days + ~5-day ERA5 lag + 1 margin) so
  *  band 3 (168–240 h) has truth. */
 const TRUTH_LAG_DAYS = 16;
-const ARCHIVE_START = ARCHIVE_START_MOST_MODELS;
-
-/** Politeness cap, per the free-tier gather (sequential per location). */
-const CONCURRENCY = 2;
 
 /** Per-day partition for the ablation arms (10 daily bands, 0–24 … 216–240). */
 const DAILY_BANDS: readonly LeadBand[] = Array.from({ length: 10 }, (_, d) => ({
@@ -77,7 +62,7 @@ const SMOKE = process.argv.includes("--smoke");
 const SMOKE_LOCATIONS = 2;
 const SMOKE_RUNS = 6;
 
-const CACHE_DIR = "/private/tmp/claude-501/-Users-flow-dev-gh-meteocompare/f6531fb8-d371-4e97-ade9-8c92d7788bcc/scratchpad/weight-experiment-cache";
+const CACHE_DIR = cacheDirFromArgv();
 const RESULTS_JSON = join(dirname(CACHE_DIR), "weight-experiment-results.json");
 const REPORT_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "docs", "research", "weight-ladder-experiment.md");
 
@@ -92,23 +77,8 @@ const DECISION_RULE = [
 ].join("\n");
 
 // ---------------------------------------------------------------------------
-// Dates + small utilities
+// Small utilities
 // ---------------------------------------------------------------------------
-
-function isoToday(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function daysBetween(a: string, b: string): number {
-  return Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000);
-}
-
-/** `count` 00Z run dates, evenly spaced ARCHIVE_START → today − TRUTH_LAG_DAYS. */
-function runDates(count: number): string[] {
-  const end = addDaysIso(isoToday(), -TRUTH_LAG_DAYS);
-  const span = daysBetween(ARCHIVE_START, end);
-  return Array.from({ length: count }, (_, i) => addDaysIso(ARCHIVE_START, Math.round((i * span) / (count - 1))));
-}
 
 const median = (xs: readonly number[]): number => {
   const s = xs.filter((x) => Number.isFinite(x)).toSorted((a, b) => a - b);
@@ -117,56 +87,9 @@ const median = (xs: readonly number[]): number => {
   return s.length % 2 ? (s[mid] as number) : ((s[mid - 1] as number) + (s[mid] as number)) / 2;
 };
 
-const slug = (name: string): string =>
-  name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-
 const secs = (t0: number): string => `${((Date.now() - t0) / 1000).toFixed(1)}s`;
 const f2 = (x: number): string => (Number.isFinite(x) ? x.toFixed(2) : "—");
 const signed = (x: number): string => (Number.isFinite(x) ? `${x >= 0 ? "+" : ""}${x.toFixed(2)}` : "—");
-
-// ---------------------------------------------------------------------------
-// Cache-backed gather (never re-fetches: a returned run is cached, a ref that
-// yielded nothing is cached as an explicit null marker)
-// ---------------------------------------------------------------------------
-
-interface Loc {
-  name: string;
-  latitude: number;
-  longitude: number;
-}
-
-function cachePath(loc: Loc, ref: RunRef): string {
-  return join(CACHE_DIR, `${slug(loc.name)}__${ref.runDate}__${String(ref.runHour).padStart(2, "0")}.json`);
-}
-
-async function gatherCached(loc: Loc, refs: readonly RunRef[]): Promise<RunEvaluation[]> {
-  const out: RunEvaluation[] = [];
-  const missing: RunRef[] = [];
-  for (const ref of refs) {
-    const p = cachePath(loc, ref);
-    if (existsSync(p)) {
-      const data = JSON.parse(readFileSync(p, "utf8")) as RunEvaluation | null;
-      if (data) out.push(data);
-    } else {
-      missing.push(ref);
-    }
-  }
-  if (missing.length > 0) {
-    // Newest-first: matches gatherRuns' retention-window memo (planRuns' order).
-    const ordered = missing.toSorted((a, b) => b.runDate.localeCompare(a.runDate));
-    const fetched = await gatherRuns(ordered, { location: { latitude: loc.latitude, longitude: loc.longitude }, concurrency: CONCURRENCY });
-    const byKey = new Map(fetched.map((e) => [`${e.runDate}:${e.runHour}`, e]));
-    for (const ref of missing) {
-      const e = byKey.get(`${ref.runDate}:${ref.runHour}`);
-      writeFileSync(cachePath(loc, ref), JSON.stringify(e ?? null));
-      if (e) out.push(e);
-    }
-  }
-  return out;
-}
 
 // ---------------------------------------------------------------------------
 // Evaluation panels + composite (aggUnder / runComposite / meanComposite copied
@@ -327,7 +250,7 @@ interface Coverage {
   meanBand4Models: number;
 }
 
-function coverageOf(loc: Loc, runs: readonly RunEvaluation[]): Coverage {
+function coverageOf(loc: RefLocation, runs: readonly RunEvaluation[]): Coverage {
   const at = incumbentWeightAt(loc.latitude, loc.longitude);
   const maxLeads: number[] = [];
   const band4ModelCounts: number[] = [];
@@ -410,11 +333,10 @@ interface LocResult {
 
 async function main(): Promise<void> {
   assertLadderParity();
-  mkdirSync(CACHE_DIR, { recursive: true });
 
-  const locations: Loc[] = (SMOKE ? LOCATIONS.slice(0, SMOKE_LOCATIONS) : LOCATIONS).map((l) => ({ name: l.name, latitude: l.latitude, longitude: l.longitude }));
+  const locations: readonly RefLocation[] = SMOKE ? REFERENCE_LOCATIONS.slice(0, SMOKE_LOCATIONS) : REFERENCE_LOCATIONS;
   const nRuns = SMOKE ? SMOKE_RUNS : RUNS_PER_LOCATION;
-  const dates = runDates(nRuns);
+  const dates = runDates(nRuns, TRUTH_LAG_DAYS);
   const refs: RunRef[] = dates.map((runDate) => ({ runDate, runHour: 0 }));
 
   console.log(`\n=== ADR 0011 weight-ladder experiment ${SMOKE ? "(SMOKE)" : ""} ===`);
@@ -429,7 +351,7 @@ async function main(): Promise<void> {
   for (const loc of locations) {
     const t0 = Date.now();
     // eslint-disable-next-line no-await-in-loop -- sequential per location on purpose: polite to open-meteo's free tier.
-    const runs = (await gatherCached(loc, refs)).toSorted((a, b) => a.runDate.localeCompare(b.runDate)); // oldest first (deterministic; drives the temporal split)
+    const runs = (await gatherCached(loc, refs, { cacheDir: CACHE_DIR })).toSorted((a, b) => a.runDate.localeCompare(b.runDate)); // oldest first (deterministic; drives the temporal split)
     runsByLoc.set(loc.name, runs);
     const cov = coverageOf(loc, runs);
     console.log(
