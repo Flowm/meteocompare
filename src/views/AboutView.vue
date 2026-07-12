@@ -65,17 +65,17 @@ const METHOD_STEPS = [
   {
     n: "01",
     title: "Pick",
-    body: "Each model declares a home region and a maximum useful lead time. For every timestep, models that don't cover the location — or whose horizon has run out — are dropped before any math happens.",
+    body: "Each model declares a home region and a maximum useful lead time. For every timestep, models that don't cover the location, or whose horizon has run out, are dropped before any math happens.",
   },
   {
     n: "02",
     title: "Weigh",
-    body: "Survivors start at weight 1. Regional specialists earn +0.2–0.3 on home turf, convection-allowing models get ×1.3 on precipitation, and each model carries a fitted per-lead-band multiplier — how those add up into who actually gets heard is charted below. Locally trained multipliers, if you've fitted any, apply on top.",
+    body: "Survivors start at weight 1. Regional specialists earn +0.2–0.3 on home turf, convection-allowing models get ×1.3 on precipitation, and each model carries a fitted per-lead-band multiplier; how those add up is charted below. Locally trained multipliers, if you've fitted any, apply on top.",
   },
   {
     n: "03",
     title: "Blend",
-    body: "Weighted mean ± 1 σ per hour and variable. Wind direction is averaged on the circle, so 350° and 10° make 0° — not 180°. The weather icon is the severity-weighted majority vote.",
+    body: "Weighted mean ± 1 σ per hour and variable. Wind direction is averaged on the circle, so 350° and 10° make 0°, not 180°. The weather icon is the severity-weighted majority vote.",
   },
 ];
 
@@ -102,10 +102,10 @@ const LADDER = [
     n: "03",
     title: "Built-in default",
     note: CAL
-      ? `shipped with the app — ${CAL.locations.length} reference locations worldwide, ${CAL_POINTS} verified days, fitted ${CAL.generatedAt.slice(0, 10)}`
+      ? `shipped with the app: ${CAL.locations.length} reference locations worldwide, ${CAL_POINTS} verified days, fitted ${CAL.generatedAt.slice(0, 10)}`
       : "shipped with the app",
   },
-  { n: "04", title: "Raw agreement", note: "the uncalibrated formula above — only where no curve clears its data gate" },
+  { n: "04", title: "Raw agreement", note: "the uncalibrated formula above, used only where no curve clears its data gate" },
 ];
 
 // Tier chips per scale, from the live cutoffs.
@@ -123,7 +123,7 @@ const TIER_ROWS = [
     chips: [
       { tone: "high", label: `high · ≥ ${pct(TIER_CUTOFFS.raw.high)} % · models agree` },
       { tone: "mid", label: `mid · ≥ ${pct(TIER_CUTOFFS.raw.mid)} % · mixed signals` },
-      { tone: "low", label: `low · < ${pct(TIER_CUTOFFS.raw.mid)} % · genuinely uncertain` },
+      { tone: "low", label: `low · < ${pct(TIER_CUTOFFS.raw.mid)} % · models disagree` },
     ],
   },
 ] as const;
@@ -151,7 +151,7 @@ const VIEWS = [
     path: "/train",
     name: "Train",
     blurb:
-      "Fit per-location weight multipliers from runs you've gathered and stored on-device — calibration curves for the predictability signal ride along on every fit. If the weights beat the heuristics on held-out runs, opt in and the aggregate uses them.",
+      "Fit per-location weight multipliers from runs you've gathered and stored on-device; calibration curves for the predictability signal ride along on every fit. If the fit beats the defaults on held-out runs, opt in and the aggregate uses it.",
   },
 ];
 
@@ -160,9 +160,9 @@ const SPEC: Array<[string, string]> = [
   ["variables", "temperature · precipitation · precip probability · wind · cloud cover"],
   ["windows", "24 h · 3 d · 7 d on every chart"],
   ["overlay", "one trace per contributing model, individually toggleable"],
-  ["verification", "past runs vs ERA5-Seamless reanalysis — scorecards, bias, rain timing"],
+  ["verification", "past runs vs ERA5-Seamless reanalysis: scorecards, bias, rain timing"],
   ["training", "on-device weight fitting per location, strictly opt-in"],
-  ["locations", "geocoding search · GPS · favourites — the URL is shareable state"],
+  ["locations", "geocoding search · GPS · favourites; the URL is shareable state"],
   ["units", "°C ⇄ °F · mm ⇄ in · km/h ⇄ mph, persisted"],
   ["offline", "installable PWA; a service worker keeps the shell and last data cached"],
   ["api key", "optional open-meteo commercial key, stored only in your browser"],
@@ -185,11 +185,11 @@ const providerList = computed(() => [...new Set(MODELS.map((m) => m.provider))].
 const FINE_PRINT = [
   {
     n: "01",
-    body: "Static weights by default. Without local training there is no bias correction — a model that systematically runs cold in your valley passes that bias straight into the aggregate.",
+    body: "Static weights by default. Without local training there is no bias correction: a model that systematically runs cold in your valley passes that bias straight into the aggregate.",
   },
   {
     n: "02",
-    body: "Deterministic runs only. The predictability signal reads agreement between single model runs, not true ensemble spread. Daily badges are calibrated against verified outcomes; hourly surfaces remain a raw agreement proxy, and a chaotic day can still read calm.",
+    body: "Deterministic runs only. The predictability signal reads agreement between single model runs, not ensemble spread. Daily badges are calibrated against verified outcomes; hourly surfaces remain a raw agreement proxy, and a chaotic day can still read calm.",
   },
   {
     n: "03",
@@ -197,7 +197,7 @@ const FINE_PRINT = [
   },
   {
     n: "04",
-    body: "Informational only — not a forecast of record. For severe-weather decisions, consult your national weather service.",
+    body: "Informational only, not a forecast of record. For severe-weather decisions, consult your national weather service.",
   },
 ];
 
@@ -217,7 +217,7 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
           <span class="text-sodium-300 sodium-glow">{{ MODELS.length }} models</span> are a signal.
         </h1>
         <p class="rise rise-3 text-paper-200 mt-5 max-w-[62ch] text-sm leading-relaxed sm:text-base">
-          MeteoCompare runs every public forecast model that covers your location — global physics cores, kilometre-scale regional models, AI emulators — through one weighted
+          MeteoCompare runs every public forecast model that covers your location (global physics cores, kilometre-scale regional models, AI emulators) through one weighted
           aggregate, and puts their disagreement on the chart instead of hiding it.
         </p>
         <dl class="rise rise-4 mt-7 flex flex-wrap gap-x-10 gap-y-3">
@@ -247,14 +247,14 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
           <div class="text-paper-200 max-w-[62ch] space-y-4 text-sm leading-relaxed sm:text-base">
             <p>
               A weather app gives you one confident number: 14°, light rain at noon. What it won't tell you is that one model put that rain at nine, another kept the morning dry,
-              and a third saw twice the amount. The single number hides the thing you actually need for planning — how much anyone should trust it.
+              and a third saw twice the amount. The single number hides the thing you actually need for planning: how much anyone should trust it.
             </p>
             <p>
               Comparing models is the first thing a forecaster does on a tricky day. MeteoCompare automates the habit: for any place on Earth it fetches every model with coverage
               from open-meteo.com, weighs each one by how much it has earned a say here and now, and draws the blend with its uncertainty attached.
             </p>
             <p>
-              There is no MeteoCompare backend and no account. Forecasts come straight from open-meteo, the aggregation runs in your browser, and the URL carries the state — a
+              There is no MeteoCompare backend and no account. Forecasts come straight from open-meteo, the aggregation runs in your browser, and the URL carries the state: a
               forecast you can bookmark, share, and install as an app.
             </p>
           </div>
@@ -321,14 +321,13 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
 
             <p class="text-paper-400 mt-5 text-xs leading-relaxed">
               Convection-allowing and regional models carry the early bands, then drop off the roster as their horizon runs out; global physics and AI emulators own the long range.
-              Read at each band's midpoint lead for a location with no home-region bonus and no precipitation boost, full roster present — an illustration of the shape, not the
-              exact weights at your location.
+              Read at each band's midpoint lead, for a location with no home-region bonus, no precipitation boost, and the full roster present. An illustration of the shape, not
+              the exact weights at your location.
             </p>
             <p class="text-paper-500 mt-2 text-xs leading-relaxed">
-              {{ WEIGHTS_PROVENANCE }} — a single pooled default, not a per-place fit. Every model carries its own fitted multiplier; a model the fit has never seen (or a class
-              band too thin to fit) falls back to its model class, then to a neutral 1.0. Weights you train on the
-              <RouterLink to="/train" class="text-sodium-200 underline-offset-4 hover:underline">Train</RouterLink> page multiply on top of these defaults — this chart is the
-              untrained baseline every location starts from.
+              {{ WEIGHTS_PROVENANCE }}. One pooled default, not a per-place fit. Every model carries its own fitted multiplier; a model the fit has never seen (or a class band too
+              thin to fit) falls back to its model class, then to a neutral 1.0. Weights you train on the
+              <RouterLink to="/train" class="text-sodium-200 underline-offset-4 hover:underline">Train</RouterLink> page multiply on top; this chart is the untrained baseline.
             </p>
           </figure>
         </section>
@@ -343,7 +342,7 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
           <div class="text-paper-200 max-w-[62ch] space-y-4 text-sm leading-relaxed sm:text-base">
             <p>
               The signal starts as agreement made visible. For each hour the app measures how widely the models spread, normalises that against typical spread at the same lead
-              time, and discounts votes that aren't independent — sibling models sharing a dynamical core count about a quarter each. Weather icons, which have no meaningful σ, use
+              time, and discounts votes that aren't independent: sibling models sharing a dynamical core count about a quarter each. Weather icons, which have no meaningful σ, use
               severity-group agreement instead.
             </p>
           </div>
@@ -354,11 +353,11 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
           </figure>
           <div class="text-paper-200 mt-5 max-w-[62ch] space-y-4 text-sm leading-relaxed sm:text-base">
             <p>
-              Agreement alone can lie — related models agree and are wrong together, and a raw 30 % says nothing about how often such days actually verify. So on the daily badges
-              the raw score is <em>calibrated</em>: the app looks up how often past forecasts with agreement like this turned out close enough — {{ HIT_TEMP }}, or
-              {{ HIT_PRECIP }} — and publishes that verified frequency instead. Curves are fitted separately per lead-time band ({{ BAND_LABELS }}), because a day-one and a day-six
-              forecast live in different error regimes. Each day card then shows the lower of its temperature and rain values — a day is only as trustworthy as its least certain
-              headline — and clicking the badge splits them apart.
+              Agreement alone can lie. Related models agree and are wrong together, and a raw 30 % says nothing about how often such days verify. So on the daily badges the raw
+              score is <em>calibrated</em>: the app looks up how often past forecasts with agreement like this turned out close enough ({{ HIT_TEMP }}, or {{ HIT_PRECIP }}) and
+              publishes that verified frequency instead. Curves are fitted separately per lead-time band ({{ BAND_LABELS }}), because a day-one and a day-six forecast live in
+              different error regimes. Each day card then shows the lower of its temperature and rain values (a day is only as trustworthy as its least certain headline); clicking
+              the badge splits them apart.
             </p>
             <p>Where the number comes from is resolved down a ladder; the first tier with enough verified days for the band wins:</p>
           </div>
@@ -383,9 +382,9 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
             </div>
           </div>
           <p class="text-paper-400 mt-4 max-w-[62ch] text-xs leading-relaxed">
-            Honest caveats: calibration fixes the <em>rate</em>, not the ranking — mid-range agreement barely separates one day from the next, so most of the signal comes from lead
-            time. It is measured against ERA5 reanalysis, not your garden thermometer. And with no ensemble members in the mix, a chaotic day on which the models happen to agree
-            still reads calmer than it is. Hourly surfaces and unverified variables show the raw score, labelled as such.
+            Caveats: calibration fixes the <em>rate</em>, not the ranking; mid-range agreement barely separates one day from the next, so most of the signal comes from lead time.
+            It is measured against ERA5 reanalysis, not your garden thermometer. And with no ensemble members in the mix, a chaotic day on which the models happen to agree still
+            reads calmer than it is. Hourly surfaces and unverified variables show the raw score, labelled as such.
           </p>
         </section>
 
@@ -430,7 +429,7 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
             <span class="bg-ink-700 h-px min-w-6 flex-1" aria-hidden="true" />
           </header>
           <p class="text-paper-200 max-w-[62ch] text-sm leading-relaxed sm:text-base">
-            The registry, drawn live from the app's model table — {{ MODELS.length }} products across five classes. Membership is automatic: each model contributes only inside its
+            The registry, drawn live from the app's model table: {{ MODELS.length }} products across five classes. Membership is automatic; each model contributes only inside its
             coverage and only as far as its horizon carries.
           </p>
           <div class="border-ink-700 bg-ink-900/40 mt-5 border p-4 sm:p-6">
@@ -476,7 +475,7 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
             <p>
               Forecast data by
               <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer" class="text-sodium-200 underline-offset-4 hover:underline">open-meteo.com</a>
-              (CC BY 4.0) — the generous, CORS-friendly API that makes a backend-less design possible. Icons from Erik Flowers'
+              (CC BY 4.0), the generous, CORS-friendly API that makes a backend-less design possible. Icons from Erik Flowers'
               <a href="https://github.com/erikflowers/weather-icons" target="_blank" rel="noopener noreferrer" class="text-sodium-200 underline-offset-4 hover:underline"
                 >weather-icons</a
               >.
