@@ -7,7 +7,7 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 
 import { DEFAULT_CALIBRATION_META } from "@/analysis/defaultCalibration";
-import { DEFAULT_WEIGHTS, DEFAULT_WEIGHTS_META } from "@/analysis/defaultWeights";
+import { DEFAULT_WEIGHTS_META } from "@/analysis/defaultWeights";
 import AppFooter from "@/components/AppFooter.vue";
 import LocationBar from "@/components/LocationBar.vue";
 import { TEMP_HIT_TOLERANCE_C, WET_DAY_THRESHOLD_MM } from "@/domain/calibration";
@@ -15,60 +15,42 @@ import { MODELS, type ModelKind } from "@/domain/models";
 import { TIER_CUTOFFS } from "@/domain/predictability";
 import { LEAD_BANDS } from "@/domain/scorecard";
 
+import { computeBandVotes, VOTE_KIND_ORDER } from "./aboutWeights";
+
 const GITHUB_URL = "https://github.com/Flowm/meteocompare";
 
-// — §02 · default-weights diagram, generated from the shipped fitted ladder —
-// Per model *class*, the effective weight multiplier in each lead band (ADR
-// 0011), read straight from analysis/defaultWeights so the plot can't drift from
-// the fit. These are STEPS, not curves: the fit is piecewise-constant per band,
-// so the drawing is too. The plot maps each band onto an equal x-slice
-// PLOT_X0…PLOT_X1 and multiplier 0…WEIGHT_MAX onto y PLOT_Y1…PLOT_Y0; the dashed
-// midline is 1.0 (neutral — above it a class is up-weighted, below it down). A
-// class band the offline fit never gated resolves to that neutral 1.0, exactly
-// the per-model → per-class → 1 fall-through the live weighting uses.
-const WEIGHT_MAX = 2; // the fitting grid's ceiling (bandWeights MULT_MAX)
-const PLOT_X0 = 40;
-const PLOT_X1 = 472;
-const PLOT_Y0 = 16; // multiplier WEIGHT_MAX (top)
-const PLOT_Y1 = 144; // multiplier 0
-const BAND_W = (PLOT_X1 - PLOT_X0) / LEAD_BANDS.length;
+// — §02 · default-weights diagram (ADR 0011): whose voice the blend listens to —
+// Not the raw per-band multipliers (meaningless before normalisation) but the
+// NORMALISED share of the aggregate vote each model class commands, per lead
+// band. Computed live in ./aboutWeights from the shipped fit + registry, so the
+// bars track a refit; see that module for the honest share derivation and the
+// simplifying assumptions the caption states.
+const BAND_VOTES = computeBandVotes();
 
-const weightX = (bandIndex: number): number => PLOT_X0 + bandIndex * BAND_W;
-const weightY = (mult: number): number => PLOT_Y0 + (1 - mult / WEIGHT_MAX) * (PLOT_Y1 - PLOT_Y0);
-const NEUTRAL_Y = weightY(1);
+// Class → label + fill, in the diagram's stacked order (short-range specialists
+// left, long-horizon models right). Fills reuse the §05 fleet-dot palette.
+const VOTE_CLASS_META: Record<ModelKind, { label: string; fill: string }> = {
+  "regional-cam": { label: "Convection-allowing", fill: "var(--color-heat-400)" },
+  "regional-mid": { label: "Regional mid-res", fill: "var(--color-cold-400)" },
+  global: { label: "Global", fill: "var(--color-sodium-300)" },
+  ai: { label: "AI", fill: "var(--color-rain-400)" },
+  "ensemble-mean": { label: "Ensemble mean", fill: "var(--color-paper-300)" },
+};
+const VOTE_LEGEND = VOTE_KIND_ORDER.map((kind) => Object.assign({ kind }, VOTE_CLASS_META[kind]));
 
-/** Effective per-class multiplier per band (null / missing → neutral 1.0). */
-function classMultipliers(kind: ModelKind): number[] {
-  const slots = DEFAULT_WEIGHTS?.perClass[kind] ?? [];
-  return LEAD_BANDS.map((_, i) => slots[i] ?? 1);
-}
+// One horizontal 100%-stacked bar per band; only classes with a vote render.
+const VOTE_BARS = (BAND_VOTES ?? []).map((v) => ({
+  label: v.band.label,
+  range: `${v.band.start}–${v.band.end} h`,
+  memberCount: v.memberCount,
+  segments: VOTE_KIND_ORDER.map((kind) => Object.assign({ kind }, VOTE_CLASS_META[kind], v.byClass[kind])).filter((s) => s.share > 0),
+}));
 
-/** SVG polyline points tracing one class's per-band step function: a flat segment
- *  across each band, connected by verticals at the band edges. */
-function stepPoints(mults: number[]): string {
-  const pts: string[] = [];
-  mults.forEach((m, i) => {
-    const y = weightY(m).toFixed(1);
-    pts.push(`${weightX(i).toFixed(1)},${y}`, `${weightX(i + 1).toFixed(1)},${y}`);
-  });
-  return pts.join(" ");
-}
-
-const WEIGHT_CLASSES: { kind: ModelKind; label: string; stroke: string }[] = [
-  { kind: "global", label: "global", stroke: "var(--color-sodium-300)" },
-  { kind: "regional-mid", label: "regional mid-res", stroke: "var(--color-cold-400)" },
-  { kind: "regional-cam", label: "convection-allowing", stroke: "var(--color-heat-400)" },
-  { kind: "ai", label: "AI", stroke: "var(--color-rain-400)" },
-  { kind: "ensemble-mean", label: "ensemble mean", stroke: "var(--color-paper-300)" },
-];
-
-/** One stepped line per class — empty when no default fit has shipped yet. */
-const WEIGHT_STEPS = DEFAULT_WEIGHTS ? WEIGHT_CLASSES.map((c) => ({ kind: c.kind, label: c.label, stroke: c.stroke, points: stepPoints(classMultipliers(c.kind)) })) : [];
-
-// Band-edge x positions (excluding the outer axis) for the vertical gridlines,
-// and band-label anchor x positions (centred in each slice).
-const BAND_EDGES = LEAD_BANDS.slice(1).map((_, i) => weightX(i + 1));
-const BAND_LABEL_X = LEAD_BANDS.map((_, i) => weightX(i) + BAND_W / 2);
+const votePct = (share: number): number => Math.round(share * 100);
+// A segment earns an inline % label when it is wide enough not to clip; the
+// per-class model count rides along only on the roomier ones.
+const LABEL_MIN_SHARE = 0.1;
+const COUNT_MIN_SHARE = 0.16;
 
 const WEIGHTS_META = DEFAULT_WEIGHTS_META;
 const WEIGHTS_PROVENANCE = WEIGHTS_META ? `fitted at ${WEIGHTS_META.locations.length} reference locations worldwide · ${WEIGHTS_META.generatedAt.slice(0, 10)}` : "";
@@ -88,7 +70,7 @@ const METHOD_STEPS = [
   {
     n: "02",
     title: "Weigh",
-    body: "Survivors start at weight 1. Regional specialists earn +0.2–0.3 on home turf, convection-allowing models get ×1.3 on precipitation, and each model is scaled by a fitted per-lead-band multiplier (below). Locally trained multipliers, if you've fitted any, apply on top.",
+    body: "Survivors start at weight 1. Regional specialists earn +0.2–0.3 on home turf, convection-allowing models get ×1.3 on precipitation, and each model carries a fitted per-lead-band multiplier — how those add up into who actually gets heard is charted below. Locally trained multipliers, if you've fitted any, apply on top.",
   },
   {
     n: "03",
@@ -293,37 +275,60 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
             </div>
           </div>
 
-          <!-- Fitted default weights (ADR 0011): one stepped line per model class,
-               its effective multiplier per lead band, read live from
-               analysis/defaultWeights (see the script above) so the diagram tracks
-               the shipped fit. The dashed midline is 1.0 — neutral; above it a
-               class is up-weighted, below it down-weighted. Axes, gridline and band
-               labels stay static. -->
-          <figure v-if="WEIGHT_STEPS.length" class="registration border-ink-700 bg-ink-900/60 mt-5 border p-4 sm:p-5">
-            <figcaption class="eyebrow mb-4">Default weights · fitted multiplier per lead band</figcaption>
-            <div class="graph-paper">
-              <svg viewBox="0 0 480 176" class="h-auto w-full" role="img" aria-label="Fitted weight multiplier per lead-time band for each model class">
-                <line x1="40" y1="16" x2="40" y2="144" stroke="var(--color-ink-600)" stroke-width="1" />
-                <line x1="40" y1="144" x2="472" y2="144" stroke="var(--color-ink-600)" stroke-width="1" />
-                <!-- band-edge gridlines -->
-                <line v-for="x in BAND_EDGES" :key="x" :x1="x" y1="16" :x2="x" y2="144" stroke="var(--color-ink-800)" stroke-width="1" />
-                <!-- neutral 1.0 reference -->
-                <line x1="40" :y1="NEUTRAL_Y" x2="472" :y2="NEUTRAL_Y" stroke="var(--color-ink-700)" stroke-width="1" stroke-dasharray="2 4" />
-                <polyline v-for="c in WEIGHT_STEPS" :key="c.kind" :points="c.points" fill="none" :stroke="c.stroke" stroke-width="1.5" />
-                <text x="34" y="20" text-anchor="end" class="axis-label">2.0</text>
-                <text x="34" :y="NEUTRAL_Y + 4" text-anchor="end" class="axis-label">1.0</text>
-                <text x="34" y="148" text-anchor="end" class="axis-label">0</text>
-                <text v-for="(x, i) in BAND_LABEL_X" :key="i" :x="x" y="160" text-anchor="middle" class="axis-label">{{ LEAD_BANDS[i]?.label }}</text>
-              </svg>
+          <!-- Fitted default weights (ADR 0011), reframed as SHARE OF THE VOTE:
+               one horizontal 100%-stacked bar per lead band, class-coloured, its
+               segments the normalised share each model class commands of the
+               blend at that lead. Computed live in ./aboutWeights from the shipped
+               fit + registry, so the bars track a refit. Deliberately HTML (not
+               the SVG the other figures use): a viewBox would scale the labels
+               down with the container, and this must stay legible at ~375 px. -->
+          <figure v-if="VOTE_BARS.length" class="registration border-ink-700 bg-ink-900/60 mt-5 border p-4 sm:p-5">
+            <figcaption class="eyebrow">Whose voice the blend listens to</figcaption>
+            <p class="text-paper-400 mt-1 mb-4 text-xs leading-relaxed">Share of the aggregate vote by model class, from day 1 to day 10.</p>
+
+            <!-- Legend -->
+            <div class="mb-5 flex flex-wrap gap-x-4 gap-y-1.5">
+              <span v-for="c in VOTE_LEGEND" :key="c.kind" class="text-paper-200 flex items-center gap-1.5 font-mono text-[10px] tracking-wide">
+                <span class="size-2.5 shrink-0" :style="{ backgroundColor: c.fill }" aria-hidden="true" />{{ c.label }}
+              </span>
             </div>
-            <div class="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
-              <span v-for="c in WEIGHT_STEPS" :key="c.kind" class="text-paper-300 flex items-center gap-1.5 font-mono text-[10px] tracking-wide"
-                ><span class="h-0.5 w-4" :style="{ backgroundColor: c.stroke }" aria-hidden="true" />{{ c.label }}</span
-              >
+
+            <!-- One 100%-stacked bar per band -->
+            <div class="space-y-3.5">
+              <div v-for="bar in VOTE_BARS" :key="bar.label">
+                <div class="mb-1 flex items-baseline justify-between gap-2">
+                  <span class="numeric text-paper-100 text-xs tracking-wide">{{ bar.label }}</span>
+                  <span class="numeric text-paper-500 text-[10px]">{{ bar.range }} · {{ bar.memberCount }} models</span>
+                </div>
+                <div
+                  class="ring-ink-700 flex h-9 w-full overflow-hidden ring-1"
+                  role="img"
+                  :aria-label="`${bar.label}: ${bar.segments.map((s) => `${s.label} ${votePct(s.share)} percent, ${s.count} model${s.count === 1 ? '' : 's'}`).join('; ')}`"
+                >
+                  <div
+                    v-for="s in bar.segments"
+                    :key="s.kind"
+                    class="flex flex-col items-center justify-center overflow-hidden leading-none"
+                    :style="{ flexGrow: s.share, flexBasis: 0, backgroundColor: s.fill }"
+                    :title="`${s.label} · ${votePct(s.share)}% · ${s.count} model${s.count === 1 ? '' : 's'}`"
+                  >
+                    <span v-if="s.share >= LABEL_MIN_SHARE" class="numeric text-ink-950 text-[11px] font-semibold">{{ votePct(s.share) }}%</span>
+                    <span v-if="s.share >= COUNT_MIN_SHARE" class="numeric text-ink-950/70 text-[9px]">{{ s.count }}×</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <p class="text-paper-400 mt-4 text-xs leading-relaxed">
+
+            <p class="text-paper-400 mt-5 text-xs leading-relaxed">
+              Convection-allowing and regional models carry the early bands, then drop off the roster as their horizon runs out; global physics and AI emulators own the long range.
+              Read at each band's midpoint lead for a location with no home-region bonus and no precipitation boost, full roster present — an illustration of the shape, not the
+              exact weights at your location.
+            </p>
+            <p class="text-paper-500 mt-2 text-xs leading-relaxed">
               {{ WEIGHTS_PROVENANCE }} — a single pooled default, not a per-place fit. Every model carries its own fitted multiplier; a model the fit has never seen (or a class
-              band too thin to fit) falls back to the class line shown here, then to a neutral 1.0.
+              band too thin to fit) falls back to its model class, then to a neutral 1.0. Weights you train on the
+              <RouterLink to="/train" class="text-sodium-200 underline-offset-4 hover:underline">Train</RouterLink> page multiply on top of these defaults — this chart is the
+              untrained baseline every location starts from.
             </p>
           </figure>
         </section>
@@ -500,12 +505,6 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
 </template>
 
 <style scoped>
-.axis-label {
-  font: 10px/1 var(--font-mono);
-  fill: var(--color-paper-400);
-  letter-spacing: 0.05em;
-}
-
 /* Masthead reveal — a single staggered rise on load, nothing on scroll. */
 @media (prefers-reduced-motion: no-preference) {
   .rise {
