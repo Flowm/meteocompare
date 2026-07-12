@@ -107,6 +107,32 @@ describe("calibrationStore — pooled tier", () => {
     expect(merged?.precipitation.bands[0]).toBeNull();
   });
 
+  it("lets a band the higher tier lacks fall through to the next tier (ADR 0011 length-tolerance)", () => {
+    const curve = (p: number) => ({
+      bins: [
+        { raw: 0, p },
+        { raw: 1, p },
+      ],
+      n: 60,
+    });
+    // The pooled tier carries a 7–10d (index 3) curve; the local tier is a
+    // legacy 3-band set with no slot there, so band 3 must resolve to pooled.
+    savePooledCalibration({
+      set: { temperature_2m: { bands: [null, null, null, curve(0.8)] }, precipitation: { bands: [null, null, null, null] } },
+      fittedAt: "2026-07-01T00:00:00Z",
+    });
+    saveWeights(48.12, 11.38, {
+      multipliers: {},
+      trainedAt: "2026-07-02T00:00:00Z",
+      improvement: 0,
+      calibration: { temperature_2m: { bands: [curve(0.9), null, null] }, precipitation: { bands: [null, null, null] } },
+    });
+    const merged = resolveCalibration(48.12, 11.38);
+    expect(merged?.temperature_2m.bands).toHaveLength(4);
+    expect(merged?.temperature_2m.bands[0]?.bins[0]?.p).toBe(0.9); // local
+    expect(merged?.temperature_2m.bands[3]?.bins[0]?.p).toBe(0.8); // fell through to pooled
+  });
+
   it("leaves the previous pooled fit in place when the sample read fails", async () => {
     savePooledCalibration({ set: { temperature_2m: { bands: [null, null, null] }, precipitation: { bands: [null, null, null] } }, fittedAt: "2026-07-01T00:00:00Z" });
     vi.mocked(listSamples).mockRejectedValue(new Error("idb broken"));

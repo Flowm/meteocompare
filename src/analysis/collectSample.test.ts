@@ -46,6 +46,25 @@ describe("gatherRuns", () => {
     expect(progress.at(-1)).toBe(3);
   });
 
+  it("requests 10 forecast days and a matching 10-day truth window (ADR 0011)", async () => {
+    let forecastDays: number | undefined;
+    let truthEnd: string | undefined;
+    const deps: GatherDeps = {
+      ...okDeps(),
+      fetchRuns: (req) => {
+        forecastDays = req.forecastDays;
+        return Promise.resolve({} as never);
+      },
+      fetchTruth: (req) => {
+        truthEnd = req.endDate;
+        return Promise.resolve({} as never);
+      },
+    };
+    await gatherRuns([{ runDate: "2026-06-03", runHour: 0 }], { location: { latitude: 1, longitude: 2 } }, deps);
+    expect(forecastDays).toBe(10);
+    expect(truthEnd).toBe("2026-06-13"); // runDate + 10 days, so band 4 (168–240 h) is verifiable
+  });
+
   it("skips runs whose evaluation is null (e.g. empty archive)", async () => {
     const deps: GatherDeps = {
       ...okDeps(),

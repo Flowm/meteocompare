@@ -42,7 +42,7 @@ const coverageTone = (hours: number): string => {
 // Columns + grouping
 // ---------------------------------------------------------------------------
 
-type SortKey = "model" | "overall" | "band0" | "band1" | "band2" | "tempBias" | "tempMae" | "amount" | "timing" | "coverage";
+type SortKey = "model" | "overall" | `band${number}` | "tempBias" | "tempMae" | "amount" | "timing" | "coverage";
 type Dir = "asc" | "desc";
 
 interface Column {
@@ -71,7 +71,7 @@ const groups: { label: string; tip: string; cols: Column[] }[] = [
     cols: [
       { key: "overall", label: "Overall", tip: "Overall skill across the full window — 0–100, higher is better", defaultDir: "desc" },
       ...LEAD_BANDS.map((b, i) => ({
-        key: `band${i}` as SortKey,
+        key: `band${i}` as const,
         label: b.label,
         tip: `Skill for forecasts ${b.start / 24}–${b.end / 24} days ahead`,
         defaultDir: "desc" as Dir,
@@ -112,15 +112,13 @@ const sortDir = ref<Dir>("desc");
 
 /** Numeric value a column sorts on; non-finite (unscorable) always sinks. */
 const sortValue = (row: ScorecardRow, key: SortKey): number => {
+  // Band columns are generated from LEAD_BANDS, so read the slot by index
+  // rather than enumerating a fixed set (the count grows with the ladder).
+  const band = /^band(\d+)$/.exec(key);
+  if (band) return row.bandComposites[Number(band[1])] ?? NaN;
   switch (key) {
     case "overall":
       return row.overall.composite;
-    case "band0":
-      return row.bandComposites[0] ?? NaN;
-    case "band1":
-      return row.bandComposites[1] ?? NaN;
-    case "band2":
-      return row.bandComposites[2] ?? NaN;
     case "tempBias":
       return row.overall.tempBias;
     case "tempMae":

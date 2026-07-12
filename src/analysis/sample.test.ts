@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import type { ScorecardRow } from "@/domain/scorecard";
+import { LEAD_BANDS, type ScorecardRow } from "@/domain/scorecard";
 
 import type { RunEvaluation } from "./runEvaluation";
 import { aggregateSample } from "./sample";
@@ -31,9 +31,13 @@ describe("aggregateSample", () => {
   });
 
   it("means per lead band, skipping nulls, null when a band is never scorable", () => {
+    // Rows carry only 3 band slots (a legacy/partial shape); the aggregation
+    // still emits one slot per LEAD_BANDS entry, the untouched tail being null.
     const stats = aggregateSample([mkRun([mkRow("a", 80, { bands: [70, null, null] })]), mkRun([mkRow("a", 90, { bands: [90, null, null] })])]);
+    expect(stats[0]?.bandCompositeMeans).toHaveLength(LEAD_BANDS.length);
     expect(stats[0]?.bandCompositeMeans[0]).toBe(80);
     expect(stats[0]?.bandCompositeMeans[1]).toBeNull();
+    expect(stats[0]?.bandCompositeMeans[3]).toBeNull(); // 7–10d never in the fixture rows
   });
 
   it("only counts finite metrics (a model absent from a run isn't a zero)", () => {

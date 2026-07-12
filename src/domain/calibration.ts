@@ -66,7 +66,10 @@ export interface CalibrationCurve {
 }
 
 /** Per-variable curves, one slot per `LEAD_BANDS` entry; null = below the data
- *  gate → identity fallback for that band. */
+ *  gate → identity fallback for that band. Sets fitted before a band was added
+ *  are SHORTER than `LEAD_BANDS`; every reader indexes by `bandIndexFor`, so a
+ *  missing trailing slot reads as `undefined` = the same identity fallback —
+ *  length-tolerance is the migration (ADR 0011), no data rewrite needed. */
 export interface VariableCalibration {
   bands: (CalibrationCurve | null)[];
 }

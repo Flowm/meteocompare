@@ -128,10 +128,12 @@ describe("buildModelScorecard — lead-time bands + coverage", () => {
       precipitation: { perModel: { m: array(N, () => null) } },
     });
     const row = rowFor(input, "m")!;
-    expect(LEAD_BANDS).toHaveLength(3);
+    expect(LEAD_BANDS).toHaveLength(4);
+    expect(row.bandComposites).toHaveLength(4);
     expect(row.bandComposites[0]).not.toBeNull(); // 0–2d has data
     expect(row.bandComposites[1]).toBeNull(); // 2–4d empty
     expect(row.bandComposites[2]).toBeNull(); // 4–7d empty
+    expect(row.bandComposites[3]).toBeNull(); // 7–10d beyond the 168 h window
     expect(row.coveredHours).toBe(48);
     expect(row.totalHours).toBe(N);
     expect(row.partial).toBe(true);

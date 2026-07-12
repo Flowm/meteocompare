@@ -21,10 +21,13 @@ describe("bandIndexFor", () => {
     expect(bandIndexFor(12)).toBe(0);
     expect(bandIndexFor(60)).toBe(1);
     expect(bandIndexFor(120)).toBe(2);
+    expect(bandIndexFor(168)).toBe(3); // start of the 7–10d band
+    expect(bandIndexFor(200)).toBe(3); // inside the 7–10d band
   });
 
-  it("clamps beyond the last band (day 8+ reuses the last curve)", () => {
-    expect(bandIndexFor(200)).toBe(LEAD_BANDS.length - 1);
+  it("clamps at the last band (≥240 h has no further band to fall into)", () => {
+    expect(bandIndexFor(240)).toBe(LEAD_BANDS.length - 1); // 240 = band 4's exclusive end
+    expect(bandIndexFor(300)).toBe(LEAD_BANDS.length - 1);
     expect(bandIndexFor(1000)).toBe(LEAD_BANDS.length - 1);
   });
 });
@@ -155,5 +158,40 @@ describe("isCalibrated", () => {
     expect(isCalibrated(set, "temperature_2m", 60)).toBe(false);
     expect(isCalibrated(set, "precipitation", 12)).toBe(false);
     expect(isCalibrated(null, "temperature_2m", 12)).toBe(false);
+  });
+});
+
+describe("readers tolerate a set with fewer bands than LEAD_BANDS", () => {
+  // A curve set fitted with 3 bands (the shipped default / any pre-ADR-0011
+  // stored calibration) has no slot for the 7–10d band. Indexing by
+  // bandIndexFor yields undefined there, which every reader treats as the
+  // identity fallback — no throw, no misindex, no migration.
+  const legacy: CalibrationSet = {
+    temperature_2m: {
+      bands: [
+        {
+          bins: [
+            { raw: 0, p: 0.5 },
+            { raw: 1, p: 0.9 },
+          ],
+          n: 60,
+          source: "builtin",
+        },
+        null,
+        null,
+      ],
+    },
+    precipitation: { bands: [null, null, null] },
+  };
+
+  it("falls through to the raw heuristic for a band the set does not carry", () => {
+    // 200 h → band index 3, which the 3-band set lacks.
+    expect(applyCalibration(legacy, "temperature_2m", 200, 0.7)).toBe(0.7);
+    expect(isCalibrated(legacy, "temperature_2m", 200)).toBe(false);
+  });
+
+  it("still resolves the bands the set does carry", () => {
+    expect(isCalibrated(legacy, "temperature_2m", 12)).toBe(true);
+    expect(applyCalibration(legacy, "temperature_2m", 12, 0)).toBe(0.5);
   });
 });

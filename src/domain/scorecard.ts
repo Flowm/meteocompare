@@ -42,11 +42,15 @@ export interface LeadBand {
   end: number;
 }
 
-/** Coarse bands for the per-model skill-decay-over-lead-time trio. */
+/** Coarse bands for the per-model skill-decay-over-lead-time breakdown. The
+ *  7–10d band exists because the forecast page shows 240 h and the fitted
+ *  weight multipliers must cover it (ADR 0011); only the long-range models
+ *  reach it, so its scorecard column is mostly a coverage gap. */
 export const LEAD_BANDS: readonly LeadBand[] = [
   { label: "0–2d", start: 0, end: 48 },
   { label: "2–4d", start: 48, end: 96 },
   { label: "4–7d", start: 96, end: 168 },
+  { label: "7–10d", start: 168, end: 240 },
 ];
 
 /** Sentinel id used for the aggregate's row (it is not a Model — CONTEXT.md). */

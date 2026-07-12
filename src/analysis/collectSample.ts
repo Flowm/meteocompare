@@ -14,6 +14,13 @@ export interface RunRef {
   runHour: number;
 }
 
+/** Forecast horizon to gather, in days. The fitted weight ladder's multipliers
+ *  must cover the forecast page's 240 h horizon (ADR 0011), so the gather path
+ *  requests 10 days explicitly rather than leaning on the API's 7-day default.
+ *  Drives both the forecast fetch and its truth window so band 4 (168–240 h) is
+ *  verifiable. */
+export const TRAINING_FORECAST_DAYS = 10;
+
 export interface PlanOptions {
   /** Most recent run date to include (ISO date, inclusive). */
   endDate: string;
@@ -124,10 +131,13 @@ export async function gatherRuns(refs: readonly RunRef[], opts: GatherOptions, d
         // here too and cost nothing; the next window re-probes from scratch.
         if (models.length > 0) {
           try {
-            const truthEnd = addDaysIso(ref.runDate, 7);
+            const truthEnd = addDaysIso(ref.runDate, TRAINING_FORECAST_DAYS);
             // eslint-disable-next-line no-await-in-loop -- a worker pulls jobs sequentially; the pool supplies the parallelism.
             const [runs, truth] = await Promise.all([
-              deps.fetchRuns({ lat, lon, runDate: ref.runDate, runHour: ref.runHour, models }, { signal: opts.signal, onModelUnavailable: (id) => markUnavailable(key, id) }),
+              deps.fetchRuns(
+                { lat, lon, runDate: ref.runDate, runHour: ref.runHour, models, forecastDays: TRAINING_FORECAST_DAYS },
+                { signal: opts.signal, onModelUnavailable: (id) => markUnavailable(key, id) },
+              ),
               deps.fetchTruth({ lat, lon, startDate: ref.runDate, endDate: truthEnd }, opts.signal),
             ]);
             const ev = deps.evaluate({ runs, truth, lat, lon, runDate: ref.runDate, runHour: ref.runHour });

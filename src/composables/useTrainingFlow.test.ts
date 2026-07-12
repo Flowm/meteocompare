@@ -118,8 +118,8 @@ describe("useTrainingFlow — train and apply", () => {
     const calibration = loadWeights(INNSBRUCK.latitude, INNSBRUCK.longitude)?.calibration;
     // The mock sample has no scored days, so every band is the null (identity)
     // fallback — but the set itself is persisted, ADR 0008's ride-along shape.
-    expect(calibration?.temperature_2m.bands).toEqual([null, null, null]);
-    expect(calibration?.precipitation.bands).toEqual([null, null, null]);
+    expect(calibration?.temperature_2m.bands).toEqual([null, null, null, null]);
+    expect(calibration?.precipitation.bands).toEqual([null, null, null, null]);
     expect(vi.mocked(refitPooledCalibration)).toHaveBeenCalledTimes(1);
   });
 
