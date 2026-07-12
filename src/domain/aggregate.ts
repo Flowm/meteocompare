@@ -32,6 +32,10 @@ export interface AggregatePoint {
   perModel: ModelSamples;
 }
 
+/** Weight function used to blend the models at each timestep. Matches the
+ *  production `normalizedWeights` signature (which is the default). */
+export type NormalizeWeights = (models: ModelDef[], leadHours: number, lat: number, lon: number, variable: Variable, multipliers?: Record<string, number>) => Map<string, number>;
+
 export interface AggregateOptions {
   variable: Variable;
   models: ModelDef[];
@@ -41,6 +45,11 @@ export interface AggregateOptions {
   baseTime: Date;
   /** Optional per-model weight multipliers (trained, per-location override). */
   multipliers?: Record<string, number>;
+  /** Weight-function override. Defaults to the production weight ladder
+   *  (`normalizedWeights`). The verification page injects the superseded
+   *  pre-ADR-0011 recipe here to score its "Aggregate (legacy)" comparator row;
+   *  no production/forecast path sets this. */
+  normalize?: NormalizeWeights;
 }
 
 function leadHoursAt(time: string, baseTime: Date): number {
@@ -149,13 +158,13 @@ function severityWeightedMode(perModel: ModelSamples, weights: Map<string, numbe
 /** Stitch per-model timeseries into a single aggregate timeseries.
  *  `series[modelId]` is the value array; `times` is the shared time axis. */
 export function aggregateSeries(times: string[], series: Record<string, (number | null)[]>, opts: AggregateOptions): AggregatePoint[] {
-  const { variable, models, lat, lon, baseTime, multipliers } = opts;
+  const { variable, models, lat, lon, baseTime, multipliers, normalize = normalizedWeights } = opts;
   const result: AggregatePoint[] = [];
   for (let i = 0; i < times.length; i++) {
     const timeStr = times[i];
     if (timeStr === undefined) continue;
     const leadH = leadHoursAt(timeStr, baseTime);
-    const weights = normalizedWeights(models, leadH, lat, lon, variable, multipliers);
+    const weights = normalize(models, leadH, lat, lon, variable, multipliers);
     const perModel: ModelSamples = {};
     for (const m of models) {
       const arr = series[m.id];

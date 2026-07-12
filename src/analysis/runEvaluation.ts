@@ -9,7 +9,9 @@
 import { extractHourly as extractTruthHourly, type HistoricalWeatherResponse } from "@/api/omHistoricalWeather";
 import { extractHourlyByModel, type SingleRunsResponse } from "@/api/omSingleRuns";
 import type { DataVarId, HourlySeries } from "@/composables/hourlySeries";
+import { aggregateSeries } from "@/domain/aggregate";
 import { aggregateVariables, type VarSpec } from "@/domain/aggregateVariables";
+import { legacyNormalizedWeights } from "@/domain/legacyWeighting";
 import { MODEL_IDS, MODELS, type ModelDef } from "@/domain/models";
 import { buildModelScorecard, type ScorecardRow } from "@/domain/scorecard";
 import { buildDailyVerification, VERIFIED_VARIABLES, type DailyVerification, type VerifiedVariable } from "@/domain/verification";
@@ -147,13 +149,21 @@ export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tuned
   const { hourly, daily } = surfacesFor(aggregate, predictability);
   const tunedSurfaces = tuned ? surfacesFor(tuned.aggregate, tuned.predictability) : null;
 
-  // Scorecard: the default-weight aggregate row, plus a tuned row (when stored)
-  // for the inline comparison.
+  // A third aggregate under the superseded pre-ADR-0011 heuristic recipe,
+  // scored as the always-present "Aggregate (legacy)" comparator row. Reuses the
+  // per-model series already extracted above — only the weight function differs
+  // (injected here, so the production aggregate path never sees legacyWeighting).
+  // Scorecard-only: no hourly/daily surfaces or predictability are built from it.
+  const legacyAgg = perVerifiedVariable((v) => aggregateSeries(times, perModel[v] ?? {}, { variable: v, models: MODELS, lat, lon, baseTime, normalize: legacyNormalizedWeights }));
+
+  // Scorecard: the default-weight aggregate row, a tuned row (when stored) for
+  // the inline comparison, and the always-present legacy row.
   const tunedAgg = tuned?.aggregate;
   const scorecard = buildModelScorecard({
     times,
     channels: perVerifiedVariable((v) => ({ aggregate: aggregate[v] ?? [], perModel: perModel[v] ?? {}, truth: alignedTruth[v] })),
     tuned: tunedAgg ? perVerifiedVariable((v) => tunedAgg[v] ?? []) : undefined,
+    legacy: legacyAgg,
   });
 
   return {

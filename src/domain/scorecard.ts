@@ -60,6 +60,11 @@ export const AGGREGATE_ROW_ID = "__aggregate__";
  *  tuned weights (training page), shown alongside the default-weight aggregate. */
 export const AGGREGATE_TUNED_ROW_ID = "__aggregate_tuned__";
 
+/** Sentinel id for the aggregate row computed with the superseded pre-ADR-0011
+ *  heuristic recipe (domain/legacyWeighting), always shown on the verification
+ *  page as a comparator against the shipping fitted-ladder aggregate. */
+export const AGGREGATE_LEGACY_ROW_ID = "__aggregate_legacy__";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -110,6 +115,11 @@ export interface ScorecardInput {
    *  weights — when present, scored as an extra "Aggregate (tuned)" row for
    *  comparison against the default-weight aggregate. */
   tuned?: Record<VerifiedVariable, readonly AggregatePoint[]>;
+  /** Optional aggregate per variable computed with the superseded pre-ADR-0011
+   *  heuristic weights (domain/legacyWeighting) — scored as an extra
+   *  "Aggregate (legacy)" comparator row. Mirrors `tuned`, but the verification
+   *  page always supplies it (no stored weights needed). */
+  legacy?: Record<VerifiedVariable, readonly AggregatePoint[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -226,6 +236,12 @@ export function buildModelScorecard(input: ScorecardInput): ScorecardRow[] {
     const tunedTemp = input.tuned.temperature_2m.slice(0, n).map((p) => p.value);
     const tunedPrecip = input.tuned.precipitation.slice(0, n).map((p) => p.value);
     rows.push(buildRow(AGGREGATE_TUNED_ROW_ID, true, tunedTemp, tunedPrecip, truthTemp, truthPrecip, n));
+  }
+
+  if (input.legacy) {
+    const legacyTemp = input.legacy.temperature_2m.slice(0, n).map((p) => p.value);
+    const legacyPrecip = input.legacy.precipitation.slice(0, n).map((p) => p.value);
+    rows.push(buildRow(AGGREGATE_LEGACY_ROW_ID, true, legacyTemp, legacyPrecip, truthTemp, truthPrecip, n));
   }
 
   rows.sort((a, b) => rankKey(b.overall.composite) - rankKey(a.overall.composite));

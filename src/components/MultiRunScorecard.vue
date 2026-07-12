@@ -3,9 +3,9 @@ import { computed } from "vue";
 
 import type { ModelSampleStats } from "@/analysis/sample";
 import { unitLabel, useUnits } from "@/composables/useUnits";
-import { AGGREGATE_TUNED_ROW_ID, LEAD_BANDS } from "@/domain/scorecard";
+import { LEAD_BANDS } from "@/domain/scorecard";
 
-import { accent, fmtScore, fmtTiming, label as labelOf, scoreTone, useScorecardFormat } from "./scorecardFormat";
+import { accent, aggregatesQualified, fmtScore, fmtTiming, label as labelOf, scoreTone, useScorecardFormat } from "./scorecardFormat";
 import Swatch from "./Swatch.vue";
 
 const props = defineProps<{
@@ -17,12 +17,12 @@ const { prefs } = useUnits();
 const { fmtTempMae, fmtAmount } = useScorecardFormat();
 
 const hasRows = computed(() => props.stats.length > 0);
-const hasTuned = computed(() => props.stats.some((s) => s.id === AGGREGATE_TUNED_ROW_ID));
+const qualify = computed(() => aggregatesQualified(props.stats.map((s) => s.id)));
 const tempUnit = computed(() => unitLabel("temperature_2m", prefs.value));
 const precipUnit = computed(() => unitLabel("precipitation", prefs.value));
 const bandLabels = LEAD_BANDS.map((b) => b.label);
 
-const label = (id: string): string => labelOf(id, hasTuned.value);
+const label = (id: string): string => labelOf(id, qualify.value);
 
 const fmtRange = (s: ModelSampleStats): string =>
   Number.isFinite(s.compositeMin) && Number.isFinite(s.compositeMax) ? `${Math.round(s.compositeMin)}–${Math.round(s.compositeMax)}` : "—";

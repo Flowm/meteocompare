@@ -2,10 +2,10 @@
 import { computed, ref } from "vue";
 
 import { unitLabel, useUnits } from "@/composables/useUnits";
-import { AGGREGATE_TUNED_ROW_ID, LEAD_BANDS, type ScorecardRow } from "@/domain/scorecard";
+import { LEAD_BANDS, type ScorecardRow } from "@/domain/scorecard";
 import { HOURS_PER_DAY } from "@/domain/verification";
 
-import { accent, fmtScore as fmtComposite, fmtTiming, label as labelOf, scoreTone, useScorecardFormat } from "./scorecardFormat";
+import { accent, aggregatesQualified, fmtScore as fmtComposite, fmtTiming, label as labelOf, scoreTone, useScorecardFormat } from "./scorecardFormat";
 import Swatch from "./Swatch.vue";
 
 const props = defineProps<{
@@ -17,15 +17,16 @@ const { prefs } = useUnits();
 const { fmtTempMae, fmtTempBias, fmtAmount } = useScorecardFormat();
 
 const hasRows = computed(() => props.rows.length > 0);
-// When a tuned aggregate is shown too, qualify both so neither claims the bare
-// "Aggregate" — which elsewhere (chart, forecast page) means the active weighting.
-const hasTuned = computed(() => props.rows.some((r) => r.id === AGGREGATE_TUNED_ROW_ID));
+// When a sibling aggregate (tuned or legacy) is shown too, qualify every
+// aggregate row so none claims the bare "Aggregate" — which elsewhere (chart,
+// forecast page) means the active weighting.
+const qualify = computed(() => aggregatesQualified(props.rows.map((r) => r.id)));
 
 const tempUnit = computed(() => unitLabel("temperature_2m", prefs.value));
 const precipUnit = computed(() => unitLabel("precipitation", prefs.value));
 const unitOf = (kind: "temp" | "precip"): string => (kind === "temp" ? tempUnit.value : precipUnit.value);
 
-const label = (id: string): string => labelOf(id, hasTuned.value);
+const label = (id: string): string => labelOf(id, qualify.value);
 
 const fmtCoverage = (row: ScorecardRow): string => `${row.coveredHours}h`;
 

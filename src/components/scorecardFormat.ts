@@ -10,17 +10,27 @@ import { computed, type ComputedRef } from "vue";
 
 import { convertDelta, convertVar, signed, useUnits } from "@/composables/useUnits";
 import { getModel } from "@/domain/models";
-import { AGGREGATE_ROW_ID, AGGREGATE_TUNED_ROW_ID } from "@/domain/scorecard";
+import { AGGREGATE_LEGACY_ROW_ID, AGGREGATE_ROW_ID, AGGREGATE_TUNED_ROW_ID } from "@/domain/scorecard";
 
 import { AGG_COLOR, paletteFor } from "./chartOption";
 
-/** Row label for a model id or an aggregate row. When a tuned aggregate is also
- *  present both aggregate rows are qualified — "Aggregate (default)" / "(tuned)"
- *  — so neither claims the bare "Aggregate" that means the active weighting
- *  elsewhere (chart, forecast page). */
-export function label(id: string, hasTuned: boolean): string {
-  if (id === AGGREGATE_ROW_ID) return hasTuned ? "Aggregate (default)" : "Aggregate";
+/** Whether the default-aggregate row must be qualified — true once any sibling
+ *  aggregate (tuned or legacy) is present, so the default row can't claim the
+ *  bare "Aggregate" that means the active weighting elsewhere (chart, forecast
+ *  page). The verification page always carries the legacy row, so it always
+ *  qualifies. */
+export function aggregatesQualified(ids: readonly string[]): boolean {
+  return ids.some((id) => id === AGGREGATE_TUNED_ROW_ID || id === AGGREGATE_LEGACY_ROW_ID);
+}
+
+/** Row label for a model id or an aggregate row. When a sibling aggregate is
+ *  also present every aggregate row is qualified — "Aggregate (default)" /
+ *  "(tuned)" / "(legacy)" — so neither the default row nor the comparators claim
+ *  the bare "Aggregate". */
+export function label(id: string, qualify: boolean): string {
+  if (id === AGGREGATE_ROW_ID) return qualify ? "Aggregate (default)" : "Aggregate";
   if (id === AGGREGATE_TUNED_ROW_ID) return "Aggregate (tuned)";
+  if (id === AGGREGATE_LEGACY_ROW_ID) return "Aggregate (legacy)";
   return getModel(id)?.label ?? id;
 }
 

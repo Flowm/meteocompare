@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 
 import type { HistoricalWeatherResponse } from "@/api/omHistoricalWeather";
 import type { SingleRunsResponse } from "@/api/omSingleRuns";
-import { AGGREGATE_TUNED_ROW_ID } from "@/domain/scorecard";
+import { AGGREGATE_LEGACY_ROW_ID, AGGREGATE_TUNED_ROW_ID } from "@/domain/scorecard";
 
 import { evaluateRun } from "./runEvaluation";
 
@@ -52,6 +52,15 @@ describe("evaluateRun", () => {
   it("adds an Aggregate (tuned) scorecard row when tuned multipliers are supplied", () => {
     const ev = evaluateRun({ runs, truth, lat: 48, lon: 11, runDate: "2026-05-20", tunedMultipliers: { ecmwf_ifs: 2 } });
     expect(ev?.scorecard.some((r) => r.id === AGGREGATE_TUNED_ROW_ID)).toBe(true);
+  });
+
+  it("always adds an Aggregate (legacy) scorecard row, even without tuned weights", () => {
+    const ev = evaluateRun({ runs, truth, lat: 48, lon: 11, runDate: "2026-05-20" });
+    const legacy = ev?.scorecard.find((r) => r.id === AGGREGATE_LEGACY_ROW_ID);
+    expect(legacy).toBeDefined();
+    expect(legacy!.isAggregate).toBe(true);
+    // No tuned weights supplied → no tuned row, but the legacy comparator stands alone.
+    expect(ev?.scorecard.some((r) => r.id === AGGREGATE_TUNED_ROW_ID)).toBe(false);
   });
 
   it("returns tuned surfaces alongside the default ones when tuned multipliers are supplied", () => {

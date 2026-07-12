@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { aggPoint, array } from "@/test/fixtures";
 
 import type { AggregatePoint } from "./aggregate";
-import { AGGREGATE_ROW_ID, AMOUNT_REF_BAD_PER_DAY, buildModelScorecard, LEAD_BANDS, TEMP_MAE_REF_BAD, type ScorecardInput } from "./scorecard";
+import { AGGREGATE_LEGACY_ROW_ID, AGGREGATE_ROW_ID, AMOUNT_REF_BAD_PER_DAY, buildModelScorecard, LEAD_BANDS, TEMP_MAE_REF_BAD, type ScorecardInput } from "./scorecard";
 import type { VerifyChannel } from "./verification";
 
 const N = 168; // a full 7-day window
@@ -12,7 +12,9 @@ const aggPt = (value: number): AggregatePoint => aggPoint(value);
 
 /** A baseline input: dry truth, flat 20 °C truth, no models — caller overrides
  *  the channels via `over` (a partial per variable, merged onto the defaults). */
-function makeInput(over: { temperature_2m?: Partial<VerifyChannel>; precipitation?: Partial<VerifyChannel>; tuned?: ScorecardInput["tuned"] } = {}): ScorecardInput {
+function makeInput(
+  over: { temperature_2m?: Partial<VerifyChannel>; precipitation?: Partial<VerifyChannel>; tuned?: ScorecardInput["tuned"]; legacy?: ScorecardInput["legacy"] } = {},
+): ScorecardInput {
   return {
     times: array(N, (i) => `t${i}`),
     channels: {
@@ -20,6 +22,7 @@ function makeInput(over: { temperature_2m?: Partial<VerifyChannel>; precipitatio
       precipitation: { aggregate: array(N, () => aggPt(0)), perModel: {}, truth: array(N, () => 0), ...over.precipitation },
     },
     tuned: over.tuned,
+    legacy: over.legacy,
   };
 }
 
@@ -170,5 +173,32 @@ describe("buildModelScorecard — aggregate ranked inline", () => {
     const input = makeInput({ temperature_2m: { perModel: { m: array(N, () => 20) } }, precipitation: { perModel: { m: array(N, () => 0) } } });
     expect(rowFor(input, "m")!.hourlyClassification).toHaveLength(N);
     expect(TEMP_MAE_REF_BAD).toBe(5); // guards the composite arithmetic in other tests
+  });
+});
+
+describe("buildModelScorecard — legacy comparator row", () => {
+  it("adds a distinct, ranked Aggregate (legacy) row only when a legacy series is supplied", () => {
+    const legacy = {
+      temperature_2m: array(N, () => aggPt(20)), // perfect temp
+      precipitation: array(N, () => aggPt(0)), // perfect dry
+    };
+    const withLegacy = makeInput({
+      temperature_2m: { perModel: { m: array(N, () => 24) }, aggregate: array(N, () => aggPt(22)) },
+      precipitation: { perModel: { m: array(N, () => 0) } },
+      legacy,
+    });
+    const rows = buildModelScorecard(withLegacy);
+    const legacyRow = rows.find((r) => r.id === AGGREGATE_LEGACY_ROW_ID);
+    expect(legacyRow).toBeDefined();
+    expect(legacyRow!.isAggregate).toBe(true);
+    expect(legacyRow!.overall.composite).toBeCloseTo(100); // scored from the legacy series
+    // Ranked inline by composite: the perfect legacy aggregate outranks the
+    // default aggregate (temp off by 2) and the worse model (off by 4).
+    const ids = rows.map((r) => r.id);
+    expect(ids.indexOf(AGGREGATE_LEGACY_ROW_ID)).toBeLessThan(ids.indexOf(AGGREGATE_ROW_ID));
+
+    // Absent unless supplied.
+    const withoutLegacy = makeInput({ temperature_2m: { perModel: { m: array(N, () => 20) } }, precipitation: { perModel: { m: array(N, () => 0) } } });
+    expect(buildModelScorecard(withoutLegacy).some((r) => r.id === AGGREGATE_LEGACY_ROW_ID)).toBe(false);
   });
 });

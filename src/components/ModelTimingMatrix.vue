@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import { AGGREGATE_TUNED_ROW_ID, type ScorecardRow } from "@/domain/scorecard";
+import { type ScorecardRow } from "@/domain/scorecard";
 
 import HitMissStrip from "./HitMissStrip.vue";
-import { accent, label as labelOf } from "./scorecardFormat";
+import { accent, aggregatesQualified, label as labelOf } from "./scorecardFormat";
 import Swatch from "./Swatch.vue";
 
 const props = defineProps<{
@@ -18,8 +18,8 @@ const props = defineProps<{
 const dayCount = computed(() => Math.max(1, Math.round((props.rows[0]?.hourlyClassification.length ?? 168) / 24)));
 
 const hasRows = computed(() => props.rows.length > 0);
-const hasTuned = computed(() => props.rows.some((r) => r.id === AGGREGATE_TUNED_ROW_ID));
-const label = (id: string): string => labelOf(id, hasTuned.value);
+const qualify = computed(() => aggregatesQualified(props.rows.map((r) => r.id)));
+const label = (id: string): string => labelOf(id, qualify.value);
 </script>
 
 <template>
