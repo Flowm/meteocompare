@@ -1,7 +1,13 @@
 catalog:
   typescript: ^6.0.3
-  oxlint: ^1.72.0
-  oxfmt: ^0.57.0
+  oxlint: ^1.74.0
+  oxfmt: ^0.59.0
+
+# typescript held at 6.x: The TS7 programmatic API needed for vue-tsc will only be available with TS7.1
+# https://github.com/vuejs/language-tools/issues/5381#issuecomment-4950412322
+updateConfig:
+  ignoreDependencies:
+    - typescript
 
 publicHoistPattern:
   - "workbox-*"
