@@ -152,7 +152,7 @@ mise trust && mise install   # provision Node 24 + pnpm 11 + prek (see mise.toml
 mise setup                   # install the git hooks (one-time; runs `prek install`)
 
 pnpm install
-pnpm dev                     # http://localhost:5183 (dev port from .claude/launch.json)
+pnpm dev                     # http://localhost:5173 (Vite's default; PORT overrides it)
 ```
 
 [mise](https://mise.jdx.dev) pins the toolchain (Node 24 + pnpm 11, matching CI). Git hooks are run by
