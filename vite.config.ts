@@ -28,11 +28,6 @@ export default defineConfig({
     // trip the default 500 kB advisory.
     chunkSizeWarningLimit: 600,
     rolldownOptions: {
-      // Silence @vueuse/core's misplaced /* #__PURE__ */ annotation warning
-      onLog(level, log, handler) {
-        if (log.code === "INVALID_ANNOTATION" && log.id?.includes("@vueuse/core")) return;
-        handler(level, log);
-      },
       output: {
         codeSplitting: {
           // Group heavy vendor deps into stable chunks. Deliberately no `src`
