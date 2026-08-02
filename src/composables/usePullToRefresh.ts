@@ -23,13 +23,11 @@ export interface UsePullToRefreshOptions {
 
 /**
  * Custom pull-to-refresh for touch devices. Installed PWAs (iOS standalone in
- * particular) have no browser chrome and no native pull-to-refresh, so there is
- * otherwise no way to force a reload. We watch document touch gestures, engage
- * only when the page is at the very top and the finger travels downward, and
- * fire `onRefresh` on release past the threshold.
+ * particular) have no browser chrome and so no native pull-to-refresh — without
+ * this there is no way to force a reload.
  *
- * Singleton-free and view-agnostic: both views scroll on the window, so the
- * window scroll position is the single source of truth for "at the top".
+ * Both views scroll on the window, so window scroll position is the single
+ * source of truth for "at the top".
  */
 export function usePullToRefresh(options: UsePullToRefreshOptions) {
   const { threshold = 72, maxPull = 120, onRefresh } = options;
@@ -97,7 +95,7 @@ export function usePullToRefresh(options: UsePullToRefreshOptions) {
       distance.value = threshold; // settle the indicator at the trigger point
       onRefresh();
     } else {
-      distance.value = 0; // snap back
+      distance.value = 0;
     }
   };
 

@@ -60,7 +60,6 @@ export interface CurrentConditions {
   isDay: boolean;
 }
 
-/** Everything one fetched forecast yields once aggregated. */
 export interface ForecastEvaluation {
   hourly: HourlyAggregate;
   daily: DailyAggregate;
@@ -73,7 +72,7 @@ export interface EvaluateForecastInputs {
   lat: number;
   lon: number;
   /** Trained-weight multipliers for this location (ADR 0007). Absent → the
-   *  heuristic weighting, byte-for-byte unchanged. */
+   *  shipped default weights alone, byte-for-byte unchanged. */
   multipliers?: Record<string, number>;
   /** Resolved calibration curves for this location (ADR 0008). Absent/null →
    *  the day cards publish the raw heuristic (identity fallback). */

@@ -1,17 +1,15 @@
 // Verification-page comparator ONLY — the superseded pre-ADR-0011 heuristic
-// weight recipe, resurrected verbatim so the per-model scorecard can score it as
-// the "Aggregate (legacy)" row against the shipping fitted ladder. This is
-// deliberately NOT part of the production weight system: ADR 0011 makes the
-// fitted per-model, per-band ladder (domain/weighting + weightLadder) the sole
-// lead-time authority, and the hand-tuned per-class decay below is exactly what
-// it replaced. Do not import this from any production aggregate path (the
-// forecast page, domain/weighting) — its only caller is the verification
-// evaluation, which injects it as an alternative weight function to build the
-// comparator row.
+// weight recipe, kept verbatim so the scorecard can score it as the
+// "Aggregate (legacy)" row against the shipping fitted ladder.
 //
-// The recipe is arm 0 of the ladder experiment (the heuristic default): no
-// trained/device multipliers, so it is (1 + regionBonus) × leadFactor ×
-// variableBoost exactly as the old modelWeight composed it.
+// Do NOT import this from any production aggregate path. ADR 0011 makes the
+// fitted ladder the sole lead-time authority and the hand-tuned per-class decay
+// below is exactly what it replaced; the only caller is the verification
+// evaluation, which injects it as an alternative weight function.
+//
+// The recipe is arm 0 of the ladder experiment: no trained/device multipliers,
+// so it is (1 + regionBonus) × leadFactor × variableBoost, as the old
+// modelWeight composed it.
 //
 // TEMPORARY: kept only while confidence in the fitted ladder builds — delete
 // this module (and the Aggregate (legacy) row) once the comparison has served

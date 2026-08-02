@@ -3,13 +3,13 @@
 // multipliers, organised as a ladder parallel to the calibration ladder
 // (analysis/calibrationStore.resolveCalibration).
 //
-// WIRED IN (WP4): the shipping recipe weighting.modelWeight resolves its builtin
-// tier here (resolveMultiplier over analysis/defaultWeights.DEFAULT_WEIGHTS), so
-// the per-model, per-band offline fit (bandWeights.fitBuiltinSet) is the app's
-// SOLE lead-time authority — there is no leadFactorForKind any more. The device
-// tier stays per-model (pooled) multipliers (ADR 0011 rejected the per-band
-// device tier), which modelWeight applies as a flat multiplier; ladderModelWeight
-// below takes the full DeviceBandWeights shape that the offline fitting and tests
+// The shipping recipe weighting.modelWeight resolves its builtin tier here
+// (resolveMultiplier over analysis/defaultWeights.DEFAULT_WEIGHTS), so the
+// per-model, per-band offline fit (bandWeights.fitBuiltinSet) is the app's SOLE
+// lead-time authority — there is no leadFactorForKind any more. The device tier
+// stays per-model (pooled) multipliers (ADR 0011 rejected the per-band device
+// tier), which modelWeight applies as a flat multiplier; ladderModelWeight below
+// takes the full DeviceBandWeights shape that the offline fitting and tests
 // exercise.
 //
 // The recipe is the "skeleton-free" one:
@@ -102,12 +102,13 @@ export function resolveMultiplier(modelId: string, kind: ModelKind, bandIndex: n
   return builtinResolved * deviceResolved;
 }
 
-/** The ladder weight recipe (ADR 0011), the drop-in replacement for
- *  `weighting.modelWeight` once the gate passes. `(1 + regionBonus) ×
+/** The ladder weight recipe (ADR 0011) in full: `(1 + regionBonus) ×
  *  variableBoost × resolveMultiplier`, gated to 0 beyond the model's archive
- *  cutoff and for negative leads. There is NO leadFactorForKind — the fitted
- *  multipliers are the sole lead-time authority. `bands` may be any partition
- *  (it only maps `leadHours` → band index); defaults to LEAD_BANDS. */
+ *  cutoff and for negative leads. The shipping `weighting.modelWeight` computes
+ *  the same product but resolves only the builtin tier, so this is the offline
+ *  fitting and test entry point — it also takes a device tier and an arbitrary
+ *  band partition (`bands` only maps `leadHours` → band index; defaults to
+ *  LEAD_BANDS), which the experiment's per-day ablation arms need. */
 export function ladderModelWeight(
   model: ModelDef,
   leadHours: number,

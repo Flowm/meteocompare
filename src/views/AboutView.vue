@@ -19,12 +19,10 @@ import { computeBandVotes, VOTE_KIND_ORDER } from "./aboutWeights";
 
 const GITHUB_URL = "https://github.com/Flowm/meteocompare";
 
-// — §02 · default-weights diagram (ADR 0011): whose voice the blend listens to —
-// Not the raw per-band multipliers (meaningless before normalisation) but the
-// NORMALISED share of the aggregate vote each model class commands, per lead
-// band. Computed live in ./aboutWeights from the shipped fit + registry, so the
-// bars track a refit; see that module for the honest share derivation and the
-// simplifying assumptions the caption states.
+// The NORMALISED share of the aggregate vote each model class commands per lead
+// band — not the raw per-band multipliers, which are meaningless before
+// normalisation. Derived in ./aboutWeights from the shipped fit + registry, so
+// the bars track a refit; see there for the assumptions the caption states.
 const BAND_VOTES = computeBandVotes();
 
 // Class → label + fill, in the diagram's stacked order (short-range specialists
@@ -38,7 +36,6 @@ const VOTE_CLASS_META: Record<ModelKind, { label: string; fill: string }> = {
 };
 const VOTE_LEGEND = VOTE_KIND_ORDER.map((kind) => Object.assign({ kind }, VOTE_CLASS_META[kind]));
 
-// One horizontal 100%-stacked bar per band; only classes with a vote render.
 const VOTE_BARS = (BAND_VOTES ?? []).map((v) => ({
   label: v.band.label,
   range: `${v.band.start}–${v.band.end} h`,
@@ -60,7 +57,6 @@ const route = useRoute();
 // other query state) when hopping from here into one of the instruments.
 const preservedQuery = computed(() => ({ ...route.query }));
 
-// — §02 · the three-step blend —
 const METHOD_STEPS = [
   {
     n: "01",
@@ -84,9 +80,8 @@ const METHOD_STEPS = [
 // re-indent the alignment away.
 const FORMULA = ["spread = clamp(1 − σ / typicalSpread(lead), 0, 1)", "votes  = min(1, independentModels / 3)", "raw    = spread × votes"].join("\n");
 
-// — §03 · calibration facts, drawn live from the domain + the shipped fit —
-// (ADR 0008/0010). Tolerances, band labels, tier cutoffs and the built-in
-// fit's metadata all come from code, so this section can't drift from it.
+// Tolerances, band labels, tier cutoffs and the built-in fit's metadata all come
+// from the domain and the shipped fit (ADR 0008/0010), so §03 can't drift.
 const pct = (x: number): number => Math.round(x * 100);
 const CAL = DEFAULT_CALIBRATION_META;
 const CAL_POINTS = CAL ? Object.values(CAL.points).reduce((a, b) => a + b, 0) : 0;
@@ -108,7 +103,6 @@ const LADDER = [
   { n: "04", title: "Raw agreement", note: "the uncalibrated formula above, used only where no curve clears its data gate" },
 ];
 
-// Tier chips per scale, from the live cutoffs.
 const TIER_ROWS = [
   {
     scale: "calibrated · daily badges",
@@ -134,7 +128,6 @@ const TIER_CHIP_CLASS = {
   low: "border-predictability-low/40 bg-predictability-low/10 text-predictability-low",
 } as const;
 
-// — §04 · the three instruments —
 const VIEWS = [
   {
     path: "/",
@@ -168,7 +161,6 @@ const SPEC: Array<[string, string]> = [
   ["api key", "optional open-meteo commercial key, stored only in your browser"],
 ];
 
-// — §05 · fleet manifest, straight from the registry —
 const KIND_ORDER: ModelKind[] = ["global", "regional-mid", "regional-cam", "ai", "ensemble-mean"];
 const KIND_META: Record<ModelKind, { label: string; note: string; dot: string }> = {
   global: { label: "Global NWP", note: "whole-planet physics, the medium-range backbone", dot: "bg-sodium-300" },
@@ -179,7 +171,6 @@ const KIND_META: Record<ModelKind, { label: string; note: string; dot: string }>
 };
 const fleet = computed(() => KIND_ORDER.map((kind) => Object.assign({ kind, models: MODELS.filter((m) => m.kind === kind) }, KIND_META[kind])));
 
-// — §07 · every centre whose model output flows into the aggregate —
 const providerList = computed(() => [...new Set(MODELS.map((m) => m.provider))].join(", "));
 
 const FINE_PRINT = [
@@ -209,7 +200,6 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
     <LocationBar />
 
     <main class="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 sm:py-12">
-      <!-- Masthead ------------------------------------------------------- -->
       <section class="pt-2 pb-10 sm:pt-6 sm:pb-16">
         <p class="eyebrow-sodium rise rise-1">Field manual · MeteoCompare</p>
         <h1 class="rise rise-2 text-paper-50 mt-4 max-w-3xl text-3xl font-semibold tracking-tight text-balance sm:text-5xl">
@@ -237,7 +227,6 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
       </section>
 
       <div class="space-y-12 sm:space-y-16">
-        <!-- §01 · Purpose ------------------------------------------------ -->
         <section>
           <header class="mb-4 flex items-center gap-3 sm:mb-5">
             <span class="text-sodium-300 font-mono text-xs">§01</span>
@@ -260,7 +249,6 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
           </div>
         </section>
 
-        <!-- §02 · Method ------------------------------------------------- -->
         <section>
           <header class="mb-4 flex items-center gap-3 sm:mb-5">
             <span class="text-sodium-300 font-mono text-xs">§02</span>
@@ -286,14 +274,12 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
             <figcaption class="eyebrow">Whose voice the blend listens to</figcaption>
             <p class="text-paper-400 mt-1 mb-4 text-xs leading-relaxed">Share of the aggregate vote by model class, from day 1 to day 10.</p>
 
-            <!-- Legend -->
             <div class="mb-5 flex flex-wrap gap-x-4 gap-y-1.5">
               <span v-for="c in VOTE_LEGEND" :key="c.kind" class="text-paper-200 flex items-center gap-1.5 font-mono text-[10px] tracking-wide">
                 <span class="size-2.5 shrink-0" :style="{ backgroundColor: c.fill }" aria-hidden="true" />{{ c.label }}
               </span>
             </div>
 
-            <!-- One 100%-stacked bar per band -->
             <div class="space-y-3.5">
               <div v-for="bar in VOTE_BARS" :key="bar.label">
                 <div class="mb-1 flex items-baseline justify-between gap-2">
@@ -332,7 +318,6 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
           </figure>
         </section>
 
-        <!-- §03 · Predictability ----------------------------------------- -->
         <section>
           <header class="mb-4 flex items-center gap-3 sm:mb-5">
             <span class="text-sodium-300 font-mono text-xs">§03</span>
@@ -388,7 +373,6 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
           </p>
         </section>
 
-        <!-- §04 · The three instruments ---------------------------------- -->
         <section>
           <header class="mb-4 flex items-center gap-3 sm:mb-5">
             <span class="text-sodium-300 font-mono text-xs">§04</span>
@@ -421,7 +405,7 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
           </div>
         </section>
 
-        <!-- §05 · Fleet manifest (rendered live from domain/models.ts) ---- -->
+        <!-- Rendered live from domain/models.ts. -->
         <section>
           <header class="mb-4 flex items-center gap-3 sm:mb-5">
             <span class="text-sodium-300 font-mono text-xs">§05</span>
@@ -449,7 +433,6 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
           </div>
         </section>
 
-        <!-- §06 · Fine print --------------------------------------------- -->
         <section>
           <header class="mb-4 flex items-center gap-3 sm:mb-5">
             <span class="text-sodium-300 font-mono text-xs">§06</span>
@@ -464,7 +447,6 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
           </ul>
         </section>
 
-        <!-- §07 · Colophon ----------------------------------------------- -->
         <section>
           <header class="mb-4 flex items-center gap-3 sm:mb-5">
             <span class="text-sodium-300 font-mono text-xs">§07</span>

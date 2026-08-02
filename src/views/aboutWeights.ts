@@ -1,15 +1,14 @@
-// Share-of-the-vote model for the About page's §02 default-weights diagram.
-//
-// The diagram answers one reader question — "whose voice does the aggregate
-// listen to, and how does that change from day 1 to day 10?" — so it plots the
+// Share-of-the-vote model for the About page's §02 default-weights diagram: the
 // NORMALISED share of the blend each model class commands per lead-time band,
-// not the raw per-band multipliers (which are meaningless before normalisation).
+// answering "whose voice does the aggregate listen to, and how does that change
+// from day 1 to day 10?". Raw per-band multipliers would not — they are
+// meaningless before normalisation.
 //
-// Shares are computed straight from the shipped machinery so the plot cannot
-// drift from a refit: each band is read at its MIDPOINT lead, every registered
-// model whose horizon reaches that lead resolves its exact production ladder
-// multiplier (per-model → per-class → 1, via weightLadder.resolveMultiplier over
-// DEFAULT_WEIGHTS), and the multipliers are summed by class and normalised.
+// Computed straight from the shipped machinery so the plot cannot drift from a
+// refit: read each band at its MIDPOINT lead, resolve every registered model
+// whose horizon reaches it through the production ladder
+// (weightLadder.resolveMultiplier over DEFAULT_WEIGHTS), then sum by class and
+// normalise.
 //
 // Simplifying assumptions vs. the live recipe `(1 + regionBonus) × variableBoost
 // × builtin[model][band] × pooled` — stated in the figure caption, so the plot
@@ -49,7 +48,7 @@ export interface BandVote {
 }
 
 /** Per-band normalised vote share by model class, or `null` before any default
- *  fit has shipped (mirrors the old chart's empty-state guard). */
+ *  fit has shipped — the figure renders nothing in that case. */
 export function computeBandVotes(): BandVote[] | null {
   const builtin = DEFAULT_WEIGHTS;
   if (!builtin) return null;

@@ -30,13 +30,12 @@ export function mergeRuns(existing: readonly RunEvaluation[], incoming: readonly
   return [...byKey.values()].toSorted((a, b) => runKey(b).localeCompare(runKey(a)));
 }
 
-// --- IndexedDB I/O (browser only) -----------------------------------------
+// IndexedDB I/O (browser only)
 //
-// The openDb / transaction / close boilerplate and the availability guard live
-// in keyedStore. Record versioning: v1 is the first *enveloped* shape. Records
-// written before versioning stored the payload under a `sample` field
-// (`{ key, sample }`); the v0 migration below lifts that field into the new
-// envelope so existing installs keep loading.
+// Boilerplate and the availability guard live in keyedStore. v1 is the first
+// *enveloped* shape; records written before it stored the payload under a
+// `sample` field (`{ key, sample }`), which the v0 migration below lifts into
+// the envelope so existing installs keep loading.
 
 const DB_NAME = "meteocompare";
 const STORE = "samples";

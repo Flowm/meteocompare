@@ -5,10 +5,6 @@
 
 import type { DataVarId } from "@/composables/hourlySeries";
 
-// ---------------------------------------------------------------------------
-// Variable selector model
-// ---------------------------------------------------------------------------
-
 /** A selectable entry in the chart's variable strip. Most map 1:1 to a
  *  DataVarId; `temp_precip` is a composite overview that draws temperature
  *  (line + band) and precipitation (bars) together on a dual axis. */
@@ -16,7 +12,6 @@ export type ChartViewId = "temp_precip" | DataVarId;
 
 export interface ChartViewMeta {
   label: string;
-  /** Underlying data variables this view renders. */
   vars: DataVarId[];
   /** Variable a single overlay line is drawn for. Composite views snap to
    *  this when the per-model overlay is enabled (two fans on two axes is unreadable). */
@@ -32,28 +27,22 @@ export const CHART_VIEWS: Record<ChartViewId, ChartViewMeta> = {
   cloud_cover: { label: "Cloud cover", vars: ["cloud_cover"], overlayVar: "cloud_cover" },
 };
 
-// ---------------------------------------------------------------------------
-// Combinable-pair view model
-// ---------------------------------------------------------------------------
-// Temperature (left axis) and precipitation (right axis) are the one
-// combinable pair: showing both together *is* the `temp_precip` composite
-// view. Every other variable is an exclusive single-axis view. Modelling the
-// active selection as a set of variables — rather than juggling tempOn/precipOn
-// booleans — keeps the picker's toggle logic a single, testable transform.
+// Temperature (left axis) and precipitation (right axis) are the one combinable
+// pair: showing both together *is* the `temp_precip` composite view. Every other
+// variable is an exclusive single-axis view. Modelling the active selection as a
+// SET of variables — rather than juggling tempOn/precipOn booleans — keeps the
+// picker's toggle logic a single, testable transform.
 
-/** The dual-axis pair that can be shown together as the composite view. */
 export const COMBINABLE_VARS: readonly DataVarId[] = ["temperature_2m", "precipitation"];
 
 function isCombinable(v: DataVarId): boolean {
   return COMBINABLE_VARS.includes(v);
 }
 
-/** The underlying data variables a view renders, as a set. */
 export function viewVars(view: ChartViewId): Set<DataVarId> {
   return new Set(CHART_VIEWS[view].vars);
 }
 
-/** Map a non-empty set of combinable variables back to its view id. */
 function combinableView(active: Set<DataVarId>): ChartViewId {
   const temp = active.has("temperature_2m");
   const precip = active.has("precipitation");
@@ -85,10 +74,6 @@ export function nextCombinableView(view: ChartViewId, clicked: DataVarId): Chart
   if (active.size === 0) active.add(clicked); // never leave the pair empty
   return combinableView(active);
 }
-
-// ---------------------------------------------------------------------------
-// Time-axis helpers (unchanged)
-// ---------------------------------------------------------------------------
 
 /** First index in `times` whose timestamp is at or after `nowStr`. */
 export function findNowIndex(times: string[], nowStr: string): number {

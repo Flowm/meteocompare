@@ -89,9 +89,9 @@ describe("buildModelScorecard — missing forecast hours are ignored, not penali
   it("does not charge a dropped-out model for rain in the hours it never forecast", () => {
     // Model covers the first 48 h with a perfect dry forecast, then drops out.
     // Truth is dry during coverage but rains heavily in the uncovered tail. The
-    // old scoring summed truth over the whole window, charging the model
-    // amountError = −(tail rain) and a long run of misses. It must now see a
-    // clean amount error (0) and an undefined timing score (no scorable events).
+    // model must not be charged for that tail: a clean amount error (0) and an
+    // undefined timing score, not amountError = −(tail rain) and a run of
+    // misses.
     const fPrecip = array(N, (i) => (i < 48 ? 0 : null));
     const input = makeInput({
       temperature_2m: { perModel: { m: array(N, (i) => (i < 48 ? 20 : null)) } },
@@ -109,8 +109,8 @@ describe("buildModelScorecard — missing forecast hours are ignored, not penali
 describe("buildModelScorecard — false alarms are penalised", () => {
   it("a model predicting rain across a dry week does NOT get a full score", () => {
     // Truth dry all week; model cries wolf with 1 mm every hour, temp perfect.
-    // Timing = CSI 0 (all false alarms — NOT dropped as it was under POD), and
-    // amount = 168 mm over 7 covered days = 24 mm/day → goodness 0.
+    // Timing = CSI 0 — scored, not dropped: a pure-false-alarm scope still has
+    // events. Amount = 168 mm over 7 covered days = 24 mm/day → goodness 0.
     // Composite = mean(temp 1, amount 0, timing 0) × 100 ≈ 33, not a full score.
     const input = makeInput({
       temperature_2m: { perModel: { m: array(N, () => 20) } },

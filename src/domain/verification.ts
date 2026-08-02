@@ -67,10 +67,6 @@ export interface DailyVerification {
   perModel: Record<string, VariableScores>;
 }
 
-// ---------------------------------------------------------------------------
-// Scored (verified) variables
-// ---------------------------------------------------------------------------
-
 /** The variables the verification path scores — the single source the fetch
  *  lists (omSingleRuns, omHistoricalWeather truth) and `runEvaluation`'s
  *  plumbing all derive from. Today temperature and precipitation, the two
@@ -89,15 +85,10 @@ export type VerifiedVariable = (typeof VERIFIED_VARIABLES)[number];
 export interface VerifyChannel {
   /** Aggregate forecast points, one per hour; `value` is already `number | null`. */
   aggregate: readonly AggregatePoint[];
-  /** Per-model raw hourly forecast values, keyed by model id. */
   perModel: Readonly<Record<string, readonly (number | null)[]>>;
   /** ERA5-Seamless truth, one entry per hour. */
   truth: readonly (number | null)[];
 }
-
-// ---------------------------------------------------------------------------
-// Pure stat primitives
-// ---------------------------------------------------------------------------
 
 /** Mean of `(forecast − truth)` over hour pairs where both are non-null.
  *  Returns `NaN` when no overlapping pair exists. */
@@ -177,10 +168,6 @@ export function meanFinite(values: readonly number[]): number {
   return sharedMeanFinite(values);
 }
 
-// ---------------------------------------------------------------------------
-// Precipitation classification
-// ---------------------------------------------------------------------------
-
 /** Classify each hour against truth, using a ±tolerance window for timing
  *  forgiveness. Returns one label per hour:
  *
@@ -258,10 +245,6 @@ export function timingScore(classifications: readonly HourClassification[]): num
   return events === 0 ? NaN : hits / events;
 }
 
-// ---------------------------------------------------------------------------
-// Per-variable score builders
-// ---------------------------------------------------------------------------
-
 function scoreTemperature(forecast: readonly (number | null)[], truth: readonly (number | null)[], predictability: number): TemperatureScores | null {
   const b = bias(forecast, truth);
   const m = mae(forecast, truth);
@@ -278,12 +261,10 @@ function scoreTemperature(forecast: readonly (number | null)[], truth: readonly 
 }
 
 function scorePrecipitation(forecast: readonly (number | null)[], truth: readonly (number | null)[], predictability: number): PrecipitationScores | null {
-  // If the forecast side has no data at all, there's nothing to score. The
-  // earlier behaviour treated null forecasts as 0 mm/h, which produced a
-  // misleading `amountError = −truthSum` for models that simply didn't return
-  // precipitation data (i.e. claiming the model predicted a completely dry
-  // week, when really it predicted nothing). Mirrors how temperature handles
-  // the same case implicitly via `bias()`/`mae()` returning NaN.
+  // No forecast data at all is unscorable, not a dry forecast. Treating null as
+  // 0 mm/h would yield `amountError = −truthSum` — indistinguishable from a
+  // model that confidently predicted a dry week. Mirrors how temperature reaches
+  // the same answer implicitly, via `bias()`/`mae()` returning NaN.
   const anyForecast = forecast.some((v) => v != null);
   if (!anyForecast) return null;
   const classification = classifyHours(forecast, truth);
@@ -300,16 +281,11 @@ function scorePrecipitation(forecast: readonly (number | null)[], truth: readonl
   };
 }
 
-// ---------------------------------------------------------------------------
-// Daily orchestrator
-// ---------------------------------------------------------------------------
-
 /** A verify channel plus the per-hour aggregate predictability the daily card
  *  pairs each day's error with — the calibration lens (CONTEXT.md "Daily
  *  breakdown"). Predictability rides on the channel because it is defined only
  *  over the aggregate and only the daily builder consumes it. */
 export interface DailyChannel extends VerifyChannel {
-  /** Per-hour aggregate-level per-variable predictability, one per hour. */
   predictability: readonly number[];
 }
 

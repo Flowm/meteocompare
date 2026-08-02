@@ -4,7 +4,6 @@
 // open — pass `open`. Sizing/colour come from the caller via class attrs, which
 // pass through to the root <svg>.
 defineProps<{
-  /** Flips the chevron to point up (open state). */
   open?: boolean;
 }>();
 </script>

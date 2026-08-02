@@ -39,22 +39,20 @@ const dayLabel = computed(() => {
   return d.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" });
 });
 
-// U5: 0-indexed day label so Day 0 = the run day itself (matches the lead
-// hours, where Day 0 covers 0–24 h lead). Avoids the "Day 1 means tomorrow,
-// or the run day?" ambiguity from the previous 1-indexed labelling.
+// 0-indexed so Day 0 is the run day itself, matching the lead hours beside it
+// (Day 0 covers 0–24 h). 1-indexing invites "does Day 1 mean tomorrow, or the
+// run day?".
 const leadLabel = computed(() => `Day ${props.day.dayIndex} · ${props.day.leadHoursStart}-${props.day.leadHoursEnd}h`);
 </script>
 
 <template>
   <article class="border-ink-700 bg-ink-900/40 min-w-[20rem] flex-shrink-0 snap-start border">
-    <!-- Header -->
     <div class="border-ink-700/60 flex items-baseline justify-between gap-2 border-b px-4 py-2.5">
       <h3 class="text-paper-100 font-mono text-xs font-semibold tracking-wide">{{ dayLabel }}</h3>
       <span class="text-paper-400 font-mono text-[10px] tracking-wide tabular-nums">{{ leadLabel }}</span>
     </div>
 
     <div class="px-4 py-3">
-      <!-- Forecast vs truth header rows -->
       <div class="space-y-1.5 font-mono text-sm tabular-nums">
         <div v-if="day.aggregate.temperature" class="flex items-center gap-2">
           <span class="text-aggregate-400 w-16 text-[10px] tracking-wide">Forecast</span>
@@ -70,7 +68,6 @@ const leadLabel = computed(() => `Day ${props.day.dayIndex} · ${props.day.leadH
         </div>
       </div>
 
-      <!-- Score lines -->
       <div class="border-ink-700/60 mt-3 space-y-1.5 border-t pt-3 font-mono text-[11px] tabular-nums">
         <div v-if="day.aggregate.temperature" class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
           <span class="text-paper-300 text-[10px] tracking-wide">Temp</span>
@@ -111,7 +108,6 @@ const leadLabel = computed(() => `Day ${props.day.dayIndex} · ${props.day.leadH
         </div>
       </div>
 
-      <!-- Per-hour hit/miss strip -->
       <div v-if="day.aggregate.precipitation" class="mt-3">
         <HitMissStrip :classification="day.aggregate.precipitation.hourlyClassification" :hour-label="(i) => `${i.toString().padStart(2, '0')}:00`" />
       </div>

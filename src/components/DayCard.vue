@@ -90,7 +90,6 @@ const visibleModels = computed(() => props.models?.filter((m) => m.high != null 
     ]"
     @click="visibleModels.length ? (expanded = !expanded) : undefined"
   >
-    <!-- Header row: tabular weekday + ordinal date, divided by a hairline -->
     <div class="border-ink-700/60 flex items-baseline justify-between border-b px-3 py-2">
       <span class="font-mono text-xs font-semibold tracking-wide" :class="highlight ? 'text-sodium-300' : 'text-paper-100'">{{ dayLabel }}</span>
       <span class="text-paper-400 font-mono text-[10px] tracking-wide tabular-nums">{{ dateLabel }}</span>
@@ -104,7 +103,6 @@ const visibleModels = computed(() => props.models?.filter((m) => m.high != null 
         {{ codeLabel }}
       </div>
 
-      <!-- High / low presented as a paired register -->
       <div class="divide-ink-700/60 border-ink-700/60 mt-3 grid grid-cols-2 divide-x border-y py-1.5 font-mono tabular-nums">
         <div class="flex flex-col items-center gap-0.5">
           <span class="text-paper-400 text-[9px] tracking-wide">Hi</span>
@@ -192,7 +190,6 @@ const visibleModels = computed(() => props.models?.filter((m) => m.high != null 
       </div>
     </div>
 
-    <!-- Per-model breakdown (click to toggle) -->
     <Transition
       enter-active-class="overflow-hidden transition-all duration-200 ease-out"
       leave-active-class="overflow-hidden transition-all duration-150 ease-in"

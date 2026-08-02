@@ -37,10 +37,9 @@ import {
   TRUTH_COLOR,
 } from "./chartTheme";
 
-// The chart palette + font live in ./chartTheme (single-sourced from the CSS
-// @theme tokens, since ECharts can't read CSS vars). Re-exported here so the
-// existing import sites — HourlySeriesChart's legend swatches, the scorecards,
-// the model rail — keep importing them from chartOption unchanged.
+// The chart palette + font live in ./chartTheme (ECharts renders to a canvas and
+// can't read the CSS @theme vars). Re-exported so the legend swatches, the
+// scorecards and the model rail can keep taking them from chartOption.
 export { AGG_COLOR, BAND_SWATCH, MODEL_OPACITY, TRUTH_COLOR };
 
 // ECharts reads `null` as "auto-scale this axis", but its TS types only allow
@@ -84,7 +83,7 @@ export function paletteFor(id: string): string {
   return MODEL_PALETTE[(i < 0 ? 0 : i) % MODEL_PALETTE.length]!;
 }
 
-// ---- Series visibility ------------------------------------------------------
+// Series visibility
 // Visibility is applied as a no-redraw merge-patch (opacity only) rather than by
 // rebuilding the option, so toggling a chip never triggers a full redraw. The
 // builder emits one VisibilityToggle per toggleable series *as it creates it*,
@@ -99,9 +98,7 @@ export type TogglePropKey = "lineStyle" | "itemStyle" | "areaStyle";
 export interface VisibilityToggle {
   /** Logical group, keys the show/hide decision against VisibilityState. */
   group: "aggregate" | "band" | "truth" | "model";
-  /** Series id in the built option. */
   id: string;
-  /** Style props whose opacity this toggle drives. */
   props: TogglePropKey[];
   /** Opacity when shown (1 for lines/fills, MODEL_OPACITY for overlay lines). */
   shown: number;
@@ -150,14 +147,12 @@ export function visibilityPatches(toggles: VisibilityToggle[], state: Visibility
 
 export interface HourlyChartBuild {
   option: EChartsOption;
-  /** Visibility descriptors for the toggleable series in `option`. */
   toggles: VisibilityToggle[];
 }
 
 export interface HourlyChartOptionArgs {
   /** The unified hourly view-model (aggregate / perModel / optional truth). */
   data: HourlySeries;
-  /** Selected variable view. */
   view: ChartViewId;
   /** Visible window in hours (clamped to the available time axis). */
   hoursWindow: number;
@@ -192,7 +187,6 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
 
   const series: NonNullable<EChartsOption["series"]> = [];
 
-  // Resolve which data variables go on which axis.
   const isComposite = v === "temp_precip";
   const leftVar: DataVarId | null = isComposite ? "temperature_2m" : v === "precipitation" ? null : (v as DataVarId);
   const rightActive = isComposite || v === "precipitation";
@@ -225,8 +219,7 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
       : undefined;
 
   // Night shading lives on its own zero-z background series so it always sits
-  // *behind* the spread band and lines (it used to ride the band-base series,
-  // which drew it on top of the spread).
+  // *behind* the spread band and lines.
   if (markArea) {
     series.push({
       id: "night",
@@ -242,7 +235,6 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
     });
   }
 
-  // --- helper: push an aggregate line + band for a line variable -------------
   const pushLineAggregate = (dv: DataVarId, axisIndex: number, attachMarks: boolean): void => {
     const pts = (data.aggregate[dv] ?? []).slice(0, n);
     const values = pts.map((p) => convertVar(p.value, dv, units));
@@ -381,7 +373,6 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
     }
   };
 
-  // --- helper: push truth line for a line variable ---------------------------
   const pushLineTruth = (dv: DataVarId, axisIndex: number): void => {
     const truth = data.truth?.[dv];
     if (!truth) return;
@@ -400,7 +391,6 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
     toggles.push({ group: "truth", id: "tr", props: ["lineStyle", "itemStyle"], shown: 1 });
   };
 
-  // --- helper: push per-model overlay lines for a line variable ------------------
   const pushOverlay = (dv: DataVarId, axisIndex: number): void => {
     const byModel = data.perModel[dv] ?? {};
     for (const m of models) {
@@ -423,7 +413,6 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
     }
   };
 
-  // --- compose the series for the active view --------------------------------
   if (isComposite) {
     // Temp (line + band) on the left axis, precip (bars) on the right.
     // Distinct id so the precip bars don't collide with the temp line's "agg".
@@ -439,7 +428,6 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
     if (overlay) pushOverlay(dv, 0);
   }
 
-  // --- axes ------------------------------------------------------------------
   const leftIsPct = leftVar === "precipitation_probability" || leftVar === "cloud_cover";
   const leftUnit = leftVar ? unitLabel(leftVar, units) : "";
   // Hourly precip is the sum over the preceding hour — a rate — so the chart
@@ -466,10 +454,9 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
   const option: EChartsOption = {
     backgroundColor: "transparent",
     textStyle: { color: PAPER_200, fontFamily: CHART_FONT },
-    // Trimmed left/right gutters (was 52) so the plot spans more of the card;
-    // 36 still clears the 2-digit axis labels and the unit names on top.
-    // bottom kept tight (26) so the x-axis labels sit just under the plot
-    // rather than leaving dead canvas before the legend.
+    // 36 clears the 2-digit axis labels and the unit names on top while letting
+    // the plot span most of the card; bottom stays tight so the x-axis labels
+    // sit just under the plot, not above dead canvas.
     grid: { left: 36, right: 36, top: 32, bottom: 26 },
     animationDurationUpdate: 0,
     tooltip: {
@@ -507,7 +494,6 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
         max: leftIsPct ? 100 : AUTO,
       },
       {
-        // Right axis (precipitation).
         type: "value",
         name: precipUnit,
         nameTextStyle: { color: PAPER_300, fontSize: 10 },

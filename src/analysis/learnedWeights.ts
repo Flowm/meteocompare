@@ -1,10 +1,11 @@
-// In-browser, per-location weight training (training plan phase 5). Fits a
-// per-model weight *multiplier* on top of the heuristic weights to maximise the
-// aggregate's composite skill over a stored sample — with a train/validation
-// split (fit on older runs, validate on recent), shrinkage toward the heuristic
-// to curb per-location overfitting, and a minimum-sample guard. Pure, and it
-// reuses the real `modelWeight` + `scoreScope`, so "what we train" == "what we
-// score". See ADR 0007.
+// In-browser, per-location weight training. Fits a per-model weight *multiplier*
+// on top of whatever `modelWeight` resolves to — since ADR 0011 that is the
+// fitted ladder, so these are residuals on the shipped default tier — to maximise
+// the aggregate's composite skill over a stored sample. Train/validation split
+// (fit on older runs, validate on recent), shrinkage toward 1 to curb
+// per-location overfitting, and a minimum-sample guard. Pure, and it reuses the
+// real `modelWeight` + `scoreScope`, so "what we train" == "what we score".
+// See ADR 0007.
 
 import { getModel } from "@/domain/models";
 import { scoreScope } from "@/domain/scorecard";
@@ -14,15 +15,14 @@ import type { RunEvaluation } from "./runEvaluation";
 import type { LocationSample } from "./sample";
 import { runKey, sampleKey } from "./sampleStore";
 
-// Tunables.
 export const MIN_TRAIN_RUNS = 8;
 export const MIN_VAL_RUNS = 3;
 export const VAL_FRACTION = 0.3;
 const PASSES = 3;
 /** Grid the per-model multiplier is searched over (coordinate descent). */
 const CANDIDATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2] as const;
-/** How far fitted multipliers are kept from 1 (the heuristic). 0 = ignore the
- *  fit, 1 = trust it fully; 0.5 halves the deviation. */
+/** How far fitted multipliers are kept from 1 (the unadjusted ladder weight).
+ *  0 = ignore the fit, 1 = trust it fully; 0.5 halves the deviation. */
 export const SHRINK = 0.5;
 
 export interface FitResult {
@@ -37,7 +37,7 @@ export interface FitResult {
   multipliers: Record<string, number>;
   nTrain: number;
   nVal: number;
-  /** Mean composite on the held-out validation runs — fitted vs heuristic baseline. */
+  /** Mean composite on the held-out validation runs — fitted vs unfitted baseline. */
   valComposite: number;
   valBaselineComposite: number;
   /** valComposite − valBaselineComposite; > 0 means the fit helped out-of-sample. */
@@ -46,7 +46,7 @@ export interface FitResult {
 
 interface VarPanel {
   ids: string[];
-  /** [timestep][modelIdx] heuristic weight. */
+  /** [timestep][modelIdx] base weight, straight from `modelWeight`. */
   w: number[][];
   /** [timestep][modelIdx] forecast value. */
   v: (number | null)[][];
@@ -57,8 +57,8 @@ interface RunPanel {
   precip: VarPanel;
 }
 
-/** Precompute the heuristic weight matrix + value matrix for one run+variable,
- *  so the optimiser's inner loop is plain weighted means (no modelWeight calls). */
+/** Precompute the base weight matrix + value matrix for one run+variable, so the
+ *  optimiser's inner loop is plain weighted means (no modelWeight calls). */
 function buildVarPanel(run: RunEvaluation, variable: "temperature_2m" | "precipitation", lat: number, lon: number): VarPanel {
   const { times } = run.hourly;
   const perModel = run.hourly.perModel[variable] ?? {};
@@ -122,7 +122,6 @@ function meanComposite(panels: readonly RunPanel[], m: Record<string, number>): 
   return n ? sum / n : NaN;
 }
 
-/** Fit per-model multipliers for a location's stored sample. */
 export function fitWeights(sample: LocationSample): FitResult {
   const sourceKey = sampleKey(sample.location.latitude, sample.location.longitude);
   const fail = (reason: string): FitResult => ({ ok: false, sourceKey, reason, multipliers: {}, nTrain: 0, nVal: 0, valComposite: NaN, valBaselineComposite: NaN, improvement: 0 });
@@ -159,7 +158,7 @@ export function fitWeights(sample: LocationSample): FitResult {
     }
   }
 
-  // Shrink toward the heuristic — small per-location samples overfit otherwise.
+  // Shrink toward the unadjusted weight — small per-location samples overfit.
   const multipliers: Record<string, number> = {};
   for (const id of ids) multipliers[id] = 1 + SHRINK * ((m[id] ?? 1) - 1);
 

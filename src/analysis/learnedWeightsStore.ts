@@ -100,7 +100,6 @@ export function loadWeights(lat: number, lon: number): StoredWeights | null {
   return best;
 }
 
-/** Every stored weight set on this device, paired with its grid key. */
 export function listWeights(): WeightEntry[] {
   return store.list().map(({ key, value }) => ({ key, weights: value }));
 }

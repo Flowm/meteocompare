@@ -131,8 +131,8 @@ function severityWeightedMode(perModel: ModelSamples, weights: Map<string, numbe
     used[id] = w;
     totalW += w;
   }
-  // No contributing models → null (the honest value). Previously returned code
-  // 0, which reads as a real "clear sky" forecast.
+  // No contributing models → null. Not code 0, which would read as a real
+  // "clear sky" forecast rather than an absence.
   if (totalW === 0) return { code: null, effectiveWeights: {} };
 
   let bestSlug: SeveritySlug = "clear";

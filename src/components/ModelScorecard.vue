@@ -39,10 +39,6 @@ const coverageTone = (hours: number): string => {
   return "text-paper-500";
 };
 
-// ---------------------------------------------------------------------------
-// Columns + grouping
-// ---------------------------------------------------------------------------
-
 type SortKey = "model" | "overall" | `band${number}` | "tempBias" | "tempMae" | "amount" | "timing" | "coverage";
 type Dir = "asc" | "desc";
 
@@ -103,10 +99,6 @@ const covCol: Column = {
   tip: "Hours of the window the model covered (* marks partial coverage)",
   defaultDir: "desc",
 };
-
-// ---------------------------------------------------------------------------
-// Sorting
-// ---------------------------------------------------------------------------
 
 const sortKey = ref<SortKey>("overall");
 const sortDir = ref<Dir>("desc");
@@ -216,7 +208,6 @@ const caretClass = (key: SortKey): string => (sortKey.value === key ? "text-sodi
             </button>
           </th>
         </tr>
-        <!-- Column row. -->
         <tr class="text-paper-400 text-[10px] tracking-wide">
           <template v-for="g in groups" :key="g.label">
             <th
@@ -252,7 +243,6 @@ const caretClass = (key: SortKey): string => (sortKey.value === key ? "text-sodi
               <span :class="row.isAggregate ? 'text-aggregate-400 font-semibold' : 'text-paper-200'">{{ label(row.id) }}</span>
             </span>
           </th>
-          <!-- Scoring -->
           <td class="border-ink-700/40 border-b border-l px-2 py-1.5 text-right">
             <span class="text-sm font-semibold" :class="scoreTone(row.overall.composite)">{{ fmtComposite(row.overall.composite) }}</span
             ><!-- Fixed-width flag slot so the partial-coverage * never shifts the digits out of column.
@@ -263,13 +253,10 @@ const caretClass = (key: SortKey): string => (sortKey.value === key ? "text-sodi
           <td v-for="(b, i) in row.bandComposites" :key="i" class="border-ink-700/40 border-b px-2 py-1.5 text-right">
             <span :class="b == null ? 'text-paper-500' : scoreTone(b)">{{ b == null ? "—" : Math.round(b) }}</span>
           </td>
-          <!-- Temperature -->
           <td class="text-paper-300 border-ink-700/40 border-b border-l px-2 py-1.5 text-right">{{ fmtTempBias(row.overall.tempBias) }}</td>
           <td class="text-paper-300 border-ink-700/40 border-b px-2 py-1.5 text-right">{{ fmtTempMae(row.overall.tempMae) }}</td>
-          <!-- Precipitation -->
           <td class="text-paper-300 border-ink-700/40 border-b border-l px-2 py-1.5 text-right">{{ fmtAmount(row.overall.amountError) }}</td>
           <td class="text-paper-300 border-ink-700/40 border-b px-2 py-1.5 text-right">{{ fmtTiming(row.overall.timingScore) }}</td>
-          <!-- Coverage -->
           <td class="border-ink-700/40 border-b border-l px-2 py-1.5 text-right" :class="coverageTone(row.coveredHours)">{{ fmtCoverage(row) }}</td>
         </tr>
       </tbody>

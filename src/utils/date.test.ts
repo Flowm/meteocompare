@@ -65,10 +65,9 @@ describe("daysBetweenIso", () => {
 });
 
 describe("UTC anchoring — the module's reason to exist", () => {
-  // The whole point of the module: anchor date arithmetic to midnight UTC so it
-  // is independent of the browser's timezone. A naive `new Date("2026-05-31")`
-  // + local getDate() implementation would drift by a day for users west/east
-  // of UTC. These helpers must land on the same calendar date everywhere.
+  // The whole point of the module. A naive `new Date("2026-05-31")` + local
+  // getDate() drifts by a day for users west/east of UTC; anchoring to midnight
+  // UTC lands on the same calendar date everywhere.
 
   it("adds a whole number of days without a fractional-day drift", () => {
     // 400 days across two DST transitions in most local zones. A local-time
@@ -78,8 +77,8 @@ describe("UTC anchoring — the module's reason to exist", () => {
   });
 
   it("treats the input as a UTC calendar date, not a local one", () => {
-    // The result never carries a time-of-day, so no local-offset rounding can
-    // shift the calendar day — true for any browser timezone the CI runs in.
+    // No time-of-day in the result, so no local offset can round the calendar
+    // day either way — whatever timezone CI runs in.
     for (let d = 0; d < 5; d++) {
       const iso = addDaysIso("2026-06-30", d);
       expect(iso).toMatch(/^\d{4}-\d{2}-\d{2}$/);

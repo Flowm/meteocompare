@@ -21,9 +21,7 @@ import Swatch from "./Swatch.vue";
 
 const props = withDefaults(
   defineProps<{
-    /** The unified hourly view-model (aggregate / perModel / optional truth). */
     data: HourlySeries;
-    /** Heading shown above the chart, e.g. "Hourly forecast". */
     title: string;
     /** Hide the built-in heading when a parent section provides the title. */
     showTitle?: boolean;
@@ -48,17 +46,13 @@ const showModels = defineModel<boolean>("showModels", { default: false });
 
 const { prefs, formatTemp, formatPrecip, formatWind } = useUnits();
 
-// Colours, the model palette, and paletteFor() now live in ./chartOption
-// alongside the option builder; the component imports only the few it needs
-// for the legend swatches and the no-redraw opacity patches.
-
 const WINDOW_CHOICES = [
   { hours: 24, label: "24h" },
   { hours: 72, label: "3d" },
   { hours: 168, label: "7d" },
 ] as const;
 
-// ---- UI state ---------------------------------------------------------------
+// UI state
 // All control decisions — view selection, the combinable Temp+Precip pair, the
 // chip enable/reset/snap rules, visibility toggles — live in the testable
 // controls module; this component renders them and patches the chart.
@@ -121,7 +115,7 @@ watch(
   { immediate: true },
 );
 
-// ---- Chip toggles (no-redraw) ----------------------------------------------
+// Chip toggles (no-redraw)
 // One imperative shell: merge-patch the toggleable series' opacity straight onto
 // the ECharts instance, so flipping a chip never triggers a full redraw. The
 // per-series rules (which style prop, the "shown" opacity, the precip-truth
@@ -145,12 +139,11 @@ function applyVisibility(): void {
 // the chart directly without a full rebuild — the handlers below just flip state.
 watch([showAggregate, showBand, showTruth, enabledModels], () => applyVisibility());
 
-// ---- Cursor tracking (tooltip highlight) ------------------------------------
+// Cursor tracking (tooltip highlight)
 /** Axis the per-model lines live on — right (1) for precip, left (0) otherwise. */
 const overlayAxis = computed(() => (activeVar.value === "precipitation" ? 1 : 0));
 const { cursorValue } = useChartCursor(() => chartRef.value?.chart, overlayAxis);
 
-// ---- Tooltip formatting -----------------------------------------------------
 function fmtVar(dv: DataVarId, base: number | null | undefined): string {
   if (dv === "temperature_2m") return formatTemp.value(base, 1);
   if (dv === "precipitation") return formatPrecip.value(base, 1);
@@ -159,7 +152,7 @@ function fmtVar(dv: DataVarId, base: number | null | undefined): string {
   return `${Math.round(base)}%`;
 }
 
-// ---- Chart option -----------------------------------------------------------
+// Chart option
 // The pure builder produces the option plus the visibility descriptors for its
 // toggleable series; both stay in sync because they come from one build.
 const built = computed(() =>
@@ -219,7 +212,6 @@ watch(option, () => {
   <h2 v-if="showTitle" class="eyebrow mb-3">{{ title }}</h2>
 
   <div class="border-ink-700 bg-ink-900/60 relative border p-3 sm:p-6">
-    <!-- Variable picker (left) + window selector (right) share a line -->
     <div ref="variableControlsRoot" class="relative mb-3 flex items-center gap-3 sm:mb-4">
       <!-- Off-layout probe used only to measure the rail's natural width. The
            zero-size, overflow-hidden wrapper keeps the w-max child from
@@ -233,7 +225,6 @@ watch(option, () => {
         </div>
       </div>
 
-      <!-- Expanded variable rail while it fits beside the window selector. -->
       <div v-if="showExpandedVariableRail" class="border-ink-700 flex border font-mono text-xs tracking-wide">
         <button
           v-for="vid in variables"
@@ -246,7 +237,6 @@ watch(option, () => {
         </button>
       </div>
 
-      <!-- Dropdown fallback when the expanded rail would wrap. -->
       <div v-else ref="varRoot" class="relative">
         <button
           type="button"
@@ -274,7 +264,6 @@ watch(option, () => {
         </PopoverPanel>
       </div>
 
-      <!-- Window selector (right-aligned) -->
       <div ref="windowSelector" class="border-ink-700 ml-auto flex shrink-0 border font-mono text-xs tracking-wide">
         <button
           v-for="c in WINDOW_CHOICES"
@@ -297,12 +286,9 @@ watch(option, () => {
       <VChart ref="chartRef" style="height: 21rem" :option="option" autoresize class="relative" />
     </div>
 
-    <!-- Legend / filter strip ---------------------------------------------
-         Two labelled sections — SERIES (aggregate / spread / truth toggles)
-         and MODELS (an "All" toggle plus per-model overlay chips). Enabling
-         any model chip turns the overlay on; "All" flips every model at once. -->
+    <!-- Enabling any model chip turns the overlay on; "All" flips every model
+         at once. -->
     <div class="border-ink-700/60 mt-2 space-y-2.5 border-t pt-3 font-mono text-[11px] tracking-wide">
-      <!-- SERIES -->
       <div class="flex items-start gap-2">
         <span class="text-paper-400 w-14 shrink-0 pt-[5px]">Series</span>
         <div class="flex flex-wrap items-center gap-1.5">
@@ -338,7 +324,6 @@ watch(option, () => {
         </div>
       </div>
 
-      <!-- MODELS -->
       <ModelControlRail
         :models="allModels"
         :model-has-data="modelHasData"

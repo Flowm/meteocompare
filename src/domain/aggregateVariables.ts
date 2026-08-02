@@ -1,7 +1,7 @@
-// Batch application of the weighted Aggregate + per-variable Predictability over a
-// set of variables sharing one time axis. Wraps aggregateSeries + predictabilityFor
-// so the forecast and verification orchestration no longer repeat the triad
-// (extract → aggregateSeries → predictabilityFor) at five separate call sites.
+// Batch application of the weighted Aggregate + per-variable Predictability over
+// a set of variables sharing one time axis, so the forecast and verification
+// orchestration each state the extract → aggregateSeries → predictabilityFor
+// triad once rather than per variable.
 //
 // Pure: callers pass already-extracted per-model series (each owns its own
 // extractor — hourly vs daily, forecast vs single-runs). This module never
@@ -24,7 +24,6 @@ export interface VarSpec<K extends string = string> {
 export interface AggregateVariablesOptions<K extends string = string> {
   /** Shared time axis (location-local ISO strings). */
   times: string[];
-  /** Pre-extracted per-model series, keyed by VarSpec.key → model id → values. */
   perModel: Record<K, Record<string, (number | null)[]>>;
   vars: readonly VarSpec<K>[];
   models: ModelDef[];
@@ -41,7 +40,6 @@ export interface AggregateVariablesOptions<K extends string = string> {
 }
 
 export interface AggregatedVariables<K extends string = string> {
-  /** Variable key → weighted-ensemble aggregate points. */
   aggregate: Record<K, AggregatePoint[]>;
   /** Variable key → per-timestep predictability (0..1). */
   predictability: Record<K, number[]>;
@@ -49,9 +47,9 @@ export interface AggregatedVariables<K extends string = string> {
   perModel: Record<K, Record<string, (number | null)[]>>;
 }
 
-/** Generic over the variable-key set `K`, so the narrowly-keyed input records
- *  (e.g. `Record<HourlyVar, …>`) flow straight through to the result — callers
- *  no longer cast the output back to their view-model shape. */
+/** Generic over the variable-key set `K`, so a narrowly-keyed input record
+ *  (e.g. `Record<HourlyVar, …>`) flows straight through to the result without
+ *  the caller casting it back to their view-model shape. */
 export function aggregateVariables<K extends string>(opts: AggregateVariablesOptions<K>): AggregatedVariables<K> {
   const leadAt = (i: number): number => (opts.cadence === "daily" ? i * 24 + 12 : i);
   const aggregate = {} as Record<K, AggregatePoint[]>;

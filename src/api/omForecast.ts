@@ -49,7 +49,7 @@ export type CurrentVar = (typeof CURRENT_VARS)[number];
 export interface ForecastRequest {
   lat: number;
   lon: number;
-  /** Optional subset of model ids; defaults to the full registry. */
+  /** Defaults to the full registry. */
   models?: string[];
   forecastDays?: number;
 }

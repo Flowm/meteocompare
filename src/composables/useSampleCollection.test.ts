@@ -64,10 +64,9 @@ describe("useSampleCollection", () => {
   });
 
   it("a gather superseded by a second gather cannot clobber the newer state", async () => {
-    // Two gathers on the same collection: gather #1 is superseded by gather #2.
-    // Each fetchRuns call resolves a tagged payload; evaluate reads the tag, so
-    // the run carries the marker of the gather that produced it — no fragile
-    // shared queue. We release the stale gather LATE to prove it can't overwrite.
+    // Gather #1 is superseded by gather #2. Each run carries the marker of the
+    // gather that produced it, so there is no fragile shared queue; #1 is
+    // released LATE to prove it can't overwrite #2.
     const gates: Array<() => void> = [];
     let call = 0;
     const deps: GatherDeps = {
@@ -130,7 +129,6 @@ describe("useSampleCollection", () => {
     await c.store();
     expect(c.storedCount.value).toBe(1);
 
-    // And it actually persisted through the sample store.
     const persisted: LocationSample[] = await import("@/analysis/sampleStore").then((m) => m.listSamples());
     expect(persisted).toHaveLength(1);
     expect(persisted[0]?.runs).toHaveLength(1);

@@ -2,16 +2,13 @@
 // src/analysis/defaultWeights.ts — the weights sibling of
 // scripts/fit-default-calibration.ts.
 //
-// Reuses the production pipeline byte-for-byte: gatherCached (scripts/lib —
-// fetch single runs + ERA5 truth at forecast_days: 10, concurrency-capped,
-// failures skipped, on-disk cache) → buildPanels → fitBuiltinSet, pooled across
-// the shared reference locations (scripts/lib/referenceLocations) with run dates
-// spread over the usable single-runs archive window. The builtin tier is fitted
-// on ALL 12 locations pooled (the shipped fit; the experiment's
-// leave-one-location-out arm was the adoption evidence, not the shipped weights —
-// docs/research/weight-ladder-experiment.md). Most models are archived only from
-// 2 April 2026, so seasonal coverage grows as the archive deepens — regenerate
-// periodically.
+// Reuses the production pipeline byte-for-byte — gatherCached (at
+// forecast_days: 10) → buildPanels → fitBuiltinSet — with run dates spread over
+// the usable archive window. The builtin tier is fitted on ALL 12 reference
+// locations pooled; the experiment's leave-one-location-out arm was the adoption
+// evidence, not the shipped weights (docs/research/weight-ladder-experiment.md).
+// Most models are archived only from 2 April 2026, so seasonal coverage grows as
+// the archive deepens: regenerate periodically.
 //
 // Run with:  pnpm dlx tsx scripts/fit-default-weights.ts [--cache-dir <path>]
 //   --cache-dir : reuse (and top up) a directory of cached RunEvaluation JSON
@@ -104,7 +101,6 @@ async function main(): Promise<void> {
   const set = fitBuiltinSet(panelsByLocation, { bands: LEAD_BANDS, meta });
   console.log(`\nFitted builtin set in ${((Date.now() - t0) / 1000).toFixed(0)}s across ${panelsByLocation.length} locations.`);
 
-  // Sanity report.
   const s = summariseModels(set);
   const bandLabels = LEAD_BANDS.map((b) => b.label).join(", ");
   console.log(`\nPer-model bands: ${s.fitted} fitted, ${s.nulled} null (gate/validation fallthrough).`);

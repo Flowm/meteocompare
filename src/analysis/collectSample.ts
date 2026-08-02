@@ -56,7 +56,6 @@ export interface GatherOptions {
   /** Max concurrent fetches; defaults to 3 (polite to open-meteo, reuses the SW cache). */
   concurrency?: number;
   signal?: AbortSignal;
-  /** Called after each run settles, with the count done and the total. */
   onProgress?: (done: number, total: number) => void;
 }
 

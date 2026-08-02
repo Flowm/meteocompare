@@ -1,9 +1,9 @@
-// Shared test scaffolding — the small factories that several *.test.ts files
-// had each hand-rolled (an AggregatePoint builder, a synthetic time axis, the
-// Paris coords, the four-model subset, an `array` helper, and a fake Response).
-// Source-typed and kept OUT of the `src/**/*.test.ts` vitest glob — the
-// testFakeIdb.ts precedent — so it is shared and still type-checked by the
-// tsconfig `src` include, but never collected as a test suite of its own.
+// Shared test scaffolding: an AggregatePoint builder, a synthetic time axis, the
+// Paris coords, the four-model subset, an `array` helper and a fake Response.
+//
+// Source-typed but kept OUT of the `src/**/*.test.ts` glob (the testFakeIdb.ts
+// precedent), so the tsconfig `src` include still type-checks it while vitest
+// never collects it as a suite of its own.
 
 import type { AggregatePoint } from "@/domain/aggregate";
 import { getModel, type ModelDef } from "@/domain/models";
@@ -13,13 +13,10 @@ import { getModel, type ModelDef } from "@/domain/models";
  *  is exercised without any test having to know the box. */
 export const PARIS = { lat: 48.85, lon: 2.35 };
 
-/** The four-model subset the aggregate + aggregateVariables suites weight over:
- *  a global spread (ECMWF, GFS, ICON) plus the French CAM. Rebuilt per import so
- *  no suite can mutate a shared array. */
+/** A global spread (ECMWF, GFS, ICON) plus the French CAM. Rebuilt per import
+ *  so no suite can mutate a shared array. */
 export const modelSubset = (): ModelDef[] => [getModel("ecmwf_ifs")!, getModel("gfs_seamless")!, getModel("icon_global")!, getModel("meteofrance_seamless")!];
 
-/** `Array.from` with an index mapper — the `array(n, fn)` helper redefined
- *  verbatim across the verification + scorecard suites. */
 export function array<T>(n: number, fn: (i: number) => T): T[] {
   return Array.from({ length: n }, (_, i) => fn(i));
 }
@@ -32,10 +29,10 @@ export function makeTimes(n: number, baseISO: string): string[] {
   return array(n, (i) => new Date(base + i * 3_600_000).toISOString().slice(0, 16));
 }
 
-/** Build an AggregatePoint. `value` is `number | null` now (the honest "no data
- *  here" value), so the factory is null-aware. `perModel`/`weights` default to
- *  empty — the verification/scorecard/predictability paths that consume points
- *  only read `value`/`stdDev`/`time` unless a test supplies more. */
+/** Build an AggregatePoint. `value` is nullable ("no data here").
+ *  `perModel`/`weights` default to empty — the verification/scorecard/
+ *  predictability paths only read `value`/`stdDev`/`time` unless a test
+ *  supplies more. */
 export function aggPoint(
   value: number | null,
   opts: { time?: string; stdDev?: number; weights?: Record<string, number>; perModel?: Record<string, number | null> } = {},

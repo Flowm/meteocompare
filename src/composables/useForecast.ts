@@ -33,8 +33,8 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
   const { apiKey } = useApiKey();
 
   // When the user opts in, apply this location's trained weight multipliers to
-  // the live aggregate (training page / ADR 0007). Off → undefined → the
-  // heuristic weighting, byte-for-byte unchanged.
+  // the live aggregate (training page / ADR 0007). Off → undefined → the shipped
+  // default weights alone, byte-for-byte unchanged.
   const { useTrainedWeights } = useSettings();
   const multipliers = computed(() => (useTrainedWeights.value ? loadWeights(location.value.latitude, location.value.longitude)?.multipliers : undefined));
 

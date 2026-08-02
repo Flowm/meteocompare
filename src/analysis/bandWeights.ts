@@ -1,20 +1,22 @@
-// Band-sliced weight fitting (ADR 0011, work package 2). GATED — not wired into
-// the app; the experiment (work package 3) and tests drive it. Generalises
-// learnedWeights.ts's coordinate descent three ways:
-//   1. it fits against the LADDER recipe (weightLadder.ladderModelWeight), not
-//      the decay-based modelWeight — so "what we train == what we score" for the
-//      new recipe;
+// Band-sliced weight fitting (ADR 0011). Runs OFFLINE only — nothing in the
+// browser bundle imports it. `fitBuiltinSet` is what scripts/fit-default-weights
+// generates src/analysis/defaultWeights.ts with, so this module produces the
+// shipped tier that weighting.modelWeight resolves at runtime; the ladder
+// experiment and the tests are its other callers. Generalises learnedWeights.ts's
+// coordinate descent three ways:
+//   1. it fits against the full ladder recipe (weightLadder.ladderModelWeight),
+//      so "what we train == what we score";
 //   2. panels carry per-timestep lead hours and can be pooled across locations,
 //      so a fit spans many (run, location) panels;
 //   3. it adds a per-lead-band stage on top of the pooled stage, hierarchically
 //      shrunk (a band's multiplier shrinks toward the pooled one).
 //
 // Deliberately PARALLEL to learnedWeights.ts rather than a refactor of it:
-// learnedWeights ships (useTrainingFlow depends on it) and fits the OLD recipe,
-// so it stays byte-for-byte untouched. Importing this gated module into it would
-// pull the not-yet-adopted ladder into the shipping dependency graph and defeat
-// the ADR-0011 gate; the shared objective helpers (aggUnder / composite means)
-// are a few lines and are duplicated here on purpose.
+// learnedWeights ships in the training flow and fits a per-model POOLED residual
+// in the browser, against whatever modelWeight currently resolves to. Keeping the
+// two apart means the offline fit can grow band stages without touching the
+// shipping path; the shared objective helpers (aggUnder / composite means) are a
+// few lines and are duplicated here on purpose.
 //
 // All functions are pure and deterministic — no Date.now, no randomness. Runs
 // whose band slice carries no scorable truth simply don't contribute to that
@@ -44,17 +46,13 @@ export const MIN_BAND_RUNS = 6;
 /** Default pooled-stage shrink toward 1, and band-stage shrink toward pooled —
  *  keep 50% of the fitted deviation (learnedWeights parity; the device tier). */
 export const DEFAULT_SHRINK = 0.5;
-/** Band-stage shrink toward the pooled value (ADR 0011: BAND_SHRINK). */
+/** Band-stage shrink toward the pooled value (ADR 0011). */
 export const BAND_SHRINK = 0.5;
 /** Builtin fit keeps more of the deviation — the reference-location pool is
  *  large, so overfitting is less of a risk than at the device tier. */
 export const BUILTIN_SHRINK = 0.8;
 
 const clampMult = (x: number): number => Math.min(MULT_MAX, Math.max(MULT_MIN, x));
-
-// ---------------------------------------------------------------------------
-// Panels
-// ---------------------------------------------------------------------------
 
 interface VarPanel {
   ids: string[];
@@ -132,9 +130,7 @@ export function buildPanels({ runs, lat, lon, builtin, bands = LEAD_BANDS }: Bui
   }));
 }
 
-// ---------------------------------------------------------------------------
 // Objective (duplicated from learnedWeights on purpose — see the header note)
-// ---------------------------------------------------------------------------
 
 /** Weighted-mean aggregate of one panel over timesteps `[lo, hi)` under
  *  candidate multipliers `m`. */
@@ -214,16 +210,11 @@ function meanBandComposite(panels: readonly RunPanel[], m: Record<string, number
   return n ? sum / n : NaN;
 }
 
-// ---------------------------------------------------------------------------
-// Coordinate units (per-model, or per-class when tied)
-// ---------------------------------------------------------------------------
-
 /** All model ids present across a panel set (union of both variables). */
 function panelIds(panels: readonly RunPanel[]): string[] {
   return [...new Set(panels.flatMap((p) => [...p.temp.ids, ...p.precip.ids]))];
 }
 
-/** The class of a model id (undefined for ids not in the registry). */
 const kindOf = (id: string): ModelKind | undefined => getModel(id)?.kind;
 
 /** Group ids by model class — the coordinate units of a tied (per-class) fit,
@@ -265,10 +256,6 @@ function hasBandData(panel: VarPanel, ids: ReadonlySet<string>, band: LeadBand):
   }
   return false;
 }
-
-// ---------------------------------------------------------------------------
-// Fitting stages
-// ---------------------------------------------------------------------------
 
 export interface PooledOpts {
   /** Kept fraction of the fitted deviation from 1 (shrinkage). Default 0.5. */
@@ -354,7 +341,6 @@ export function fitBandMultipliers(panels: readonly RunPanel[], pooled: Record<s
       }
     }
 
-    // Data gate + hierarchical shrink, per coordinate.
     for (const group of groups) {
       const gated = bandRunCount(panels, group, band) >= minRuns;
       for (const id of group) {
@@ -371,10 +357,6 @@ export function fitBandMultipliers(panels: readonly RunPanel[], pooled: Record<s
   }
   return result;
 }
-
-// ---------------------------------------------------------------------------
-// Tier fits
-// ---------------------------------------------------------------------------
 
 export interface BuiltinOpts {
   bands?: readonly LeadBand[];

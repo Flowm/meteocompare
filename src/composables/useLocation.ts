@@ -78,7 +78,6 @@ export function useLocation() {
     }
   }
 
-  // Whenever the URL changes to a real location, push into recent.
   watch(
     current,
     (loc) => {
@@ -87,7 +86,6 @@ export function useLocation() {
     { immediate: true },
   );
 
-  /** The current location's display label — `"Name, Detail"` (or bare name). */
   const label = computed(() => locationLabel(current.value));
 
   return {

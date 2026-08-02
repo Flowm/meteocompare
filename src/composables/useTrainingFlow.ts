@@ -1,8 +1,8 @@
 // The training page's flow — load the location's stored sample, fit, persist,
-// and keep the device-wide stored-weights inventory current. Extracted from
+// and keep the device-wide stored-weights inventory current. Separate from
 // TrainingView.vue so the transitions (stale-load guard, the fit→apply source
 // check, reach edits, inventory ordering) are testable without a DOM; the view
-// renders this state. Mirrors how useSampleCollection wraps collectSample.
+// only renders this state. Mirrors how useSampleCollection wraps collectSample.
 
 import { computed, ref, watch, type ComputedRef, type Ref } from "vue";
 
@@ -19,7 +19,6 @@ import type { Location } from "./useLocation";
 /** Minimum stored runs before a fit is attempted (train + held-out validation). */
 export const MIN_RUNS = MIN_TRAIN_RUNS + MIN_VAL_RUNS;
 
-/** One row of the device-wide stored-weights inventory. */
 export interface TrainedWeightsRow {
   key: string;
   name: string;
@@ -29,7 +28,7 @@ export interface TrainedWeightsRow {
   trainedAt: string;
   improvement: number;
   radiusKm: number;
-  /** Models whose weight was changed from the heuristic. */
+  /** Models whose fitted multiplier moved off 1. */
   tuned: number;
   isCurrent: boolean;
 }
@@ -41,7 +40,6 @@ export interface UseTrainingFlowReturn {
   justSaved: Ref<boolean>;
   runCount: ComputedRef<number>;
   currentKey: ComputedRef<string>;
-  /** The exact-cell stored weights for the current location, if any. */
   stored: ComputedRef<StoredWeights | null>;
   /** Device-wide stored-weights inventory, current location first then newest. */
   overview: ComputedRef<TrainedWeightsRow[]>;

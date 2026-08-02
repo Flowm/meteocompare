@@ -1,11 +1,10 @@
 // ADR 0011, work package 3 — the pre-registered fitted-weight-ladder experiment.
 //
 // Gathers verification runs at the 12 ADR-0010 reference locations, fits the
-// ladder's builtin and device tiers with the WP2 machinery (analysis/bandWeights),
-// and evaluates the pre-registered arms against the incumbent (weighting.modelWeight)
-// so the ADR's adoption gate can be decided on real numbers. Nothing here mutates
-// src/ or the shipping app — it drives the gated ladder offline, exactly as the
-// tests do, and writes a results document + raw JSON.
+// ladder's builtin and device tiers with analysis/bandWeights, and evaluates the
+// pre-registered arms against the incumbent so the ADR's adoption gate could be
+// decided on real numbers. Nothing here mutates src/ or the shipping app; it
+// writes a results document + raw JSON.
 //
 // Run with:  pnpm dlx tsx scripts/run-weight-experiment.ts [--smoke] [--cache-dir <path>]
 //   --smoke     : 2 locations x 6 runs, to validate the pipeline end-to-end first.
@@ -41,11 +40,6 @@ import { bandIndexFor, ladderModelWeight, type BuiltinWeightSet, type DeviceBand
 import { ARCHIVE_START, cacheDirFromArgv, gatherCached, runDates } from "./lib/collectRuns";
 import { REFERENCE_LOCATIONS, type RefLocation } from "./lib/referenceLocations";
 
-// ---------------------------------------------------------------------------
-// Protocol constants
-// ---------------------------------------------------------------------------
-
-/** ~24 runs per location, all 00Z. */
 const RUNS_PER_LOCATION = 24;
 /** Newest usable run: today − (10 forecast days + ~5-day ERA5 lag + 1 margin) so
  *  band 3 (168–240 h) has truth. */
@@ -76,10 +70,6 @@ const DECISION_RULE = [
   "    are informational only.",
 ].join("\n");
 
-// ---------------------------------------------------------------------------
-// Small utilities
-// ---------------------------------------------------------------------------
-
 const median = (xs: readonly number[]): number => {
   const s = xs.filter((x) => Number.isFinite(x)).toSorted((a, b) => a - b);
   if (s.length === 0) return NaN;
@@ -91,11 +81,9 @@ const secs = (t0: number): string => `${((Date.now() - t0) / 1000).toFixed(1)}s`
 const f2 = (x: number): string => (Number.isFinite(x) ? x.toFixed(2) : "—");
 const signed = (x: number): string => (Number.isFinite(x) ? `${x >= 0 ? "+" : ""}${x.toFixed(2)}` : "—");
 
-// ---------------------------------------------------------------------------
 // Evaluation panels + composite (aggUnder / runComposite / meanComposite copied
 // from bandWeights on purpose — see the header note; identical arithmetic keeps
 // evaluate == train). Weights are baked in fully at build time via `weightAt`.
-// ---------------------------------------------------------------------------
 
 type WeightAt = (model: ModelDef, leadHours: number, variable: Variable) => number;
 
@@ -183,9 +171,7 @@ function meanComposite(runs: readonly RunEvaluation[], weightAt: WeightAt): numb
   return n ? sum / n : NaN;
 }
 
-// ---------------------------------------------------------------------------
 // Weight recipes (assembled from the real functions — never re-implemented)
-// ---------------------------------------------------------------------------
 
 /** The ladder weight, allowing the device tier a DIFFERENT band partition from
  *  the builtin tier (ablation B). For a shared partition this equals
@@ -235,10 +221,6 @@ function assertLadderParity(): void {
     }
   }
 }
-
-// ---------------------------------------------------------------------------
-// Coverage diagnostics
-// ---------------------------------------------------------------------------
 
 interface Coverage {
   runs: number;
@@ -302,10 +284,6 @@ function leadOf(times: readonly string[], base: number, i: number): number {
   return t ? (new Date(t).getTime() - base) / 3_600_000 : 0;
 }
 
-// ---------------------------------------------------------------------------
-// Per-location result record
-// ---------------------------------------------------------------------------
-
 interface LocResult {
   name: string;
   runs: number;
@@ -327,10 +305,6 @@ interface LocResult {
   deviceSkipReason?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
-
 async function main(): Promise<void> {
   assertLadderParity();
 
@@ -345,7 +319,6 @@ async function main(): Promise<void> {
   console.log(`Run dates: ${dates[0]} … ${dates[dates.length - 1]} (${dates.length} dates)`);
   console.log(`Cache dir: ${CACHE_DIR}\n`);
 
-  // --- Gather (cached) -----------------------------------------------------
   const runsByLoc = new Map<string, RunEvaluation[]>();
   const gatherStart = Date.now();
   for (const loc of locations) {
@@ -361,14 +334,14 @@ async function main(): Promise<void> {
   }
   console.log(`\nGather complete in ${secs(gatherStart)}.\n`);
 
-  // --- Per-location raw panels (no builtin baked → partition-independent) ---
+  // Per-location raw panels (no builtin baked → partition-independent)
   const rawPanels = new Map<string, RunPanel[]>();
   for (const loc of locations) {
     const runs = runsByLoc.get(loc.name) ?? [];
     rawPanels.set(loc.name, buildPanels({ runs, lat: loc.latitude, lon: loc.longitude }));
   }
 
-  // --- Fit + evaluate every arm, leave-one-location-out --------------------
+  // Fit + evaluate every arm, leave-one-location-out
   const results: LocResult[] = [];
   for (const loc of locations) {
     const runs = runsByLoc.get(loc.name) ?? [];
@@ -435,7 +408,6 @@ async function main(): Promise<void> {
     );
   }
 
-  // --- Decision rule -------------------------------------------------------
   const decision = decide(results);
   console.log(`\n${"=".repeat(60)}`);
   console.log(DECISION_RULE);
@@ -446,7 +418,6 @@ async function main(): Promise<void> {
   console.log(`  median builtin-only = ${f2(decision.medBuiltinOnly)}   median +device = ${f2(decision.medArm2)}   median Δ = ${signed(decision.medDelta2)}`);
   console.log(`  wins: ${decision.wins2}/${decision.deviceLocs}   → ship device tier: ${decision.ship ? "YES" : "NO"}`);
 
-  // --- Write results JSON + report ----------------------------------------
   const payload = {
     generatedAt: new Date().toISOString(),
     smoke: SMOKE,
@@ -459,10 +430,6 @@ async function main(): Promise<void> {
   console.log(`\nWrote ${RESULTS_JSON}`);
   console.log(`Wrote ${REPORT_PATH}\n`);
 }
-
-// ---------------------------------------------------------------------------
-// Decision
-// ---------------------------------------------------------------------------
 
 interface Decision {
   medArm0: number;
@@ -508,10 +475,6 @@ function decide(results: readonly LocResult[]): Decision {
     ship,
   };
 }
-
-// ---------------------------------------------------------------------------
-// Report
-// ---------------------------------------------------------------------------
 
 type Payload = {
   generatedAt: string;

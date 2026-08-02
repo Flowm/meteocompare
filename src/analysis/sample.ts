@@ -1,7 +1,7 @@
 // Cross-run aggregation of a location's sample: per-model performance across
 // many runs, coverage-aware (a model is only averaged over the runs it appeared
-// in and was scorable). Pure — the multi-run performance view (Phase 4) renders
-// this, and the trainer (Phase 5) reads the stored runs directly.
+// in and was scorable). Pure — the multi-run performance view renders this; the
+// trainer bypasses it and reads the stored runs directly.
 
 import { LEAD_BANDS } from "@/domain/scorecard";
 
@@ -22,7 +22,6 @@ export interface LocationSample {
   gatheredAt: string;
 }
 
-/** Per-model performance summarised across a sample. */
 export interface ModelSampleStats {
   id: string;
   isAggregate: boolean;

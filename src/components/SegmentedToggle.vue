@@ -1,15 +1,11 @@
 <script setup lang="ts" generic="T extends string | number">
-// The segmented pill-toggle used across the app: a bordered row of options
-// where the selected one gets the sodium highlight and the rest get the muted
-// hover treatment. Single-sources the active/inactive class pair
-// (`bg-sodium-300/15 text-sodium-200` / `text-paper-300 hover:bg-ink-800
-// hover:text-paper-50`) that was copied across the settings menu, the
-// verification mode/cycle toggles and the chart window selector.
+// The segmented pill-toggle used across the app, and the single home of the
+// active/inactive class pair the settings menu, the verification mode/cycle
+// toggles and the chart window selector all share.
 //
 // The caller supplies the options and binds v-model. Display (inline vs block
 // flex), inter-segment dividers and per-button padding are props so each call
-// site keeps its exact layout; extra classes (font, ml-auto, shrink-0, …) fall
-// through to the root row.
+// site keeps its exact layout; extra classes fall through to the root row.
 withDefaults(
   defineProps<{
     /** Selectable segments, in display order. */

@@ -154,7 +154,6 @@ describe("fitDeviceResiduals", () => {
     // The device fit changes only the device tier — the builtin it sits on is
     // never mutated.
     expect(builtin).toEqual(snapshot);
-    // It returns a valid residual tier for the models in the panels.
     expect(device.pooled.ecmwf_ifs).toBeTypeOf("number");
     expect(device.bands.gfs_seamless?.length).toBe(LEAD_BANDS.length);
     // gfs stays biased even after builtin, so the residual keeps down-weighting it.

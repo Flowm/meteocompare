@@ -1,8 +1,8 @@
 // Decision logic for the hourly-series chart's controls — view selection, the
 // combinable Temp+Precip pair, the per-model overlay chips and their reset /
-// snap rules, and the series visibility toggles. Extracted from
-// HourlySeriesChart.vue so the transition rules are testable without a DOM;
-// the component keeps rendering, DOM refs, and the no-redraw ECharts patches.
+// snap rules, and the series visibility toggles. Separate from
+// HourlySeriesChart.vue so the transition rules are testable without a DOM; the
+// component keeps rendering, DOM refs, and the no-redraw ECharts patches.
 
 import { computed, ref, watch, type ComputedRef, type Ref } from "vue";
 

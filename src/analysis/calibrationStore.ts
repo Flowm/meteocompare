@@ -17,7 +17,6 @@ import { listSamples } from "./sampleStore";
 const PREFIX = "meteocompare:calibration:";
 const POOLED_KEY = "pooled";
 
-/** Record schema version (envelope via keyedStore). */
 const CALIBRATION_VERSION = 1;
 
 export interface StoredCalibration {

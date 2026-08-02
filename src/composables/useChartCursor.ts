@@ -15,12 +15,10 @@ export interface CursorChart {
 
 /** Tracks the cursor's value on one y-axis of an ECharts instance.
  *
- *  The axis-tooltip formatter gets no pointer position, so with many model
- *  lines enabled it can't tell which row maps to which line. We read the
- *  cursor's value off the overlay axis here (in the active unit, matching the
- *  converted line data) so the formatter can highlight the nearest entry.
- *  `null` whenever the cursor leaves the plot grid. Re-binds when the chart
- *  instance changes and detaches on unmount. */
+ *  The axis-tooltip formatter gets no pointer position, so with many model lines
+ *  enabled it can't tell which tooltip row maps to which line. Reading the
+ *  cursor value off the overlay axis (in the active unit, matching the converted
+ *  line data) lets it highlight the nearest entry. `null` off the plot grid. */
 export function useChartCursor(getChart: () => CursorChart | undefined, axisIndex: Ref<number>): { cursorValue: Ref<number | null> } {
   const cursorValue = ref<number | null>(null);
   let detach: (() => void) | null = null;

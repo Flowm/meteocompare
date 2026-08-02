@@ -119,7 +119,8 @@ describe("classifyHours", () => {
     // Forecast drops out at hour 1 while truth is wet there — must be no_data,
     // not a miss: the model never had a chance to forecast that hour.
     expect(classifyHours([wet, null, wet], [wet, wet, wet])).toEqual(["hit", "no_data", "hit"]);
-    // A whole missing forecast → all no_data (was "all correct_dry" before).
+    // A whole missing forecast → all no_data, never correct_dry: the model had
+    // no chance to be right.
     expect(classifyHours([null, null, null], [dry, dry, dry])).toEqual(["no_data", "no_data", "no_data"]);
     // Missing truth is likewise unscorable.
     expect(classifyHours([wet, wet], [wet, null])).toEqual(["hit", "no_data"]);
@@ -353,8 +354,8 @@ describe("buildDailyVerification", () => {
         },
         precipitation: {
           aggregate: array(hours, () => null).map(aggregate),
-          // Model with no precipitation data at all — used to be scored as
-          // amountError = −truthSum, which was misleading.
+          // Model with no precipitation data at all: unscorable, not
+          // amountError = −truthSum (which reads as a confident dry forecast).
           perModel: { ghost_model: Array.from({ length: hours }, () => null) },
           truth: array(hours, (i) => (i >= 10 && i <= 13 ? 2 : 0)),
           predictability: array(hours, () => 0.5),

@@ -12,9 +12,7 @@ import { type AggregatePoint } from "./aggregate";
 import { clamp01 } from "./num";
 import { bias, classifyHours, coveredPrecipSums, HOURS_PER_DAY, mae, timingScore, type HourClassification, type VerifiedVariable, type VerifyChannel } from "./verification";
 
-// ---------------------------------------------------------------------------
-// Fixed reference scales + weights (tunable — see ADR 0004)
-// ---------------------------------------------------------------------------
+// Fixed reference scales + weights — tunable, see ADR 0004.
 
 /** Temperature MAE (°C) at which the goodness term hits 0. Mirrors the
  *  educated-guess "typical spread" anchors in predictability.ts. */
@@ -29,10 +27,6 @@ export const AMOUNT_REF_BAD_PER_DAY = 5;
  *  blend renormalises over whichever metrics are scorable in a given scope, so
  *  the absolute magnitudes only matter relative to each other. */
 export const COMPOSITE_WEIGHTS = { tempMae: 1 / 3, amountError: 1 / 3, timingScore: 1 / 3 } as const;
-
-// ---------------------------------------------------------------------------
-// Lead-time bands
-// ---------------------------------------------------------------------------
 
 export interface LeadBand {
   label: string;
@@ -65,10 +59,6 @@ export const AGGREGATE_TUNED_ROW_ID = "__aggregate_tuned__";
  *  page as a comparator against the shipping fitted-ladder aggregate. */
 export const AGGREGATE_LEGACY_ROW_ID = "__aggregate_legacy__";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 export interface ScorecardMetrics {
   /** Signed temperature bias (°C); `NaN` when no overlapping pair exists. */
   tempBias: number;
@@ -88,7 +78,6 @@ export interface ScorecardRow {
   /** Model id, or `AGGREGATE_ROW_ID`. */
   id: string;
   isAggregate: boolean;
-  /** Full-window metrics + composite. */
   overall: ScorecardMetrics;
   /** Composite per `LEAD_BANDS` entry; `null` when that band has no data. */
   bandComposites: (number | null)[];
@@ -103,7 +92,7 @@ export interface ScorecardRow {
 }
 
 export interface ScorecardInput {
-  /** Lead-hour axis covering the full window (e.g. 168 entries). */
+  /** Hourly time axis covering the full window (e.g. 168 entries). */
   times: readonly string[];
   /** One channel per verified variable (aggregate + per-model + truth). A
    *  channel aggregate point's `value` is already `number | null` (null = no
@@ -121,10 +110,6 @@ export interface ScorecardInput {
    *  page always supplies it (no stored weights needed). */
   legacy?: Record<VerifiedVariable, readonly AggregatePoint[]>;
 }
-
-// ---------------------------------------------------------------------------
-// Scoring
-// ---------------------------------------------------------------------------
 
 /** Score one scope (full window or a band slice) into metrics + composite.
  *  Each metric maps to a 0..1 goodness; the composite blends only the metrics

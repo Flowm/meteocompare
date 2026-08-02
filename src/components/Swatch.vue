@@ -4,7 +4,6 @@
 // scorecards, the chart legend, the timing matrix and the training table. Extra
 // layout classes (e.g. `shrink-0`) pass straight through to the root.
 defineProps<{
-  /** CSS colour for the swatch fill. */
   color: string;
 }>();
 </script>

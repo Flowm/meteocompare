@@ -179,7 +179,6 @@ function geolocate(): void {
          view-switcher label and tighter gaps on mobile; `relative` anchors the
          full-bleed results panel, which spans the whole bar via grid placement. -->
     <div class="relative mx-auto grid max-w-5xl grid-cols-[auto_1fr_auto] items-center gap-2 px-4 py-2 sm:gap-6 sm:px-6 sm:py-3.5">
-      <!-- Wordmark + view switcher ------------------------------------ -->
       <div class="flex items-center gap-2 sm:gap-5">
         <a href="/" class="group flex items-center gap-1.5 leading-none">
           <!-- The mark: the stylised barometer dial, shared with the
@@ -248,7 +247,6 @@ function geolocate(): void {
         </div>
       </div>
 
-      <!-- Search ------------------------------------------------------- -->
       <div class="relative w-full min-w-0">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -309,7 +307,6 @@ function geolocate(): void {
         </button>
       </div>
 
-      <!-- Settings ---------------------------------------------------- -->
       <div class="flex justify-self-end">
         <SettingsMenu />
       </div>

@@ -1,10 +1,10 @@
 // Framework-free evaluation of a single forecast run against truth — the
-// decoupled "analysis unit" (docs/plans/frontend-model-training.md, Phase 1).
-// Given an already-fetched single-runs response and its ERA5-Seamless truth,
-// it produces the aggregate + predictability hourly view-model, the per-day
-// verification, the per-model scorecard, and the available-model set — with no
-// Vue. useVerification is now a thin reactive wrapper over this, and the
-// multi-run sampler (later phases) calls it per run.
+// decoupled "analysis unit" (docs/plans/frontend-model-training.md). Given an
+// already-fetched single-runs response and its ERA5-Seamless truth, it produces
+// the aggregate + predictability hourly view-model, the per-day verification,
+// the per-model scorecard, and the available-model set — with no Vue.
+// useVerification is a thin reactive wrapper over it; the multi-run sampler
+// calls it per run.
 
 import { extractHourly as extractTruthHourly, type HistoricalWeatherResponse } from "@/api/omHistoricalWeather";
 import { extractHourlyByModel, type SingleRunsResponse } from "@/api/omSingleRuns";
@@ -22,8 +22,8 @@ import { buildDailyVerification, VERIFIED_VARIABLES, type DailyVerification, typ
  *  scored variable starts in domain/verification, not here. */
 const VERIFY_VARS: readonly VarSpec<VerifiedVariable>[] = VERIFIED_VARIABLES.map((v) => ({ key: v, family: v }));
 
-/** Build a `Record` keyed by the verified-variable set — the loop that replaced
- *  the per-variable hardcoding at every plumbing site below. */
+/** Build a `Record` keyed by the verified-variable set — the one loop every
+ *  plumbing site below shares. */
 function perVerifiedVariable<T>(build: (v: VerifiedVariable) => T): Record<VerifiedVariable, T> {
   return Object.fromEntries(VERIFIED_VARIABLES.map((v) => [v, build(v)])) as Record<VerifiedVariable, T>;
 }
@@ -52,7 +52,7 @@ export interface RunEvaluation {
    *  when `tunedMultipliers` were supplied. A cheap pure recompute; the UI
    *  swaps to these when the "use trained weights" toggle is on (see
    *  useVerification). Optional + additive so every already-stored sample stays
-   *  valid with no migration (record-versioned since Phase 2). */
+   *  valid with no migration (the sample store is record-versioned). */
   tunedHourly?: VerificationHourly;
   tunedDaily?: DailyVerification[];
   scorecard: ScorecardRow[];

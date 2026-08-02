@@ -1,10 +1,9 @@
-// Shared formatting for the three scorecard surfaces — the single-run
-// ModelScorecard, the multi-run MultiRunScorecard, and the ModelTimingMatrix.
-// Row labelling, accent colour and score tone are byte-identical across all
-// three; the unit-dependent value formatters (temperature MAE, precip amount,
-// timing) are shared by the two tables. Kept as a pure module + a thin
-// useUnits-wrapping composable, following the chartHelpers.ts precedent, so the
-// call sites stay one-liners and the number formatting can't drift apart.
+// Shared formatting for the three scorecard surfaces — ModelScorecard,
+// MultiRunScorecard and ModelTimingMatrix. Row labelling, accent colour and
+// score tone are identical across all three; the unit-dependent value formatters
+// are shared by the two tables. Split as a pure module plus a thin
+// useUnits-wrapping composable so the call sites stay one-liners and the number
+// formatting can't drift apart.
 
 import { computed, type ComputedRef } from "vue";
 
@@ -50,8 +49,7 @@ export function scoreTone(c: number): string {
   return "text-heat-300";
 }
 
-/** Composite score as a rounded integer, em-dash when unscorable. Shared name
- *  for the single-run scorecard's fmtComposite and the multi-run fmtScore. */
+/** Composite score as a rounded integer, em-dash when unscorable. */
 export function fmtScore(c: number): string {
   return Number.isFinite(c) ? String(Math.round(c)) : "—";
 }
