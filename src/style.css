@@ -1,24 +1,18 @@
 @import "tailwindcss";
 @import "weather-icons/css/weather-icons.min.css";
 
-/* Self-hosted type system — bundled so the app makes no third-party request on
- * load and renders fully offline. Instrument Sans (body) and JetBrains Mono
- * (data) are weight-only variable fonts; Fontsource exposes them under "<Name>
- * Variable" family names — see @theme below. */
+/* Bundled, not fetched: the app makes no third-party request on load and
+ * renders fully offline. Fontsource exposes these as "<Name> Variable" family
+ * names — see @theme below. */
 @import "@fontsource-variable/instrument-sans/index.css";
 @import "@fontsource-variable/jetbrains-mono/index.css";
 
-/* ---------------------------------------------------------------------------
- * MeteoCompare — "Observatory" design tokens.
- *
- * Reads like a meteorological instrument panel rather than a default-Tailwind
- * dashboard: deep marine ink, sodium-amber as the signature accent, a serif
- * display face paired with mono for data, hairline rules, and a faint paper
- * grain across the whole page so flat fills don't read as plastic.
- * ------------------------------------------------------------------------- */
+/* "Observatory" design tokens — a meteorological instrument panel rather than
+ * a default-Tailwind dashboard: deep marine ink, sodium-amber as the signature
+ * accent, hairline rules, and a faint paper grain so flat fills don't read as
+ * plastic. */
 
 @theme {
-  /* — Surface palette — */
   --color-ink-950: #050810; /* page floor */
   --color-ink-900: #0a1018; /* primary surface */
   --color-ink-850: #0e1622; /* raised surface */
@@ -27,7 +21,6 @@
   --color-ink-600: #243349; /* muted control */
   --color-ink-500: #324360; /* hover edge */
 
-  /* — Type palette — */
   --color-paper-50: #f4ecd8; /* warm off-white, the "primary" text */
   --color-paper-100: #e6dcc1;
   --color-paper-200: #c9bea4;
@@ -35,7 +28,7 @@
   --color-paper-400: #6c6450;
   --color-paper-500: #4a4639;
 
-  /* — Sodium amber — signature accent. Picks up old-instrument-panel glow. */
+  /* Sodium amber, the signature accent — picks up old-instrument-panel glow. */
   --color-sodium-50: #fff5d6;
   --color-sodium-100: #ffe49a;
   --color-sodium-200: #fbcf66;
@@ -43,28 +36,25 @@
   --color-sodium-400: #d99a1e;
   --color-sodium-500: #a87214;
 
-  /* — Heat (highs) — rust/coral instead of bright rose. */
+  /* Highs: rust/coral instead of bright rose. */
   --color-heat-300: #f0a285;
   --color-heat-400: #e8826b;
   --color-heat-500: #c45a45;
 
-  /* — Cold (lows) — oxidized teal instead of bright sky. */
+  /* Lows: oxidized teal instead of bright sky. */
   --color-cold-300: #9ddad6;
   --color-cold-400: #6dc6c2;
   --color-cold-500: #3f8e8a;
 
-  /* — Precipitation / data accents — */
   --color-rain-300: #7fb8e0;
   --color-rain-400: #4a93c7;
   --color-truth-400: #f5b942; /* sodium = truth (ERA5 reference) */
   --color-aggregate-400: #e8826b; /* coral = aggregate forecast */
 
-  /* — Predictability tiers — */
   --color-predictability-high: #9bb87a; /* sage */
   --color-predictability-mid: #f5b942; /* sodium */
   --color-predictability-low: #e8826b; /* coral */
 
-  /* — Type families — */
   --font-sans: "Instrument Sans Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
@@ -127,7 +117,6 @@ body::after {
   z-index: 2;
 }
 
-/* Selection picks up the sodium glow. */
 ::selection {
   background: rgba(245, 185, 66, 0.35);
   color: var(--color-paper-50);
@@ -139,7 +128,6 @@ body::after {
   outline-offset: 2px;
 }
 
-/* Scrollbars across the daily-strip overflow rails. */
 *::-webkit-scrollbar {
   height: 6px;
   width: 6px;
@@ -168,10 +156,6 @@ body::after {
     display: none;
   }
 }
-
-/* ---------------------------------------------------------------------------
- * Reusable typographic primitives.
- * ------------------------------------------------------------------------- */
 
 .eyebrow {
   font-family: var(--font-sans);
