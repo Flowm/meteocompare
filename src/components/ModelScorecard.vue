@@ -39,10 +39,6 @@ const coverageTone = (hours: number): string => {
   return "text-paper-500";
 };
 
-// ---------------------------------------------------------------------------
-// Columns + grouping
-// ---------------------------------------------------------------------------
-
 type SortKey = "model" | "overall" | `band${number}` | "tempBias" | "tempMae" | "amount" | "timing" | "coverage";
 type Dir = "asc" | "desc";
 
@@ -103,10 +99,6 @@ const covCol: Column = {
   tip: "Hours of the window the model covered (* marks partial coverage)",
   defaultDir: "desc",
 };
-
-// ---------------------------------------------------------------------------
-// Sorting
-// ---------------------------------------------------------------------------
 
 const sortKey = ref<SortKey>("overall");
 const sortDir = ref<Dir>("desc");

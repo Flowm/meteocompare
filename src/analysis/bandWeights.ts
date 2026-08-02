@@ -52,10 +52,6 @@ export const BUILTIN_SHRINK = 0.8;
 
 const clampMult = (x: number): number => Math.min(MULT_MAX, Math.max(MULT_MIN, x));
 
-// ---------------------------------------------------------------------------
-// Panels
-// ---------------------------------------------------------------------------
-
 interface VarPanel {
   ids: string[];
   /** [timestep][modelIdx] ladder BASE weight (the recipe with the tier being fit
@@ -214,10 +210,6 @@ function meanBandComposite(panels: readonly RunPanel[], m: Record<string, number
   return n ? sum / n : NaN;
 }
 
-// ---------------------------------------------------------------------------
-// Coordinate units (per-model, or per-class when tied)
-// ---------------------------------------------------------------------------
-
 /** All model ids present across a panel set (union of both variables). */
 function panelIds(panels: readonly RunPanel[]): string[] {
   return [...new Set(panels.flatMap((p) => [...p.temp.ids, ...p.precip.ids]))];
@@ -265,10 +257,6 @@ function hasBandData(panel: VarPanel, ids: ReadonlySet<string>, band: LeadBand):
   }
   return false;
 }
-
-// ---------------------------------------------------------------------------
-// Fitting stages
-// ---------------------------------------------------------------------------
 
 export interface PooledOpts {
   /** Kept fraction of the fitted deviation from 1 (shrinkage). Default 0.5. */
@@ -371,10 +359,6 @@ export function fitBandMultipliers(panels: readonly RunPanel[], pooled: Record<s
   }
   return result;
 }
-
-// ---------------------------------------------------------------------------
-// Tier fits
-// ---------------------------------------------------------------------------
 
 export interface BuiltinOpts {
   bands?: readonly LeadBand[];

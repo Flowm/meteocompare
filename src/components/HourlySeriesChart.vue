@@ -150,7 +150,6 @@ watch([showAggregate, showBand, showTruth, enabledModels], () => applyVisibility
 const overlayAxis = computed(() => (activeVar.value === "precipitation" ? 1 : 0));
 const { cursorValue } = useChartCursor(() => chartRef.value?.chart, overlayAxis);
 
-// ---- Tooltip formatting -----------------------------------------------------
 function fmtVar(dv: DataVarId, base: number | null | undefined): string {
   if (dv === "temperature_2m") return formatTemp.value(base, 1);
   if (dv === "precipitation") return formatPrecip.value(base, 1);

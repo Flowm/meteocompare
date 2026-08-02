@@ -5,10 +5,6 @@
 
 import type { DataVarId } from "@/composables/hourlySeries";
 
-// ---------------------------------------------------------------------------
-// Variable selector model
-// ---------------------------------------------------------------------------
-
 /** A selectable entry in the chart's variable strip. Most map 1:1 to a
  *  DataVarId; `temp_precip` is a composite overview that draws temperature
  *  (line + band) and precipitation (bars) together on a dual axis. */
@@ -85,10 +81,6 @@ export function nextCombinableView(view: ChartViewId, clicked: DataVarId): Chart
   if (active.size === 0) active.add(clicked); // never leave the pair empty
   return combinableView(active);
 }
-
-// ---------------------------------------------------------------------------
-// Time-axis helpers (unchanged)
-// ---------------------------------------------------------------------------
 
 /** First index in `times` whose timestamp is at or after `nowStr`. */
 export function findNowIndex(times: string[], nowStr: string): number {

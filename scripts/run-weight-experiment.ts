@@ -41,10 +41,6 @@ import { bandIndexFor, ladderModelWeight, type BuiltinWeightSet, type DeviceBand
 import { ARCHIVE_START, cacheDirFromArgv, gatherCached, runDates } from "./lib/collectRuns";
 import { REFERENCE_LOCATIONS, type RefLocation } from "./lib/referenceLocations";
 
-// ---------------------------------------------------------------------------
-// Protocol constants
-// ---------------------------------------------------------------------------
-
 /** ~24 runs per location, all 00Z. */
 const RUNS_PER_LOCATION = 24;
 /** Newest usable run: today − (10 forecast days + ~5-day ERA5 lag + 1 margin) so
@@ -75,10 +71,6 @@ const DECISION_RULE = [
   "  - Ablations (A per-day builtin, B per-day device, C class-only builtin)",
   "    are informational only.",
 ].join("\n");
-
-// ---------------------------------------------------------------------------
-// Small utilities
-// ---------------------------------------------------------------------------
 
 const median = (xs: readonly number[]): number => {
   const s = xs.filter((x) => Number.isFinite(x)).toSorted((a, b) => a - b);
@@ -236,10 +228,6 @@ function assertLadderParity(): void {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Coverage diagnostics
-// ---------------------------------------------------------------------------
-
 interface Coverage {
   runs: number;
   /** Median across runs of the max lead hour present on the time axis (240 = full 10 days). */
@@ -302,10 +290,6 @@ function leadOf(times: readonly string[], base: number, i: number): number {
   return t ? (new Date(t).getTime() - base) / 3_600_000 : 0;
 }
 
-// ---------------------------------------------------------------------------
-// Per-location result record
-// ---------------------------------------------------------------------------
-
 interface LocResult {
   name: string;
   runs: number;
@@ -327,10 +311,6 @@ interface LocResult {
   deviceSkipReason?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
-
 async function main(): Promise<void> {
   assertLadderParity();
 
@@ -345,7 +325,6 @@ async function main(): Promise<void> {
   console.log(`Run dates: ${dates[0]} … ${dates[dates.length - 1]} (${dates.length} dates)`);
   console.log(`Cache dir: ${CACHE_DIR}\n`);
 
-  // --- Gather (cached) -----------------------------------------------------
   const runsByLoc = new Map<string, RunEvaluation[]>();
   const gatherStart = Date.now();
   for (const loc of locations) {
@@ -435,7 +414,6 @@ async function main(): Promise<void> {
     );
   }
 
-  // --- Decision rule -------------------------------------------------------
   const decision = decide(results);
   console.log(`\n${"=".repeat(60)}`);
   console.log(DECISION_RULE);
@@ -446,7 +424,6 @@ async function main(): Promise<void> {
   console.log(`  median builtin-only = ${f2(decision.medBuiltinOnly)}   median +device = ${f2(decision.medArm2)}   median Δ = ${signed(decision.medDelta2)}`);
   console.log(`  wins: ${decision.wins2}/${decision.deviceLocs}   → ship device tier: ${decision.ship ? "YES" : "NO"}`);
 
-  // --- Write results JSON + report ----------------------------------------
   const payload = {
     generatedAt: new Date().toISOString(),
     smoke: SMOKE,
@@ -459,10 +436,6 @@ async function main(): Promise<void> {
   console.log(`\nWrote ${RESULTS_JSON}`);
   console.log(`Wrote ${REPORT_PATH}\n`);
 }
-
-// ---------------------------------------------------------------------------
-// Decision
-// ---------------------------------------------------------------------------
 
 interface Decision {
   medArm0: number;
@@ -508,10 +481,6 @@ function decide(results: readonly LocResult[]): Decision {
     ship,
   };
 }
-
-// ---------------------------------------------------------------------------
-// Report
-// ---------------------------------------------------------------------------
 
 type Payload = {
   generatedAt: string;

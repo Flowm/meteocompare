@@ -30,10 +30,6 @@ export const AMOUNT_REF_BAD_PER_DAY = 5;
  *  the absolute magnitudes only matter relative to each other. */
 export const COMPOSITE_WEIGHTS = { tempMae: 1 / 3, amountError: 1 / 3, timingScore: 1 / 3 } as const;
 
-// ---------------------------------------------------------------------------
-// Lead-time bands
-// ---------------------------------------------------------------------------
-
 export interface LeadBand {
   label: string;
   /** Inclusive start lead hour. */
@@ -64,10 +60,6 @@ export const AGGREGATE_TUNED_ROW_ID = "__aggregate_tuned__";
  *  heuristic recipe (domain/legacyWeighting), always shown on the verification
  *  page as a comparator against the shipping fitted-ladder aggregate. */
 export const AGGREGATE_LEGACY_ROW_ID = "__aggregate_legacy__";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 export interface ScorecardMetrics {
   /** Signed temperature bias (°C); `NaN` when no overlapping pair exists. */
@@ -121,10 +113,6 @@ export interface ScorecardInput {
    *  page always supplies it (no stored weights needed). */
   legacy?: Record<VerifiedVariable, readonly AggregatePoint[]>;
 }
-
-// ---------------------------------------------------------------------------
-// Scoring
-// ---------------------------------------------------------------------------
 
 /** Score one scope (full window or a band slice) into metrics + composite.
  *  Each metric maps to a 0..1 goodness; the composite blends only the metrics

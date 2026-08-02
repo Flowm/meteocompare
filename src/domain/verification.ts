@@ -67,10 +67,6 @@ export interface DailyVerification {
   perModel: Record<string, VariableScores>;
 }
 
-// ---------------------------------------------------------------------------
-// Scored (verified) variables
-// ---------------------------------------------------------------------------
-
 /** The variables the verification path scores — the single source the fetch
  *  lists (omSingleRuns, omHistoricalWeather truth) and `runEvaluation`'s
  *  plumbing all derive from. Today temperature and precipitation, the two
@@ -94,10 +90,6 @@ export interface VerifyChannel {
   /** ERA5-Seamless truth, one entry per hour. */
   truth: readonly (number | null)[];
 }
-
-// ---------------------------------------------------------------------------
-// Pure stat primitives
-// ---------------------------------------------------------------------------
 
 /** Mean of `(forecast − truth)` over hour pairs where both are non-null.
  *  Returns `NaN` when no overlapping pair exists. */
@@ -177,10 +169,6 @@ export function meanFinite(values: readonly number[]): number {
   return sharedMeanFinite(values);
 }
 
-// ---------------------------------------------------------------------------
-// Precipitation classification
-// ---------------------------------------------------------------------------
-
 /** Classify each hour against truth, using a ±tolerance window for timing
  *  forgiveness. Returns one label per hour:
  *
@@ -258,10 +246,6 @@ export function timingScore(classifications: readonly HourClassification[]): num
   return events === 0 ? NaN : hits / events;
 }
 
-// ---------------------------------------------------------------------------
-// Per-variable score builders
-// ---------------------------------------------------------------------------
-
 function scoreTemperature(forecast: readonly (number | null)[], truth: readonly (number | null)[], predictability: number): TemperatureScores | null {
   const b = bias(forecast, truth);
   const m = mae(forecast, truth);
@@ -299,10 +283,6 @@ function scorePrecipitation(forecast: readonly (number | null)[], truth: readonl
     hourlyClassification: classification,
   };
 }
-
-// ---------------------------------------------------------------------------
-// Daily orchestrator
-// ---------------------------------------------------------------------------
 
 /** A verify channel plus the per-hour aggregate predictability the daily card
  *  pairs each day's error with — the calibration lens (CONTEXT.md "Daily

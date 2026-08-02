@@ -53,10 +53,6 @@ function unwrap<T>(parsed: unknown, version: number, migrate: Migrate<T>): T | n
   return migrate(parsed, 0);
 }
 
-// ---------------------------------------------------------------------------
-// localStorage — synchronous
-// ---------------------------------------------------------------------------
-
 export interface LocalKeyedStore<T> {
   get(key: string): T | null;
   set(key: string, value: T): void;
@@ -109,10 +105,6 @@ export function createLocalKeyedStore<T>({ prefix, version, migrate = identityMi
     },
   };
 }
-
-// ---------------------------------------------------------------------------
-// IndexedDB — asynchronous
-// ---------------------------------------------------------------------------
 
 export interface IdbKeyedStore<T> {
   get(key: string): Promise<T | null>;

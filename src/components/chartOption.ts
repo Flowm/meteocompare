@@ -242,7 +242,6 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
     });
   }
 
-  // --- helper: push an aggregate line + band for a line variable -------------
   const pushLineAggregate = (dv: DataVarId, axisIndex: number, attachMarks: boolean): void => {
     const pts = (data.aggregate[dv] ?? []).slice(0, n);
     const values = pts.map((p) => convertVar(p.value, dv, units));
@@ -381,7 +380,6 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
     }
   };
 
-  // --- helper: push truth line for a line variable ---------------------------
   const pushLineTruth = (dv: DataVarId, axisIndex: number): void => {
     const truth = data.truth?.[dv];
     if (!truth) return;
@@ -400,7 +398,6 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
     toggles.push({ group: "truth", id: "tr", props: ["lineStyle", "itemStyle"], shown: 1 });
   };
 
-  // --- helper: push per-model overlay lines for a line variable ------------------
   const pushOverlay = (dv: DataVarId, axisIndex: number): void => {
     const byModel = data.perModel[dv] ?? {};
     for (const m of models) {
@@ -423,7 +420,6 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
     }
   };
 
-  // --- compose the series for the active view --------------------------------
   if (isComposite) {
     // Temp (line + band) on the left axis, precip (bars) on the right.
     // Distinct id so the precip bars don't collide with the temp line's "agg".
@@ -439,7 +435,6 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
     if (overlay) pushOverlay(dv, 0);
   }
 
-  // --- axes ------------------------------------------------------------------
   const leftIsPct = leftVar === "precipitation_probability" || leftVar === "cloud_cover";
   const leftUnit = leftVar ? unitLabel(leftVar, units) : "";
   // Hourly precip is the sum over the preceding hour — a rate — so the chart
