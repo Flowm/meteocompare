@@ -41,7 +41,6 @@ import { bandIndexFor, ladderModelWeight, type BuiltinWeightSet, type DeviceBand
 import { ARCHIVE_START, cacheDirFromArgv, gatherCached, runDates } from "./lib/collectRuns";
 import { REFERENCE_LOCATIONS, type RefLocation } from "./lib/referenceLocations";
 
-/** ~24 runs per location, all 00Z. */
 const RUNS_PER_LOCATION = 24;
 /** Newest usable run: today − (10 forecast days + ~5-day ERA5 lag + 1 margin) so
  *  band 3 (168–240 h) has truth. */

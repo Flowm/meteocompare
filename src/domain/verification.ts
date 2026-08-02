@@ -85,7 +85,6 @@ export type VerifiedVariable = (typeof VERIFIED_VARIABLES)[number];
 export interface VerifyChannel {
   /** Aggregate forecast points, one per hour; `value` is already `number | null`. */
   aggregate: readonly AggregatePoint[];
-  /** Per-model raw hourly forecast values, keyed by model id. */
   perModel: Readonly<Record<string, readonly (number | null)[]>>;
   /** ERA5-Seamless truth, one entry per hour. */
   truth: readonly (number | null)[];
@@ -289,7 +288,6 @@ function scorePrecipitation(forecast: readonly (number | null)[], truth: readonl
  *  breakdown"). Predictability rides on the channel because it is defined only
  *  over the aggregate and only the daily builder consumes it. */
 export interface DailyChannel extends VerifyChannel {
-  /** Per-hour aggregate-level per-variable predictability, one per hour. */
   predictability: readonly number[];
 }
 

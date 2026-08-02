@@ -9,7 +9,6 @@
 //
 // Docs: https://open-meteo.com/en/docs (see "Commercial API access").
 
-/** localStorage key for the optional open-meteo commercial API key. */
 export const OPEN_METEO_API_KEY_STORAGE_KEY = "meteocompare:openmeteo:api-key";
 
 /** The configured key, trimmed; empty string when none is set. Read live from

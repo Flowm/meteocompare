@@ -296,7 +296,6 @@ const MODEL_FAMILIES: Record<string, readonly string[]> = {
 
 const FAMILY_OF: Record<string, string> = Object.fromEntries(Object.entries(MODEL_FAMILIES).flatMap(([family, ids]) => ids.map((id) => [id, family])));
 
-/** The lineage family of a model, or `undefined` if unmapped. */
 export function familyOf(id: string): string | undefined {
   return FAMILY_OF[id];
 }

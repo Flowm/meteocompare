@@ -80,7 +80,6 @@ export interface ScorecardRow {
   /** Model id, or `AGGREGATE_ROW_ID`. */
   id: string;
   isAggregate: boolean;
-  /** Full-window metrics + composite. */
   overall: ScorecardMetrics;
   /** Composite per `LEAD_BANDS` entry; `null` when that band has no data. */
   bandComposites: (number | null)[];

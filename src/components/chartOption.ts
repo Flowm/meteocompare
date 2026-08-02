@@ -99,9 +99,7 @@ export type TogglePropKey = "lineStyle" | "itemStyle" | "areaStyle";
 export interface VisibilityToggle {
   /** Logical group, keys the show/hide decision against VisibilityState. */
   group: "aggregate" | "band" | "truth" | "model";
-  /** Series id in the built option. */
   id: string;
-  /** Style props whose opacity this toggle drives. */
   props: TogglePropKey[];
   /** Opacity when shown (1 for lines/fills, MODEL_OPACITY for overlay lines). */
   shown: number;
@@ -150,14 +148,12 @@ export function visibilityPatches(toggles: VisibilityToggle[], state: Visibility
 
 export interface HourlyChartBuild {
   option: EChartsOption;
-  /** Visibility descriptors for the toggleable series in `option`. */
   toggles: VisibilityToggle[];
 }
 
 export interface HourlyChartOptionArgs {
   /** The unified hourly view-model (aggregate / perModel / optional truth). */
   data: HourlySeries;
-  /** Selected variable view. */
   view: ChartViewId;
   /** Visible window in hours (clamped to the available time axis). */
   hoursWindow: number;

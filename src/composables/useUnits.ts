@@ -54,7 +54,6 @@ export function convertDelta(delta: number, varId: DataVarId, u: UnitPrefs): num
   }
 }
 
-/** Axis/suffix label for a variable under the chosen units. */
 export function unitLabel(varId: DataVarId, u: UnitPrefs): string {
   switch (varId) {
     case "temperature_2m":

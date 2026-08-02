@@ -21,9 +21,7 @@ import Swatch from "./Swatch.vue";
 
 const props = withDefaults(
   defineProps<{
-    /** The unified hourly view-model (aggregate / perModel / optional truth). */
     data: HourlySeries;
-    /** Heading shown above the chart, e.g. "Hourly forecast". */
     title: string;
     /** Hide the built-in heading when a parent section provides the title. */
     showTitle?: boolean;

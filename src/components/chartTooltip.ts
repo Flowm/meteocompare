@@ -34,7 +34,6 @@ export interface TooltipContext {
   overlay: boolean;
   /** Variable→display-string formatter, owned by the component (unit prefs). */
   fmtVar: (dv: DataVarId, base: number | null | undefined) => string;
-  /** Reads live toggle + cursor state on each hover. */
   liveState: () => TooltipState;
 }
 

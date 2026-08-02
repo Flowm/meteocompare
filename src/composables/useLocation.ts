@@ -87,7 +87,6 @@ export function useLocation() {
     { immediate: true },
   );
 
-  /** The current location's display label — `"Name, Detail"` (or bare name). */
   const label = computed(() => locationLabel(current.value));
 
   return {

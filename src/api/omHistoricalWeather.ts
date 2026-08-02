@@ -63,7 +63,6 @@ export async function fetchHistoricalWeather(req: HistoricalWeatherRequest, sign
   return fetchOpenMeteoJson<HistoricalWeatherResponse>(url, "historical-weather", signal);
 }
 
-/** Pull an hourly truth series for one variable. */
 export function extractHourly(resp: HistoricalWeatherResponse, variable: HistoricalHourlyVar): (number | null)[] {
   return resp.hourly[variable] ?? [];
 }

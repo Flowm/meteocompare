@@ -122,7 +122,6 @@ function meanComposite(panels: readonly RunPanel[], m: Record<string, number>): 
   return n ? sum / n : NaN;
 }
 
-/** Fit per-model multipliers for a location's stored sample. */
 export function fitWeights(sample: LocationSample): FitResult {
   const sourceKey = sampleKey(sample.location.latitude, sample.location.longitude);
   const fail = (reason: string): FitResult => ({ ok: false, sourceKey, reason, multipliers: {}, nTrain: 0, nVal: 0, valComposite: NaN, valBaselineComposite: NaN, improvement: 0 });

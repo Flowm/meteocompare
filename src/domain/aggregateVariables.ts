@@ -24,7 +24,6 @@ export interface VarSpec<K extends string = string> {
 export interface AggregateVariablesOptions<K extends string = string> {
   /** Shared time axis (location-local ISO strings). */
   times: string[];
-  /** Pre-extracted per-model series, keyed by VarSpec.key → model id → values. */
   perModel: Record<K, Record<string, (number | null)[]>>;
   vars: readonly VarSpec<K>[];
   models: ModelDef[];
@@ -41,7 +40,6 @@ export interface AggregateVariablesOptions<K extends string = string> {
 }
 
 export interface AggregatedVariables<K extends string = string> {
-  /** Variable key → weighted-ensemble aggregate points. */
   aggregate: Record<K, AggregatePoint[]>;
   /** Variable key → per-timestep predictability (0..1). */
   predictability: Record<K, number[]>;

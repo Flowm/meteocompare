@@ -60,7 +60,6 @@ export interface CurrentConditions {
   isDay: boolean;
 }
 
-/** Everything one fetched forecast yields once aggregated. */
 export interface ForecastEvaluation {
   hourly: HourlyAggregate;
   daily: DailyAggregate;

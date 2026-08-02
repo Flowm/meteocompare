@@ -22,7 +22,6 @@ export interface LocationSample {
   gatheredAt: string;
 }
 
-/** Per-model performance summarised across a sample. */
 export interface ModelSampleStats {
   id: string;
   isAggregate: boolean;

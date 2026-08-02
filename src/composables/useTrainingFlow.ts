@@ -19,7 +19,6 @@ import type { Location } from "./useLocation";
 /** Minimum stored runs before a fit is attempted (train + held-out validation). */
 export const MIN_RUNS = MIN_TRAIN_RUNS + MIN_VAL_RUNS;
 
-/** One row of the device-wide stored-weights inventory. */
 export interface TrainedWeightsRow {
   key: string;
   name: string;
@@ -41,7 +40,6 @@ export interface UseTrainingFlowReturn {
   justSaved: Ref<boolean>;
   runCount: ComputedRef<number>;
   currentKey: ComputedRef<string>;
-  /** The exact-cell stored weights for the current location, if any. */
   stored: ComputedRef<StoredWeights | null>;
   /** Device-wide stored-weights inventory, current location first then newest. */
   overview: ComputedRef<TrainedWeightsRow[]>;

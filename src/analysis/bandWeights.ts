@@ -215,7 +215,6 @@ function panelIds(panels: readonly RunPanel[]): string[] {
   return [...new Set(panels.flatMap((p) => [...p.temp.ids, ...p.precip.ids]))];
 }
 
-/** The class of a model id (undefined for ids not in the registry). */
 const kindOf = (id: string): ModelKind | undefined => getModel(id)?.kind;
 
 /** Group ids by model class — the coordinate units of a tied (per-class) fit,

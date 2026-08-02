@@ -16,7 +16,6 @@ export interface HourlySeries {
   times: string[];
   /** Variable id → weighted-ensemble aggregate points (carry `stdDev` → band). */
   aggregate: Partial<Record<DataVarId, AggregatePoint[]>>;
-  /** Variable id → model id → raw per-model hourly series. */
   perModel: Partial<Record<DataVarId, Record<string, (number | null)[]>>>;
   /** Variable id → ERA5-Seamless truth, aligned to `times`. Present on the
    *  verification page only; absent on the forecast page. */

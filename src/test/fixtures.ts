@@ -18,8 +18,6 @@ export const PARIS = { lat: 48.85, lon: 2.35 };
  *  no suite can mutate a shared array. */
 export const modelSubset = (): ModelDef[] => [getModel("ecmwf_ifs")!, getModel("gfs_seamless")!, getModel("icon_global")!, getModel("meteofrance_seamless")!];
 
-/** `Array.from` with an index mapper — the `array(n, fn)` helper redefined
- *  verbatim across the verification + scorecard suites. */
 export function array<T>(n: number, fn: (i: number) => T): T[] {
   return Array.from({ length: n }, (_, i) => fn(i));
 }
