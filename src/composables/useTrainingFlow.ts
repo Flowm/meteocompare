@@ -1,8 +1,8 @@
 // The training page's flow — load the location's stored sample, fit, persist,
-// and keep the device-wide stored-weights inventory current. Extracted from
+// and keep the device-wide stored-weights inventory current. Separate from
 // TrainingView.vue so the transitions (stale-load guard, the fit→apply source
 // check, reach edits, inventory ordering) are testable without a DOM; the view
-// renders this state. Mirrors how useSampleCollection wraps collectSample.
+// only renders this state. Mirrors how useSampleCollection wraps collectSample.
 
 import { computed, ref, watch, type ComputedRef, type Ref } from "vue";
 

@@ -31,11 +31,9 @@ export const ARCHIVE_START_ECMWF = "2024-03-01";
 // week, and only the API knows for a given run date.
 export const ARCHIVED_MODEL_IDS: string[] = MODELS.filter((m) => m.singleRunAvailability !== "never").map((m) => m.id);
 
-// open-meteo's single-runs API expands several of our registry ids into a
-// differently-named *internal* component, and a "model run is not available"
-// error names that component, not the id we sent (e.g. we request `icon_global`,
-// the error says `dwd_icon`). resolveMissingId maps the component back so the
-// retry can drop the right model, in two layers:
+// A "model run is not available" error names open-meteo's *internal* component,
+// not the id we sent (request `icon_global`, the error says `dwd_icon`), so the
+// retry needs a way back. Two layers:
 //
 //  1. This explicit map, for providers whose components fan out to *different*
 //     registry ids and so can't be matched by prefix: the DWD ICON family
@@ -45,9 +43,8 @@ export const ARCHIVED_MODEL_IDS: string[] = MODELS.filter((m) => m.singleRunAvai
 //     single-owner seamless products — see its note for why the component can't
 //     be pinned statically.
 //
-// Models whose component already equals their registry id (ecmwf_ifs,
-// cma_grapes_global, the Harmonie pair, …) need no entry; the direct-id check
-// in resolveMissingId handles them.
+// Components that already equal their registry id need no entry; the direct-id
+// check in resolveMissingId handles them.
 const COMPONENT_TO_REGISTRY_ID: Readonly<Record<string, string>> = {
   ncep_gfs025: "gfs_seamless",
   ncep_gfs_graphcast025: "gfs_graphcast025",
@@ -56,16 +53,13 @@ const COMPONENT_TO_REGISTRY_ID: Readonly<Record<string, string>> = {
   dwd_icon_d2: "icon_d2",
 };
 
-// Single-owner seamless products. open-meteo serves these by picking the
-// highest-resolution component available at the queried point (e.g. AROME
-// France HD 15-min inside France, ARPEGE elsewhere), so *which* component a run
-// resolves to — and which one ages out of the archive first — is
-// location-dependent: there's no single id to pin in the map above. But every
-// component such a product expands into shares the provider's prefix, and no
-// other registry id claims that prefix, so any unmapped component under it
-// resolves unambiguously to the one seamless model. NOT usable for
-// dwd_*/ncep_*, whose prefixes span several distinct registry ids (handled
-// exactly above).
+// Single-owner seamless products resolve to whichever component is highest-
+// resolution at the queried point (AROME France HD inside France, ARPEGE
+// elsewhere), so which one a run uses — and which ages out of the archive first
+// — is location-dependent and can't be pinned in the map above. Every component
+// under such a product shares the provider's prefix and no other registry id
+// claims it, so an unmapped component resolves unambiguously. NOT usable for
+// dwd_*/ncep_*, whose prefixes span several registry ids (mapped exactly above).
 const PROVIDER_PREFIX_TO_SEAMLESS_ID: ReadonlyArray<readonly [string, string]> = [
   ["meteofrance_", "meteofrance_seamless"],
   ["ukmo_", "ukmo_seamless"],
@@ -95,7 +89,7 @@ export interface SingleRunsRequest {
   /** Run cycle hour (00 / 06 / 12 / 18 Z); defaults to 0 (00Z). Models publish
    *  different cycles, so a non-00Z hour naturally prunes models that skip it. */
   runHour?: number;
-  /** Optional subset of model ids; defaults to the full registry. */
+  /** Defaults to the full registry. */
   models?: string[];
   /** Days forward from the run start; defaults to 7. */
   forecastDays?: number;
@@ -166,18 +160,17 @@ function resolveMissingId(named: string, requested: readonly string[]): string |
   return null;
 }
 
-// A single missing run fails the *entire* batch — and the archive's per-model
-// retention is a drifting window, so scrolling back far enough is guaranteed to
-// hit a model that's aged out. Instead of betting on a static "core" subset, we
-// attempt the full set and, when the API reports a missing run (clean JSON 4xx
-// or a streamed 200 abort — fetchModels normalises both), parse the offending
-// model, drop it, and retry. Each retry removes at least one id so the loop is
-// bounded by the request size; we keep at least one model in the batch. Errors
-// that name no model (network failure, unexpected body) propagate unchanged.
-// A caller-supplied subset gets the same treatment. Every pruned model is
-// reported through `opts.onModelUnavailable` — including the last one standing,
-// which we can't drop but a caller can still carry forward — so a multi-run
-// gather learns each miss once instead of per run (see collectSample.gatherRuns).
+// A single missing run fails the *entire* batch, and archive retention is a
+// drifting per-model window, so scrolling back far enough is guaranteed to hit a
+// model that has aged out. Rather than bet on a static "core" subset: attempt
+// the full set, and on a missing-run error (clean JSON 4xx or streamed 200 abort
+// — fetchModels normalises both) drop the named model and retry. Each retry
+// removes at least one id, so the loop is bounded by the request size; at least
+// one model always stays. Errors naming no model propagate unchanged.
+//
+// Every pruned model is reported through `opts.onModelUnavailable`, including
+// the last one standing — we can't drop it, but a multi-run gather can carry the
+// miss forward and learn it once instead of per run (see collectSample).
 export async function fetchSingleRuns(req: SingleRunsRequest, opts: FetchSingleRunsOptions = {}): Promise<SingleRunsResponse> {
   let ids = req.models ?? ARCHIVED_MODEL_IDS;
   for (;;) {

@@ -27,14 +27,11 @@ export const CHART_VIEWS: Record<ChartViewId, ChartViewMeta> = {
   cloud_cover: { label: "Cloud cover", vars: ["cloud_cover"], overlayVar: "cloud_cover" },
 };
 
-// ---------------------------------------------------------------------------
-// Combinable-pair view model
-// ---------------------------------------------------------------------------
-// Temperature (left axis) and precipitation (right axis) are the one
-// combinable pair: showing both together *is* the `temp_precip` composite
-// view. Every other variable is an exclusive single-axis view. Modelling the
-// active selection as a set of variables — rather than juggling tempOn/precipOn
-// booleans — keeps the picker's toggle logic a single, testable transform.
+// Temperature (left axis) and precipitation (right axis) are the one combinable
+// pair: showing both together *is* the `temp_precip` composite view. Every other
+// variable is an exclusive single-axis view. Modelling the active selection as a
+// SET of variables — rather than juggling tempOn/precipOn booleans — keeps the
+// picker's toggle logic a single, testable transform.
 
 export const COMBINABLE_VARS: readonly DataVarId[] = ["temperature_2m", "precipitation"];
 

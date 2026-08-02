@@ -12,9 +12,7 @@ import { type AggregatePoint } from "./aggregate";
 import { clamp01 } from "./num";
 import { bias, classifyHours, coveredPrecipSums, HOURS_PER_DAY, mae, timingScore, type HourClassification, type VerifiedVariable, type VerifyChannel } from "./verification";
 
-// ---------------------------------------------------------------------------
-// Fixed reference scales + weights (tunable — see ADR 0004)
-// ---------------------------------------------------------------------------
+// Fixed reference scales + weights — tunable, see ADR 0004.
 
 /** Temperature MAE (°C) at which the goodness term hits 0. Mirrors the
  *  educated-guess "typical spread" anchors in predictability.ts. */
@@ -94,7 +92,7 @@ export interface ScorecardRow {
 }
 
 export interface ScorecardInput {
-  /** Lead-hour axis covering the full window (e.g. 168 entries). */
+  /** Hourly time axis covering the full window (e.g. 168 entries). */
   times: readonly string[];
   /** One channel per verified variable (aggregate + per-model + truth). A
    *  channel aggregate point's `value` is already `number | null` (null = no

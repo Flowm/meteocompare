@@ -46,7 +46,7 @@ export const MIN_BAND_RUNS = 6;
 /** Default pooled-stage shrink toward 1, and band-stage shrink toward pooled —
  *  keep 50% of the fitted deviation (learnedWeights parity; the device tier). */
 export const DEFAULT_SHRINK = 0.5;
-/** Band-stage shrink toward the pooled value (ADR 0011: BAND_SHRINK). */
+/** Band-stage shrink toward the pooled value (ADR 0011). */
 export const BAND_SHRINK = 0.5;
 /** Builtin fit keeps more of the deviation — the reference-location pool is
  *  large, so overfitting is less of a risk than at the device tier. */
@@ -130,9 +130,7 @@ export function buildPanels({ runs, lat, lon, builtin, bands = LEAD_BANDS }: Bui
   }));
 }
 
-// ---------------------------------------------------------------------------
 // Objective (duplicated from learnedWeights on purpose — see the header note)
-// ---------------------------------------------------------------------------
 
 /** Weighted-mean aggregate of one panel over timesteps `[lo, hi)` under
  *  candidate multipliers `m`. */

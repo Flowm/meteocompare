@@ -1,6 +1,5 @@
-// One tool for local run collection + caching, shared by the three offline
-// fitting scripts. Wraps the production gatherRuns (fetch single runs + ERA5
-// truth, concurrency-capped, failures skipped) with an on-disk cache so repeated
+// Local run collection + caching, shared by the three offline fitting scripts.
+// Wraps the production gatherRuns with an on-disk cache so repeated
 // regenerations — and the three scripts between them — never re-fetch a run.
 //
 // The cache is keyed by (location, runDate, runHour) and stores a RunEvaluation

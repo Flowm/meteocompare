@@ -1,14 +1,8 @@
 <script setup lang="ts">
-// The three transient full-width states the views share: an error panel, a
-// centred loading spinner with a caption, and an empty-state panel. One
-// primitive so the coral error frame, the RadarSpinner block and the muted
-// empty panel can't drift apart across ForecastView / VerificationView /
-// TrainingView.
-//
-// - error:   coral-framed panel; the `[err]` prefix is fixed, the message goes
-//            in the default slot.
-// - loading: centred RadarSpinner over a muted caption.
-// - empty:   muted panel; content (usually a short instruction) in the slot.
+// The three transient full-width states the views share — error, loading,
+// empty. One primitive so they can't drift apart across ForecastView /
+// VerificationView / TrainingView. The error panel's `[err]` prefix is fixed;
+// everything else comes through the default slot.
 import RadarSpinner from "./RadarSpinner.vue";
 
 withDefaults(

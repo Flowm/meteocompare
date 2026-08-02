@@ -96,8 +96,8 @@ export function useSampleCollection(location: Ref<Location>, endDate: Ref<string
 
   function cancel(): void {
     task.cancel();
-    // Reset progress so the UI doesn't keep a stale mid-gather reading (e.g.
-    // "4/30 fetched") after cancelling — the drift the hand-rolled cancel() had.
+    // Reset progress so cancelling doesn't leave a stale mid-gather reading
+    // (e.g. "4/30 fetched") on screen.
     progress.value = { done: 0, total: 0 };
   }
 

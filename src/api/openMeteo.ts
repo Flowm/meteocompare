@@ -32,14 +32,13 @@ export function buildOpenMeteoUrl(baseUrl: string, params: URLSearchParams): str
   return `${baseUrl.replace("https://", "https://customer-")}?${params}`;
 }
 
-// open-meteo answers a rate-limited request with HTTP 429. The free tier's
-// per-minute / hourly / daily limits are easy to trip on a wide multi-run gather,
-// and a bare fetch would surface the 429 as a hard failure — the caller drops the
-// run and its data is silently lost. fetchOpenMeteo instead backs off and retries
-// on 429 *only*: it waits the server's `Retry-After` when given, else an
-// exponential delay with jitter, up to MAX_RETRIES. Every other response (ok or
-// not) is returned untouched so callers keep their own status handling; an aborted
-// signal rejects immediately, mid-wait included.
+// The free tier's per-minute / hourly / daily limits are easy to trip on a wide
+// multi-run gather, and a bare fetch surfaces the resulting 429 as a hard
+// failure — the caller drops the run and its data is silently lost. So retry on
+// 429 *only*: wait the server's `Retry-After` when given, else exponential
+// backoff with jitter, up to MAX_RETRIES. Every other response is returned
+// untouched so callers keep their own status handling; an aborted signal rejects
+// immediately, mid-wait included.
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 const MAX_DELAY_MS = 20_000;
@@ -80,8 +79,7 @@ function backoffMs(attempt: number): number {
   return ceiling / 2 + Math.random() * (ceiling / 2);
 }
 
-/** fetch() that transparently retries on HTTP 429 with backoff — see the note
- *  above. Pass the URL from buildOpenMeteoUrl; the response is returned as-is. */
+/** Pass the URL from buildOpenMeteoUrl; the response is returned as-is. */
 export async function fetchOpenMeteo(url: string, signal?: AbortSignal): Promise<Response> {
   for (let attempt = 0; ; attempt++) {
     // eslint-disable-next-line no-await-in-loop -- a retry can't start until the prior attempt's 429 is in hand.

@@ -22,8 +22,8 @@ import { buildDailyVerification, VERIFIED_VARIABLES, type DailyVerification, typ
  *  scored variable starts in domain/verification, not here. */
 const VERIFY_VARS: readonly VarSpec<VerifiedVariable>[] = VERIFIED_VARIABLES.map((v) => ({ key: v, family: v }));
 
-/** Build a `Record` keyed by the verified-variable set — the loop that replaced
- *  the per-variable hardcoding at every plumbing site below. */
+/** Build a `Record` keyed by the verified-variable set — the one loop every
+ *  plumbing site below shares. */
 function perVerifiedVariable<T>(build: (v: VerifiedVariable) => T): Record<VerifiedVariable, T> {
   return Object.fromEntries(VERIFIED_VARIABLES.map((v) => [v, build(v)])) as Record<VerifiedVariable, T>;
 }

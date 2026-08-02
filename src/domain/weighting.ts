@@ -11,11 +11,11 @@ import { regionBonus } from "./models";
 import type { Variable } from "./variables";
 import { bandIndexFor, resolveMultiplier, variableBoost } from "./weightLadder";
 
-// The Variable union now lives in variables.ts (the descriptor table's key);
-// re-exported here so existing `from "./weighting"` importers keep working.
+// The Variable union lives in variables.ts (the descriptor table's key);
+// re-exported so `from "./weighting"` keeps resolving it.
 export type { Variable };
-// variableBoost moved to weightLadder (so this module can depend on it without a
-// cycle); re-exported here for callers that still import it `from "./weighting"`.
+// variableBoost lives in weightLadder so this module can depend on it without
+// a cycle; re-exported so `from "./weighting"` keeps resolving it.
 export { variableBoost };
 
 /** One model's blend weight at a lead time (ADR 0011, the fitted ladder recipe):

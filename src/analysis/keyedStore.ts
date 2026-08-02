@@ -1,18 +1,14 @@
 // Shared machinery behind the two on-device keyed stores — learnedWeightsStore
-// (localStorage, sync) and sampleStore (IndexedDB, async). They deliberately
-// keep *separate* public interfaces: loadWeights is SYNC and called inside Vue
-// computeds, so we cannot unify behind one async facade. What they share is the
-// plumbing — availability guarding, a JSON codec that returns null on a parse
-// error, prefix scanning, and record-level version stamping/migration — factored
-// out here so it can't drift between the two.
+// (localStorage, sync) and sampleStore (IndexedDB, async). They keep separate
+// public interfaces on purpose: loadWeights is SYNC and called inside Vue
+// computeds, so the two cannot unify behind one async facade. Only the plumbing
+// is shared, so it can't drift between them.
 //
 // Record-level versioning: each value is persisted inside an envelope
-// { v, data }. On read, a record whose envelope is absent (an older device that
-// stored the bare value) is treated as v0 and passed through `migrate`, so
-// existing installs keep loading. `migrate(old, fromVersion)` returns the
-// upgraded value, or null to drop an unreadable record. For the IDB store the
-// IndexedDB *database* version stays 1 — this record-level `v` is a separate,
-// finer-grained concept.
+// { v, data }. A record with no envelope is an older device that stored the bare
+// value — read as v0 and passed through `migrate`, which returns the upgraded
+// value or null to drop it. The IndexedDB *database* version stays 1; this
+// record-level `v` is a separate, finer-grained concept.
 
 /** The persisted wrapper. `v` is the record schema version; `data` the payload. */
 interface Envelope<T> {

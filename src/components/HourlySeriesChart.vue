@@ -52,7 +52,7 @@ const WINDOW_CHOICES = [
   { hours: 168, label: "7d" },
 ] as const;
 
-// ---- UI state ---------------------------------------------------------------
+// UI state
 // All control decisions — view selection, the combinable Temp+Precip pair, the
 // chip enable/reset/snap rules, visibility toggles — live in the testable
 // controls module; this component renders them and patches the chart.
@@ -115,7 +115,7 @@ watch(
   { immediate: true },
 );
 
-// ---- Chip toggles (no-redraw) ----------------------------------------------
+// Chip toggles (no-redraw)
 // One imperative shell: merge-patch the toggleable series' opacity straight onto
 // the ECharts instance, so flipping a chip never triggers a full redraw. The
 // per-series rules (which style prop, the "shown" opacity, the precip-truth
@@ -139,7 +139,7 @@ function applyVisibility(): void {
 // the chart directly without a full rebuild — the handlers below just flip state.
 watch([showAggregate, showBand, showTruth, enabledModels], () => applyVisibility());
 
-// ---- Cursor tracking (tooltip highlight) ------------------------------------
+// Cursor tracking (tooltip highlight)
 /** Axis the per-model lines live on — right (1) for precip, left (0) otherwise. */
 const overlayAxis = computed(() => (activeVar.value === "precipitation" ? 1 : 0));
 const { cursorValue } = useChartCursor(() => chartRef.value?.chart, overlayAxis);
@@ -152,7 +152,7 @@ function fmtVar(dv: DataVarId, base: number | null | undefined): string {
   return `${Math.round(base)}%`;
 }
 
-// ---- Chart option -----------------------------------------------------------
+// Chart option
 // The pure builder produces the option plus the visibility descriptors for its
 // toggleable series; both stay in sync because they come from one build.
 const built = computed(() =>
@@ -286,10 +286,8 @@ watch(option, () => {
       <VChart ref="chartRef" style="height: 21rem" :option="option" autoresize class="relative" />
     </div>
 
-    <!-- Legend / filter strip ---------------------------------------------
-         Two labelled sections — SERIES (aggregate / spread / truth toggles)
-         and MODELS (an "All" toggle plus per-model overlay chips). Enabling
-         any model chip turns the overlay on; "All" flips every model at once. -->
+    <!-- Enabling any model chip turns the overlay on; "All" flips every model
+         at once. -->
     <div class="border-ink-700/60 mt-2 space-y-2.5 border-t pt-3 font-mono text-[11px] tracking-wide">
       <div class="flex items-start gap-2">
         <span class="text-paper-400 w-14 shrink-0 pt-[5px]">Series</span>

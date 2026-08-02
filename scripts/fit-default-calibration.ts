@@ -1,13 +1,11 @@
 // Fit the shipped default calibration (ADR 0010) and regenerate
 // src/analysis/defaultCalibration.ts.
 //
-// Reuses the production pipeline byte-for-byte: gatherCached (scripts/lib —
-// fetch single runs + ERA5 truth, concurrency-capped, failures skipped, on-disk
-// cache) → evaluateRun → calibrationPoints → fitCalibrationSet, pooled across the
-// shared reference locations (scripts/lib/referenceLocations) with run dates
-// spread over the usable single-runs archive window. Most models are archived
-// only from 2 April 2026, so seasonal coverage grows as the archive deepens —
-// regenerate periodically.
+// Reuses the production pipeline byte-for-byte — gatherCached → evaluateRun →
+// calibrationPoints → fitCalibrationSet — pooled across the shared reference
+// locations, with run dates spread over the usable archive window. Most models
+// are archived only from 2 April 2026, so seasonal coverage grows as the archive
+// deepens: regenerate periodically.
 //
 // Run with:  pnpm dlx tsx scripts/fit-default-calibration.ts [--cache-dir <path>]
 //   --cache-dir : reuse (and top up) a directory of cached RunEvaluation JSON

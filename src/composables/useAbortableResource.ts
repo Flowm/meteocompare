@@ -11,18 +11,13 @@ export interface AbortableResource<T> {
 
 /** Drives a single abortable async resource. Re-runs `fetcher` whenever `deps`
  *  change (and immediately on setup), aborting any in-flight request first.
- *  Captures `loading` / `error`, swallows `AbortError`, and clears `data` on a
- *  genuine failure.
  *
- *  The superseded-request guard lives here, once: a request that has been
- *  replaced by a newer one is aborted, and the aborted attempt must NOT flip
- *  `loading` off while its replacement is still in flight (which would hide the
- *  loading indicator). Both data composables route through this so the guard
- *  can't drift between them.
+ *  The superseded-request guard lives here, once, for both data composables: an
+ *  aborted attempt must NOT flip `loading` off while its replacement is still in
+ *  flight, or the indicator vanishes mid-fetch.
  *
- *  Forecast-/page-specific success side effects (e.g. a "last updated" stamp)
- *  belong inside the caller's `fetcher` closure, which runs only on a non-aborted
- *  success — keeping this helper generic. */
+ *  Page-specific success side effects (e.g. a "last updated" stamp) belong in
+ *  the caller's `fetcher` closure, which runs only on a non-aborted success. */
 export function useAbortableResource<T>(fetcher: (signal: AbortSignal) => Promise<T>, deps: () => unknown[]): AbortableResource<T> {
   const data = shallowRef<T | null>(null);
   const loading = ref(false);
@@ -66,11 +61,9 @@ export interface AbortableTask {
 
 /** The explicitly-triggered sibling of useAbortableResource: no deps, no
  *  auto-run, no owned data — the caller triggers `run(task)` and manages its own
- *  state inside the task closure. Shares the one superseded-guard: a newer
- *  `run()` aborts the previous, an aborted run must NOT flip `running` off or
- *  overwrite `error` while its replacement is in flight, and `cancel()` aborts
- *  and clears `running`. Both this and useAbortableResource keep the guard in one
- *  place so hand-rolled controller/guard code can't drift (see useSampleCollection). */
+ *  state inside the task closure. Carries the same superseded-request guard
+ *  described above, over `running`/`error` instead of `loading`/`data`;
+ *  `cancel()` aborts and clears `running`. */
 export function useAbortableTask(): AbortableTask {
   const running = ref(false);
   const error = ref<string | null>(null);

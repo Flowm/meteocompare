@@ -62,8 +62,7 @@ export function buildTooltipFormatter(ctx: TooltipContext): (params: unknown) =>
         // whiskers, line views as the shaded band, but the tooltip reads alike.
         const std = showBand && Number.isFinite(aggPt.stdDev) ? ` <span style="color:${STD_LABEL}">± ${fmtVar(dv, aggPt.stdDev).replace(/[°a-zA-Z%/ ]+$/, "")}</span>` : "";
         const label = vars.length > 1 ? `${dv === "temperature_2m" ? "Temp" : "Precip"} ` : "Forecast ";
-        // Rain-blue precip label — the rain-300 token, matching the precip bar
-        // hue (was a stray third blue #7dd3fc).
+        // Rain-blue precip label — the rain-300 token, matching the precip bars.
         const color = dv === "precipitation" ? RAIN_300 : AGG_COLOR;
         lines.push(`<span style="color:${color}">${label}</span>${fmtVar(dv, aggPt.value)}${std}`);
       }

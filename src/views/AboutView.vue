@@ -19,12 +19,10 @@ import { computeBandVotes, VOTE_KIND_ORDER } from "./aboutWeights";
 
 const GITHUB_URL = "https://github.com/Flowm/meteocompare";
 
-// — §02 · default-weights diagram (ADR 0011): whose voice the blend listens to —
-// Not the raw per-band multipliers (meaningless before normalisation) but the
-// NORMALISED share of the aggregate vote each model class commands, per lead
-// band. Computed live in ./aboutWeights from the shipped fit + registry, so the
-// bars track a refit; see that module for the honest share derivation and the
-// simplifying assumptions the caption states.
+// The NORMALISED share of the aggregate vote each model class commands per lead
+// band — not the raw per-band multipliers, which are meaningless before
+// normalisation. Derived in ./aboutWeights from the shipped fit + registry, so
+// the bars track a refit; see there for the assumptions the caption states.
 const BAND_VOTES = computeBandVotes();
 
 // Class → label + fill, in the diagram's stacked order (short-range specialists
@@ -82,9 +80,8 @@ const METHOD_STEPS = [
 // re-indent the alignment away.
 const FORMULA = ["spread = clamp(1 − σ / typicalSpread(lead), 0, 1)", "votes  = min(1, independentModels / 3)", "raw    = spread × votes"].join("\n");
 
-// — §03 · calibration facts, drawn live from the domain + the shipped fit —
-// (ADR 0008/0010). Tolerances, band labels, tier cutoffs and the built-in
-// fit's metadata all come from code, so this section can't drift from it.
+// Tolerances, band labels, tier cutoffs and the built-in fit's metadata all come
+// from the domain and the shipped fit (ADR 0008/0010), so §03 can't drift.
 const pct = (x: number): number => Math.round(x * 100);
 const CAL = DEFAULT_CALIBRATION_META;
 const CAL_POINTS = CAL ? Object.values(CAL.points).reduce((a, b) => a + b, 0) : 0;
@@ -408,7 +405,7 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
           </div>
         </section>
 
-        <!-- §05 · Fleet manifest (rendered live from domain/models.ts) ---- -->
+        <!-- Rendered live from domain/models.ts. -->
         <section>
           <header class="mb-4 flex items-center gap-3 sm:mb-5">
             <span class="text-sodium-300 font-mono text-xs">§05</span>

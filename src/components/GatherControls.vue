@@ -1,10 +1,7 @@
 <script setup lang="ts">
-// The multi-run gather form on the verification page: duration + runs-per-day
-// controls, the gather/cancel/store buttons, and the progress / stored / error
-// lines. State (durationDays, cyclesPerDay, the useSampleCollection surface)
-// stays in the view; this component only renders the form and emits the three
-// actions. `durationDays` and `cyclesPerDay` are two-way (v-model) so the view
-// keeps them; the rest are one-way status props.
+// The multi-run gather form on the verification page. State stays in the view;
+// this only renders and emits. `durationDays` and `cyclesPerDay` are two-way so
+// the view keeps owning them; the rest are one-way status props.
 import SegmentedToggle from "./SegmentedToggle.vue";
 
 const CYCLES_OPTIONS = [

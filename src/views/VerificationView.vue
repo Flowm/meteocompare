@@ -184,8 +184,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
               />
             </CollapsibleSection>
 
-            <!-- Per-model scorecard — each model (and the aggregate, ranked inline)
-                 scored over the full window, with lead-time bands. -->
+            <!-- The aggregate is ranked inline among the models. -->
             <CollapsibleSection v-if="scorecard && scorecard.length" title="Per-model scorecard">
               <div class="space-y-3">
                 <p class="text-paper-500 font-mono text-[11px] tracking-wide">
@@ -196,8 +195,7 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
               </div>
             </CollapsibleSection>
 
-            <!-- Precipitation timing — per-hour hit / miss / false-alarm strip per
-                 model and aggregate, against ERA5-Seamless truth. -->
+            <!-- Per-hour hit / miss / false-alarm against ERA5-Seamless truth. -->
             <CollapsibleSection v-if="scorecard && scorecard.length" title="Precipitation timing">
               <div class="space-y-3">
                 <p class="text-paper-500 font-mono text-[11px] tracking-wide">Per-hour rain hit / miss / false alarm against truth, per model and aggregate (±1 h tolerance).</p>

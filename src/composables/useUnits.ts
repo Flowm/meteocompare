@@ -17,11 +17,9 @@ export interface UnitPrefs {
 
 const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"] as const;
 
-// ---------------------------------------------------------------------------
-// Unit conversion — the single source of truth for the °C/°F, mm/in, km/h/mph
-// arithmetic. Both the chart (chartOption) and the cards (useUnits formatters,
-// LocationBanner) route through these so the factors can never drift apart.
-// ---------------------------------------------------------------------------
+// The single source of truth for the °C/°F, mm/in, km/h/mph arithmetic. Both the
+// chart (chartOption) and the cards (useUnits formatters, LocationBanner) route
+// through these so the factors can never drift apart.
 
 /** Convert a base-unit value (°C, mm, km/h, %) into the user's chosen unit.
  *  Returns null for null/NaN so callers can render a placeholder. */
@@ -73,7 +71,7 @@ export function signed(n: number, digits = 1): string {
   return `${n >= 0 ? "+" : ""}${n.toFixed(digits)}`;
 }
 
-/** Format a percentage. Stateless — hoisted out of the composable. */
+/** Format a percentage. Stateless — no unit preference applies. */
 export function formatPercent(v: number | null | undefined): string {
   if (v == null || Number.isNaN(v)) return "–";
   return `${Math.round(v)}%`;

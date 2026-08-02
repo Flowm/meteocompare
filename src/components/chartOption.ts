@@ -37,10 +37,9 @@ import {
   TRUTH_COLOR,
 } from "./chartTheme";
 
-// The chart palette + font live in ./chartTheme (single-sourced from the CSS
-// @theme tokens, since ECharts can't read CSS vars). Re-exported here so the
-// existing import sites — HourlySeriesChart's legend swatches, the scorecards,
-// the model rail — keep importing them from chartOption unchanged.
+// The chart palette + font live in ./chartTheme (ECharts renders to a canvas and
+// can't read the CSS @theme vars). Re-exported so the legend swatches, the
+// scorecards and the model rail can keep taking them from chartOption.
 export { AGG_COLOR, BAND_SWATCH, MODEL_OPACITY, TRUTH_COLOR };
 
 // ECharts reads `null` as "auto-scale this axis", but its TS types only allow
@@ -84,7 +83,7 @@ export function paletteFor(id: string): string {
   return MODEL_PALETTE[(i < 0 ? 0 : i) % MODEL_PALETTE.length]!;
 }
 
-// ---- Series visibility ------------------------------------------------------
+// Series visibility
 // Visibility is applied as a no-redraw merge-patch (opacity only) rather than by
 // rebuilding the option, so toggling a chip never triggers a full redraw. The
 // builder emits one VisibilityToggle per toggleable series *as it creates it*,
@@ -220,8 +219,7 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
       : undefined;
 
   // Night shading lives on its own zero-z background series so it always sits
-  // *behind* the spread band and lines (it used to ride the band-base series,
-  // which drew it on top of the spread).
+  // *behind* the spread band and lines.
   if (markArea) {
     series.push({
       id: "night",
@@ -456,10 +454,9 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
   const option: EChartsOption = {
     backgroundColor: "transparent",
     textStyle: { color: PAPER_200, fontFamily: CHART_FONT },
-    // Trimmed left/right gutters (was 52) so the plot spans more of the card;
-    // 36 still clears the 2-digit axis labels and the unit names on top.
-    // bottom kept tight (26) so the x-axis labels sit just under the plot
-    // rather than leaving dead canvas before the legend.
+    // 36 clears the 2-digit axis labels and the unit names on top while letting
+    // the plot span most of the card; bottom stays tight so the x-axis labels
+    // sit just under the plot, not above dead canvas.
     grid: { left: 36, right: 36, top: 32, bottom: 26 },
     animationDurationUpdate: 0,
     tooltip: {

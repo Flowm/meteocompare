@@ -7,7 +7,7 @@
 // the ONE place the raw hexes live, so chartOption / chartTooltip reference
 // meaning rather than magic numbers.
 
-// ---- Surface + type tokens (mirror style.css @theme) ------------------------
+// Surface + type tokens (mirror style.css @theme)
 export const INK_950 = "#050810"; // --color-ink-950 (page floor)
 export const INK_800 = "#131d2d"; // --color-ink-800 (grid split-lines)
 export const INK_700 = "#1a2638"; // --color-ink-700 (hairline / tooltip border)
@@ -18,7 +18,7 @@ export const PAPER_300 = "#93896f"; // --color-paper-300 (axis labels / names)
 export const SODIUM_300 = "#f5b942"; // --color-sodium-300 (hero accent)
 export const RAIN_300 = "#7fb8e0"; // --color-rain-300 (precipitation accent)
 
-// ---- Chart series colours ---------------------------------------------------
+// Chart series colours
 // "Observatory" palette: coral = aggregate forecast, sodium amber = truth
 // (ERA5 reference), oxidized teal for cool data, and a model palette drawn from
 // the same warm-cool spectrum rather than the default Tailwind hues.
