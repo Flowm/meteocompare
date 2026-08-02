@@ -188,7 +188,6 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
 
   const series: NonNullable<EChartsOption["series"]> = [];
 
-  // Resolve which data variables go on which axis.
   const isComposite = v === "temp_precip";
   const leftVar: DataVarId | null = isComposite ? "temperature_2m" : v === "precipitation" ? null : (v as DataVarId);
   const rightActive = isComposite || v === "precipitation";
@@ -498,7 +497,6 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
         max: leftIsPct ? 100 : AUTO,
       },
       {
-        // Right axis (precipitation).
         type: "value",
         name: precipUnit,
         nameTextStyle: { color: PAPER_300, fontSize: 10 },

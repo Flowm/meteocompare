@@ -78,7 +78,6 @@ export function useLocation() {
     }
   }
 
-  // Whenever the URL changes to a real location, push into recent.
   watch(
     current,
     (loc) => {

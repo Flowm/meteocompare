@@ -14,7 +14,6 @@ import type { RunEvaluation } from "./runEvaluation";
 import type { LocationSample } from "./sample";
 import { runKey, sampleKey } from "./sampleStore";
 
-// Tunables.
 export const MIN_TRAIN_RUNS = 8;
 export const MIN_VAL_RUNS = 3;
 export const VAL_FRACTION = 0.3;

@@ -20,7 +20,6 @@ export const router = createRouter({
     {
       path: "/train",
       name: "train",
-      // Off the landing path — lazy-load so it lands in its own chunk.
       component: () => import("@/views/TrainingView.vue"),
     },
     {

@@ -104,7 +104,6 @@ async function main(): Promise<void> {
   const set = fitBuiltinSet(panelsByLocation, { bands: LEAD_BANDS, meta });
   console.log(`\nFitted builtin set in ${((Date.now() - t0) / 1000).toFixed(0)}s across ${panelsByLocation.length} locations.`);
 
-  // Sanity report.
   const s = summariseModels(set);
   const bandLabels = LEAD_BANDS.map((b) => b.label).join(", ");
   console.log(`\nPer-model bands: ${s.fitted} fitted, ${s.nulled} null (gate/validation fallthrough).`);

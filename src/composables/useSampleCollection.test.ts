@@ -130,7 +130,6 @@ describe("useSampleCollection", () => {
     await c.store();
     expect(c.storedCount.value).toBe(1);
 
-    // And it actually persisted through the sample store.
     const persisted: LocationSample[] = await import("@/analysis/sampleStore").then((m) => m.listSamples());
     expect(persisted).toHaveLength(1);
     expect(persisted[0]?.runs).toHaveLength(1);

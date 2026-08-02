@@ -341,7 +341,6 @@ export function fitBandMultipliers(panels: readonly RunPanel[], pooled: Record<s
       }
     }
 
-    // Data gate + hierarchical shrink, per coordinate.
     for (const group of groups) {
       const gated = bandRunCount(panels, group, band) >= minRuns;
       for (const id of group) {

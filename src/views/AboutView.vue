@@ -38,7 +38,6 @@ const VOTE_CLASS_META: Record<ModelKind, { label: string; fill: string }> = {
 };
 const VOTE_LEGEND = VOTE_KIND_ORDER.map((kind) => Object.assign({ kind }, VOTE_CLASS_META[kind]));
 
-// One horizontal 100%-stacked bar per band; only classes with a vote render.
 const VOTE_BARS = (BAND_VOTES ?? []).map((v) => ({
   label: v.band.label,
   range: `${v.band.start}–${v.band.end} h`,
@@ -60,7 +59,6 @@ const route = useRoute();
 // other query state) when hopping from here into one of the instruments.
 const preservedQuery = computed(() => ({ ...route.query }));
 
-// — §02 · the three-step blend —
 const METHOD_STEPS = [
   {
     n: "01",
@@ -108,7 +106,6 @@ const LADDER = [
   { n: "04", title: "Raw agreement", note: "the uncalibrated formula above, used only where no curve clears its data gate" },
 ];
 
-// Tier chips per scale, from the live cutoffs.
 const TIER_ROWS = [
   {
     scale: "calibrated · daily badges",
@@ -134,7 +131,6 @@ const TIER_CHIP_CLASS = {
   low: "border-predictability-low/40 bg-predictability-low/10 text-predictability-low",
 } as const;
 
-// — §04 · the three instruments —
 const VIEWS = [
   {
     path: "/",
@@ -168,7 +164,6 @@ const SPEC: Array<[string, string]> = [
   ["api key", "optional open-meteo commercial key, stored only in your browser"],
 ];
 
-// — §05 · fleet manifest, straight from the registry —
 const KIND_ORDER: ModelKind[] = ["global", "regional-mid", "regional-cam", "ai", "ensemble-mean"];
 const KIND_META: Record<ModelKind, { label: string; note: string; dot: string }> = {
   global: { label: "Global NWP", note: "whole-planet physics, the medium-range backbone", dot: "bg-sodium-300" },
@@ -179,7 +174,6 @@ const KIND_META: Record<ModelKind, { label: string; note: string; dot: string }>
 };
 const fleet = computed(() => KIND_ORDER.map((kind) => Object.assign({ kind, models: MODELS.filter((m) => m.kind === kind) }, KIND_META[kind])));
 
-// — §07 · every centre whose model output flows into the aggregate —
 const providerList = computed(() => [...new Set(MODELS.map((m) => m.provider))].join(", "));
 
 const FINE_PRINT = [

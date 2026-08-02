@@ -97,7 +97,7 @@ export function usePullToRefresh(options: UsePullToRefreshOptions) {
       distance.value = threshold; // settle the indicator at the trigger point
       onRefresh();
     } else {
-      distance.value = 0; // snap back
+      distance.value = 0;
     }
   };
 

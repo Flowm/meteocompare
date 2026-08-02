@@ -22,7 +22,7 @@ describe("searchLocations", () => {
     vi.stubGlobal("fetch", mock);
     await searchLocations("  Vienna  ", undefined, "de", 5);
     const url = new URL(mock.mock.calls[0]?.[0] as string);
-    expect(url.searchParams.get("name")).toBe("Vienna"); // trimmed
+    expect(url.searchParams.get("name")).toBe("Vienna");
     expect(url.searchParams.get("count")).toBe("5");
     expect(url.searchParams.get("language")).toBe("de");
     expect(url.searchParams.get("format")).toBe("json");

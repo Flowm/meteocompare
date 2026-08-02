@@ -46,10 +46,6 @@ const showModels = defineModel<boolean>("showModels", { default: false });
 
 const { prefs, formatTemp, formatPrecip, formatWind } = useUnits();
 
-// Colours, the model palette, and paletteFor() now live in ./chartOption
-// alongside the option builder; the component imports only the few it needs
-// for the legend swatches and the no-redraw opacity patches.
-
 const WINDOW_CHOICES = [
   { hours: 24, label: "24h" },
   { hours: 72, label: "3d" },

@@ -1,5 +1,3 @@
-// Small shared numeric helpers for the domain layer.
-
 export const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
 
 /** Mean of the finite values, skipping null/undefined/NaN; `0` when none are

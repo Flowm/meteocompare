@@ -34,7 +34,7 @@ const forecastBroadcastPlugin: WorkboxPlugin = {
       newResponse.json().catch(() => null) as Promise<{ current?: { time?: string } } | null>,
     ]);
 
-    if (oldJson?.current?.time === newJson?.current?.time) return; // data unchanged
+    if (oldJson?.current?.time === newJson?.current?.time) return;
 
     const channel = new BroadcastChannel(FORECAST_UPDATE_CHANNEL);
     const message: ForecastCacheUpdatedMessage = { type: "CACHE_UPDATED", payload: { updatedURL: request.url } };
@@ -54,7 +54,6 @@ registerRoute(
   }),
 );
 
-// Geocoding: network-first with 5 s timeout.
 registerRoute(
   /^https:\/\/(?:customer-)?geocoding-api\.open-meteo\.com\/.*/i,
   new NetworkFirst({
