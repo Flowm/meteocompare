@@ -219,7 +219,6 @@ watch(option, () => {
   <h2 v-if="showTitle" class="eyebrow mb-3">{{ title }}</h2>
 
   <div class="border-ink-700 bg-ink-900/60 relative border p-3 sm:p-6">
-    <!-- Variable picker (left) + window selector (right) share a line -->
     <div ref="variableControlsRoot" class="relative mb-3 flex items-center gap-3 sm:mb-4">
       <!-- Off-layout probe used only to measure the rail's natural width. The
            zero-size, overflow-hidden wrapper keeps the w-max child from
@@ -233,7 +232,6 @@ watch(option, () => {
         </div>
       </div>
 
-      <!-- Expanded variable rail while it fits beside the window selector. -->
       <div v-if="showExpandedVariableRail" class="border-ink-700 flex border font-mono text-xs tracking-wide">
         <button
           v-for="vid in variables"
@@ -246,7 +244,6 @@ watch(option, () => {
         </button>
       </div>
 
-      <!-- Dropdown fallback when the expanded rail would wrap. -->
       <div v-else ref="varRoot" class="relative">
         <button
           type="button"
@@ -274,7 +271,6 @@ watch(option, () => {
         </PopoverPanel>
       </div>
 
-      <!-- Window selector (right-aligned) -->
       <div ref="windowSelector" class="border-ink-700 ml-auto flex shrink-0 border font-mono text-xs tracking-wide">
         <button
           v-for="c in WINDOW_CHOICES"
@@ -302,7 +298,6 @@ watch(option, () => {
          and MODELS (an "All" toggle plus per-model overlay chips). Enabling
          any model chip turns the overlay on; "All" flips every model at once. -->
     <div class="border-ink-700/60 mt-2 space-y-2.5 border-t pt-3 font-mono text-[11px] tracking-wide">
-      <!-- SERIES -->
       <div class="flex items-start gap-2">
         <span class="text-paper-400 w-14 shrink-0 pt-[5px]">Series</span>
         <div class="flex flex-wrap items-center gap-1.5">
@@ -338,7 +333,6 @@ watch(option, () => {
         </div>
       </div>
 
-      <!-- MODELS -->
       <ModelControlRail
         :models="allModels"
         :model-has-data="modelHasData"

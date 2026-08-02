@@ -61,7 +61,6 @@ const tempWhole = computed(() => {
        the per-day predictability lives on the outlook cards — so neither is
        repeated here. -->
   <div class="registration border-ink-700 bg-ink-900/60 relative flex flex-wrap items-center justify-between gap-x-6 gap-y-4 border p-4 sm:p-6">
-    <!-- Location + favourite toggle -->
     <LocationLabel :name="locationName" />
 
     <!-- Live reading: temperature + matching-size icon, then condition + precip,

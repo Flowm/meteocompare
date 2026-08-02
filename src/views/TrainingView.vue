@@ -95,7 +95,6 @@ function jumpTo(row: { name: string; detail?: string; latitude?: number; longitu
               <StateBlock v-if="!result.ok" kind="error" text-size="text-[11px]">{{ result.reason }}</StateBlock>
 
               <template v-else>
-                <!-- Train/validation summary -->
                 <div class="border-ink-700 bg-ink-700/60 grid grid-cols-2 gap-px border sm:grid-cols-4">
                   <div class="bg-ink-900 p-3">
                     <p
@@ -138,7 +137,6 @@ function jumpTo(row: { name: string; detail?: string; latitude?: number; longitu
                   The fit didn't beat the heuristic on held-out runs — gather more data, or keep the default weighting. You can still store it, but applying it isn't recommended.
                 </p>
 
-                <!-- Per-model multipliers -->
                 <div class="border-ink-700 bg-ink-900/40 no-scrollbar overflow-x-auto border">
                   <table class="w-full border-collapse font-mono text-[11px] tabular-nums">
                     <thead>
@@ -210,7 +208,6 @@ function jumpTo(row: { name: string; detail?: string; latitude?: number; longitu
         </div>
       </CollapsibleSection>
 
-      <!-- Device-wide stored-weights inventory. -->
       <CollapsibleSection title="Trained weights on this device" :summary="overview.length ? `${overview.length} stored` : undefined">
         <p class="text-paper-500 mb-4 font-mono text-[11px] leading-relaxed tracking-wide">
           Every location with a stored fit. Give a fit a reach to apply it to nearby locations; where a location has no fit of its own, the nearest covering fit is used.

@@ -116,7 +116,6 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
            the location surfaces in the title bar (summary) while collapsed. -->
       <CollapsibleSection title="Verification" :summary="locationLabel">
         <section class="registration border-ink-700 bg-ink-900/60 relative border p-5 sm:p-6">
-          <!-- Single-run vs multi-run mode. -->
           <div class="mb-4 flex items-center gap-3">
             <SegmentedToggle v-model="mode" :options="MODE_OPTIONS" inline divided class="font-mono text-xs tracking-wide" />
           </div>
@@ -159,14 +158,12 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
             @cancel="cancel"
           />
 
-          <!-- Truth reference (single-run window). -->
           <p v-if="mode === 'single'" class="border-ink-700 text-paper-400 mt-4 border-t pt-3 font-mono text-[11px] tracking-wide">
             Forecast vs ERA5-Seamless <span class="text-paper-500">· 7-day window · {{ cycleLabel }}</span>
           </p>
         </section>
       </CollapsibleSection>
 
-      <!-- Single-run analysis -->
       <template v-if="mode === 'single'">
         <StateBlock v-if="error" kind="error">{{ error }}</StateBlock>
 
@@ -219,7 +216,6 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
         </LoadingVeil>
       </template>
 
-      <!-- Multi-run analysis: per-model performance across the gathered sample. -->
       <template v-else>
         <CollapsibleSection v-if="sampleStats.length" title="Per-model performance" :summary="`${sampleRuns.length} runs`">
           <div class="space-y-3">

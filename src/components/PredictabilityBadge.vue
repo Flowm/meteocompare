@@ -68,7 +68,6 @@ const defaultLabel = computed(() => (props.size === "sm" ? `${percent.value}%` :
         : `Predictability — estimated from how closely the models agree (inter-model spread). Uncalibrated. Higher = stronger agreement. Currently ${percent}%.`
     "
   >
-    <!-- Segmented meter -->
     <span class="flex items-center gap-px" aria-hidden="true">
       <span
         v-for="i in SEGMENTS"

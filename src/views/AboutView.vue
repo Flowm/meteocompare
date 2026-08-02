@@ -209,7 +209,6 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
     <LocationBar />
 
     <main class="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 sm:py-12">
-      <!-- Masthead ------------------------------------------------------- -->
       <section class="pt-2 pb-10 sm:pt-6 sm:pb-16">
         <p class="eyebrow-sodium rise rise-1">Field manual · MeteoCompare</p>
         <h1 class="rise rise-2 text-paper-50 mt-4 max-w-3xl text-3xl font-semibold tracking-tight text-balance sm:text-5xl">
@@ -237,7 +236,6 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
       </section>
 
       <div class="space-y-12 sm:space-y-16">
-        <!-- §01 · Purpose ------------------------------------------------ -->
         <section>
           <header class="mb-4 flex items-center gap-3 sm:mb-5">
             <span class="text-sodium-300 font-mono text-xs">§01</span>
@@ -260,7 +258,6 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
           </div>
         </section>
 
-        <!-- §02 · Method ------------------------------------------------- -->
         <section>
           <header class="mb-4 flex items-center gap-3 sm:mb-5">
             <span class="text-sodium-300 font-mono text-xs">§02</span>
@@ -286,14 +283,12 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
             <figcaption class="eyebrow">Whose voice the blend listens to</figcaption>
             <p class="text-paper-400 mt-1 mb-4 text-xs leading-relaxed">Share of the aggregate vote by model class, from day 1 to day 10.</p>
 
-            <!-- Legend -->
             <div class="mb-5 flex flex-wrap gap-x-4 gap-y-1.5">
               <span v-for="c in VOTE_LEGEND" :key="c.kind" class="text-paper-200 flex items-center gap-1.5 font-mono text-[10px] tracking-wide">
                 <span class="size-2.5 shrink-0" :style="{ backgroundColor: c.fill }" aria-hidden="true" />{{ c.label }}
               </span>
             </div>
 
-            <!-- One 100%-stacked bar per band -->
             <div class="space-y-3.5">
               <div v-for="bar in VOTE_BARS" :key="bar.label">
                 <div class="mb-1 flex items-baseline justify-between gap-2">
@@ -332,7 +327,6 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
           </figure>
         </section>
 
-        <!-- §03 · Predictability ----------------------------------------- -->
         <section>
           <header class="mb-4 flex items-center gap-3 sm:mb-5">
             <span class="text-sodium-300 font-mono text-xs">§03</span>
@@ -388,7 +382,6 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
           </p>
         </section>
 
-        <!-- §04 · The three instruments ---------------------------------- -->
         <section>
           <header class="mb-4 flex items-center gap-3 sm:mb-5">
             <span class="text-sodium-300 font-mono text-xs">§04</span>
@@ -449,7 +442,6 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
           </div>
         </section>
 
-        <!-- §06 · Fine print --------------------------------------------- -->
         <section>
           <header class="mb-4 flex items-center gap-3 sm:mb-5">
             <span class="text-sodium-300 font-mono text-xs">§06</span>
@@ -464,7 +456,6 @@ const TECH = ["Vue 3", "TypeScript", "Tailwind CSS", "ECharts", "Vitest", "Cloud
           </ul>
         </section>
 
-        <!-- §07 · Colophon ----------------------------------------------- -->
         <section>
           <header class="mb-4 flex items-center gap-3 sm:mb-5">
             <span class="text-sodium-300 font-mono text-xs">§07</span>
