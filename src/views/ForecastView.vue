@@ -15,11 +15,10 @@ import { useLocation } from "@/composables/useLocation";
 const { current, label: locationLabel } = useLocation();
 const { loading, error, current: conditions, hourly, daily, solar } = useForecast(current);
 
-// Full variable set: the composite Temp+Precip overview plus the five
-// single-variable views. Temp+Precip is the calm default (variables[0]).
-// Temperature + precipitation are combinable (shown together by default); the
-// composite "Temp + Precip" view is the default but no longer a standalone
-// button — see HourlySeriesChart's variable toggle logic.
+// The selectable single-variable views, in picker order. Temperature and
+// precipitation are the combinable pair: with no truth series the chart opens
+// on the composite "Temp + Precip" built from them, which is why the composite
+// has no entry of its own here — see chartControls.canCombineTempPrecip.
 const FORECAST_VARIABLES: ChartViewId[] = ["temperature_2m", "precipitation", "precipitation_probability", "wind_speed_10m", "cloud_cover"];
 </script>
 

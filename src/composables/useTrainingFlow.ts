@@ -28,7 +28,7 @@ export interface TrainedWeightsRow {
   trainedAt: string;
   improvement: number;
   radiusKm: number;
-  /** Models whose weight was changed from the heuristic. */
+  /** Models whose fitted multiplier moved off 1. */
   tuned: number;
   isCurrent: boolean;
 }

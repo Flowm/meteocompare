@@ -141,8 +141,8 @@ const missingModelCount = computed(() => MODELS.length - availableModels.value.l
             </RunPicker>
           </div>
 
-          <!-- Multi-run sampling controls: gather a window of runs for this
-               location, then store them for training (phase 3). -->
+          <!-- Gather a window of runs for this location, then store them for
+               training. -->
           <GatherControls
             v-if="mode === 'multi'"
             v-model:durationDays="durationDays"

@@ -1,20 +1,22 @@
-// Band-sliced weight fitting (ADR 0011, work package 2). GATED — not wired into
-// the app; the experiment (work package 3) and tests drive it. Generalises
-// learnedWeights.ts's coordinate descent three ways:
-//   1. it fits against the LADDER recipe (weightLadder.ladderModelWeight), not
-//      the decay-based modelWeight — so "what we train == what we score" for the
-//      new recipe;
+// Band-sliced weight fitting (ADR 0011). Runs OFFLINE only — nothing in the
+// browser bundle imports it. `fitBuiltinSet` is what scripts/fit-default-weights
+// generates src/analysis/defaultWeights.ts with, so this module produces the
+// shipped tier that weighting.modelWeight resolves at runtime; the ladder
+// experiment and the tests are its other callers. Generalises learnedWeights.ts's
+// coordinate descent three ways:
+//   1. it fits against the full ladder recipe (weightLadder.ladderModelWeight),
+//      so "what we train == what we score";
 //   2. panels carry per-timestep lead hours and can be pooled across locations,
 //      so a fit spans many (run, location) panels;
 //   3. it adds a per-lead-band stage on top of the pooled stage, hierarchically
 //      shrunk (a band's multiplier shrinks toward the pooled one).
 //
 // Deliberately PARALLEL to learnedWeights.ts rather than a refactor of it:
-// learnedWeights ships (useTrainingFlow depends on it) and fits the OLD recipe,
-// so it stays byte-for-byte untouched. Importing this gated module into it would
-// pull the not-yet-adopted ladder into the shipping dependency graph and defeat
-// the ADR-0011 gate; the shared objective helpers (aggUnder / composite means)
-// are a few lines and are duplicated here on purpose.
+// learnedWeights ships in the training flow and fits a per-model POOLED residual
+// in the browser, against whatever modelWeight currently resolves to. Keeping the
+// two apart means the offline fit can grow band stages without touching the
+// shipping path; the shared objective helpers (aggUnder / composite means) are a
+// few lines and are duplicated here on purpose.
 //
 // All functions are pure and deterministic — no Date.now, no randomness. Runs
 // whose band slice carries no scorable truth simply don't contribute to that

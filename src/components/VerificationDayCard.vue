@@ -39,9 +39,9 @@ const dayLabel = computed(() => {
   return d.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" });
 });
 
-// U5: 0-indexed day label so Day 0 = the run day itself (matches the lead
-// hours, where Day 0 covers 0–24 h lead). Avoids the "Day 1 means tomorrow,
-// or the run day?" ambiguity from the previous 1-indexed labelling.
+// 0-indexed so Day 0 is the run day itself, matching the lead hours beside it
+// (Day 0 covers 0–24 h). 1-indexing invites "does Day 1 mean tomorrow, or the
+// run day?".
 const leadLabel = computed(() => `Day ${props.day.dayIndex} · ${props.day.leadHoursStart}-${props.day.leadHoursEnd}h`);
 </script>
 
