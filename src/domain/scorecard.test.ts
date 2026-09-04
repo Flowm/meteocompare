@@ -67,6 +67,21 @@ describe("buildModelScorecard — composite math + dry renormalisation", () => {
 });
 
 describe("buildModelScorecard — amount normalised per covered day", () => {
+  it("normalises by observed hours so missing truth cannot dilute amount error", () => {
+    const input = makeInput({
+      precipitation: {
+        perModel: { m: array(N, (i) => (i === 0 ? 15 : 0)) },
+        truth: array(N, (i) => (i < 48 ? (i === 0 ? 5 : 0) : null)),
+      },
+    });
+    const row = rowFor(input, "m")!;
+    expect(row.overall.amountError).toBe(10);
+    expect(row.overall.timingScore).toBe(1);
+    // 10 mm / 2 observed days reaches the bad-amount anchor; timing is perfect.
+    expect(row.overall.composite).toBeCloseTo(50);
+    expect(row.bandComposites).toEqual([50, null, null, null]);
+  });
+
   it("scores amount by |error| / covered-days, not by raw sum", () => {
     // +10 mm amount error over 2 covered days (48 h) → 5 mm/day → amount
     // goodness 1 − 5/5 = 0. Truth + forecast both wet at hour 0 so timing is a
@@ -86,6 +101,26 @@ describe("buildModelScorecard — amount normalised per covered day", () => {
 });
 
 describe("buildModelScorecard — missing forecast hours are ignored, not penalised", () => {
+  it.each([0, 1])("leaves a %s mm/h forecast unscored when all truth is missing", (precip) => {
+    const input = makeInput({
+      temperature_2m: { truth: array(N, () => null) },
+      precipitation: { perModel: { m: array(N, () => precip) }, truth: array(N, () => null) },
+    });
+    for (const row of buildModelScorecard(input)) {
+      expect(row.overall.amountError).toBeNaN();
+      expect(row.overall.composite).toBeNaN();
+      expect(row.bandComposites).toEqual([null, null, null, null]);
+    }
+  });
+
+  it("uses only temperature when precipitation truth is missing", () => {
+    const input = makeInput({
+      temperature_2m: { perModel: { m: array(N, () => 22) } },
+      precipitation: { perModel: { m: array(N, () => 0) }, truth: array(N, () => null) },
+    });
+    expect(rowFor(input, "m")!.overall.composite).toBeCloseTo(60);
+  });
+
   it("does not charge a dropped-out model for rain in the hours it never forecast", () => {
     // Model covers the first 48 h with a perfect dry forecast, then drops out.
     // Truth is dry during coverage but rains heavily in the uncovered tail. The

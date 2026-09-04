@@ -50,6 +50,22 @@ function sampleOf(nRuns: number): LocationSample {
 }
 
 describe("fitWeights", () => {
+  it("does not favour a dry model when precipitation truth is missing", () => {
+    const sample = sampleOf(15);
+    const baseline = fitWeights(sample);
+    for (const run of sample.runs) {
+      run.hourly.perModel.precipitation = {
+        ecmwf_ifs: Array.from({ length: N }, () => 1),
+        gfs_seamless: Array.from({ length: N }, () => 0),
+      };
+    }
+    const result = fitWeights(sample);
+    expect(result.ok).toBe(true);
+    expect(result.multipliers).toEqual(baseline.multipliers);
+    expect(result.valComposite).toBeCloseTo(baseline.valComposite);
+    expect(result.valBaselineComposite).toBeCloseTo(baseline.valBaselineComposite);
+  });
+
   it("refuses to train with too few runs", () => {
     const res = fitWeights(sampleOf(MIN_TRAIN_RUNS + MIN_VAL_RUNS - 1));
     expect(res.ok).toBe(false);

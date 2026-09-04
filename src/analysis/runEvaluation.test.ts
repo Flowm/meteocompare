@@ -4,6 +4,7 @@ import type { HistoricalWeatherResponse } from "@/api/omHistoricalWeather";
 import type { SingleRunsResponse } from "@/api/omSingleRuns";
 import { AGGREGATE_LEGACY_ROW_ID, AGGREGATE_TUNED_ROW_ID } from "@/domain/scorecard";
 
+import { calibrationPoints } from "./calibrationSample";
 import { evaluateRun } from "./runEvaluation";
 
 const N = 24;
@@ -29,6 +30,24 @@ const truth = {
 } as unknown as HistoricalWeatherResponse;
 
 describe("evaluateRun", () => {
+  it.each([0, 1])("excludes a %s mm/h forecast with missing truth from daily scores and calibration", (precip) => {
+    const forecasts = structuredClone(runs);
+    forecasts.hourly.precipitation_ecmwf_ifs = flat(precip);
+    forecasts.hourly.precipitation_gfs_seamless = flat(precip);
+    const ev = evaluateRun({
+      runs: forecasts,
+      truth: { ...truth, hourly: { ...truth.hourly, precipitation: Array.from({ length: N }, () => null) } },
+      lat: 48,
+      lon: 11,
+      runDate: "2026-05-20",
+    });
+    expect(ev).not.toBeNull();
+    expect(ev!.daily).toHaveLength(1);
+    expect(ev!.daily[0]!.aggregate.precipitation).toBeNull();
+    for (const scores of Object.values(ev!.daily[0]!.perModel)) expect(scores.precipitation).toBeNull();
+    expect(calibrationPoints([ev!]).map((p) => p.variable)).toEqual(["temperature_2m"]);
+  });
+
   it("wires runs + truth into hourly, daily, scorecard and availability", () => {
     const ev = evaluateRun({ runs, truth, lat: 48, lon: 11, runDate: "2026-05-20" });
     expect(ev).not.toBeNull();
