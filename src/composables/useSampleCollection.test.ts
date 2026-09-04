@@ -4,6 +4,7 @@ import { nextTick, ref } from "vue";
 import type { GatherDeps } from "@/analysis/collectSample";
 import type { RunEvaluation } from "@/analysis/runEvaluation";
 import type { LocationSample } from "@/analysis/sample";
+import { listSamples, loadSample, sampleKey } from "@/analysis/sampleStore";
 import { installFakeIndexedDB } from "@/analysis/testFakeIdb";
 
 import type { Location } from "./useLocation";
@@ -46,6 +47,59 @@ describe("useSampleCollection", () => {
   afterEach(() => fake.restore());
 
   const controls = { durationDays: 1, cyclesPerDay: 1 } as const;
+  const OTHER_LOCATION: Location = { latitude: 35.6762, longitude: 139.6503, name: "Tokyo" };
+
+  it("discards completed results when the location changes before storing", async () => {
+    const { deps, release } = controllableDeps("A");
+    const location = ref({ ...LOCATION });
+    const c = useSampleCollection(location, ref("2026-06-01"), "2026-01-01", deps);
+    const pending = c.gather(controls);
+    release();
+    await pending;
+
+    location.value = OTHER_LOCATION;
+    await c.store();
+
+    expect(c.runs.value).toEqual([]);
+    expect(c.storedCount.value).toBeNull();
+    expect(await listSamples()).toEqual([]);
+  });
+
+  it("cancels a gather on location change and ignores its late result", async () => {
+    const { deps, release } = controllableDeps("A");
+    const location = ref({ ...LOCATION });
+    const c = useSampleCollection(location, ref("2026-06-01"), "2026-01-01", deps);
+    const pending = c.gather(controls);
+
+    location.value = OTHER_LOCATION;
+    expect(c.gathering.value).toBe(false);
+    release();
+    await pending;
+    await c.store();
+
+    expect(c.runs.value).toEqual([]);
+    expect(c.progress.value).toEqual({ done: 0, total: 0 });
+    expect(await listSamples()).toEqual([]);
+  });
+
+  it("keeps an in-flight save bound to its original runs and location", async () => {
+    const { deps, release } = controllableDeps("A");
+    const location = ref({ ...LOCATION });
+    const c = useSampleCollection(location, ref("2026-06-01"), "2026-01-01", deps);
+    const pending = c.gather(controls);
+    release();
+    await pending;
+
+    const saving = c.store();
+    location.value = OTHER_LOCATION;
+    await saving;
+
+    const original = await loadSample(sampleKey(LOCATION.latitude, LOCATION.longitude));
+    expect(original?.location).toEqual(LOCATION);
+    expect(original?.runs).toHaveLength(1);
+    expect(await loadSample(sampleKey(OTHER_LOCATION.latitude, OTHER_LOCATION.longitude))).toBeNull();
+    expect(c.storedCount.value).toBeNull();
+  });
 
   it("gathers, exposing gathering + progress, then lands the runs", async () => {
     const { deps, release } = controllableDeps("A");

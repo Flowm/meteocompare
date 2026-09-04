@@ -1,8 +1,8 @@
-import { computed, ref, shallowRef, type Ref } from "vue";
+import { computed, ref, shallowRef, watch, type Ref } from "vue";
 
 import { gatherRuns, planRuns, type GatherDeps } from "@/analysis/collectSample";
 import type { RunEvaluation } from "@/analysis/runEvaluation";
-import { aggregateSample, type LocationSample, type ModelSampleStats } from "@/analysis/sample";
+import { aggregateSample, type LocationSample, type ModelSampleStats, type SampleLocation } from "@/analysis/sample";
 import { loadSample, mergeRuns, sampleKey, saveSample } from "@/analysis/sampleStore";
 
 import { useAbortableTask } from "./useAbortableResource";
@@ -43,6 +43,7 @@ export function useSampleCollection(location: Ref<Location>, endDate: Ref<string
   const stats = computed<ModelSampleStats[]>(() => aggregateSample(runs.value));
   const progress = ref({ done: 0, total: 0 });
   const storedCount = ref<number | null>(null);
+  let gatheredLocation: SampleLocation | null = null;
 
   // The abort/superseded guard and the gathering/error flags live in the shared
   // task helper — `gathering` is its `running`. This composable adds only the
@@ -51,9 +52,23 @@ export function useSampleCollection(location: Ref<Location>, endDate: Ref<string
   const gathering = task.running;
   const error = task.error;
 
+  watch(
+    () => [location.value.latitude, location.value.longitude],
+    () => {
+      cancel();
+      runs.value = [];
+      gatheredLocation = null;
+      storedCount.value = null;
+      error.value = null;
+    },
+    { flush: "sync" },
+  );
+
   async function gather(controls: SampleControls): Promise<void> {
     storedCount.value = null;
     runs.value = [];
+    gatheredLocation = null;
+    const source: SampleLocation = { latitude: location.value.latitude, longitude: location.value.longitude, name: location.value.name };
     const cycles = controls.cyclesPerDay === 4 ? [0, 6, 12, 18] : [0];
     const refs = planRuns({ endDate: endDate.value, durationDays: controls.durationDays, cycles, floorDate });
     // Reset progress to this gather's total up front, so a cancelled or
@@ -63,7 +78,7 @@ export function useSampleCollection(location: Ref<Location>, endDate: Ref<string
       const got = await gatherRuns(
         refs,
         {
-          location: { latitude: location.value.latitude, longitude: location.value.longitude },
+          location: source,
           signal,
           onProgress: (done, total) => {
             if (!signal.aborted) progress.value = { done, total };
@@ -71,26 +86,33 @@ export function useSampleCollection(location: Ref<Location>, endDate: Ref<string
         },
         deps,
       );
-      if (!signal.aborted) runs.value = got;
+      if (!signal.aborted) {
+        gatheredLocation = source;
+        runs.value = got;
+      }
     });
   }
 
   async function store(): Promise<void> {
-    if (!runs.value.length) return;
+    const source = gatheredLocation;
+    const incoming = runs.value;
+    if (!source || !incoming.length) return;
+    // A location change or new gather may happen while IndexedDB is pending.
+    const isCurrent = (): boolean => gatheredLocation === source && runs.value === incoming;
     error.value = null;
     try {
-      const key = sampleKey(location.value.latitude, location.value.longitude);
+      const key = sampleKey(source.latitude, source.longitude);
       const existing = await loadSample(key);
-      const merged = mergeRuns(existing?.runs ?? [], runs.value);
+      const merged = mergeRuns(existing?.runs ?? [], incoming);
       const sample: LocationSample = {
-        location: { latitude: location.value.latitude, longitude: location.value.longitude, name: location.value.name },
+        location: source,
         runs: merged,
         gatheredAt: new Date().toISOString(),
       };
       await saveSample(key, sample);
-      storedCount.value = merged.length;
+      if (isCurrent()) storedCount.value = merged.length;
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e);
+      if (isCurrent()) error.value = e instanceof Error ? e.message : String(e);
     }
   }
 
