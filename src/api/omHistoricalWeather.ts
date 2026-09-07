@@ -5,6 +5,7 @@
 // docs/adr/0001-era5-seamless-as-sole-ground-truth.md.
 
 import { VERIFIED_VARIABLES, type VerifiedVariable } from "@/domain/verification";
+import { shiftIsoTime } from "@/utils/date";
 
 import { baseParams, buildOpenMeteoUrl, fetchOpenMeteoJson } from "./openMeteo";
 
@@ -27,9 +28,9 @@ export type HistoricalHourlyVar = VerifiedVariable;
 export interface HistoricalWeatherRequest {
   lat: number;
   lon: number;
-  /** ISO local date (`YYYY-MM-DD`), inclusive. */
+  /** ISO UTC date (`YYYY-MM-DD`), inclusive. */
   startDate: string;
-  /** ISO local date (`YYYY-MM-DD`), inclusive. */
+  /** ISO UTC date (`YYYY-MM-DD`), inclusive. */
   endDate: string;
 }
 
@@ -57,6 +58,9 @@ export async function fetchHistoricalWeather(req: HistoricalWeatherRequest, sign
     hourly: HOURLY_VARS.join(","),
     daily: DAILY_SOLAR_VARS.join(","),
     models: TRUTH_MODEL_ID,
+    // Runs begin on UTC hours. Local archive grids can instead use half-hour
+    // boundaries, and local start dates omit early western run hours.
+    timezone: "GMT",
   });
 
   const url = buildOpenMeteoUrl(HISTORICAL_WEATHER_URL, params);
@@ -70,13 +74,15 @@ export function extractHourly(resp: HistoricalWeatherResponse, variable: Histori
 /** Sunrise/sunset for the chart's day/night shading, from the archive's daily
  *  block. Astronomical, so model-independent (see DAILY_SOLAR_VARS). Null when
  *  the daily block is absent (older responses / an unrequested field). */
-export function extractSolar(resp: HistoricalWeatherResponse): { sunrise: string[]; sunset: string[] } | null {
+export function extractSolar(resp: HistoricalWeatherResponse, targetOffsetSeconds = resp.utc_offset_seconds ?? 0): { sunrise: string[]; sunset: string[] } | null {
   const daily = resp.daily;
   if (!daily) return null;
   // Archive uses bare names; fall back to the suffixed form defensively.
   const sunrise = daily.sunrise ?? daily[`sunrise_${TRUTH_MODEL_ID}`];
   const sunset = daily.sunset ?? daily[`sunset_${TRUTH_MODEL_ID}`];
-  return sunrise && sunset ? { sunrise, sunset } : null;
+  if (!sunrise || !sunset) return null;
+  const shift = targetOffsetSeconds - (resp.utc_offset_seconds ?? 0);
+  return { sunrise: sunrise.map((t) => shiftIsoTime(t, shift)), sunset: sunset.map((t) => shiftIsoTime(t, shift)) };
 }
 
 export { HOURLY_VARS, TRUTH_MODEL_ID };

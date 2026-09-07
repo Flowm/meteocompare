@@ -15,6 +15,7 @@ import { legacyNormalizedWeights } from "@/domain/legacyWeighting";
 import { MODEL_IDS, MODELS, type ModelDef } from "@/domain/models";
 import { buildModelScorecard, type ScorecardRow } from "@/domain/scorecard";
 import { buildDailyVerification, VERIFIED_VARIABLES, type DailyVerification, type VerifiedVariable } from "@/domain/verification";
+import { shiftIsoTime } from "@/utils/date";
 
 /** The aggregation specs for the verified-variable set, derived from the single
  *  domain source (`VERIFIED_VARIABLES`). Every verified variable is its own
@@ -64,7 +65,7 @@ export interface EvaluateRunInputs {
   truth: HistoricalWeatherResponse;
   lat: number;
   lon: number;
-  /** ISO local date of the run. */
+  /** ISO UTC initialisation date of the run. */
   runDate: string;
   /** Run cycle hour (00 / 06 / 12 / 18 Z); defaults to 0. Identifies the run with runDate. */
   runHour?: number;
@@ -114,13 +115,15 @@ export function evaluateRun({ runs, truth, lat, lon, runDate, runHour = 0, tuned
       })
     : null;
 
-  // Align truth to the run's time axis by ISO-string lookup; the two APIs can
-  // return their hours offset by UTC-shift, which the map handles cleanly.
+  // Compare timestamps on the truth response's clock; retain location-local
+  // run times for display. No rounding or interpolation of observations.
   const truthIndex = new Map<string, number>();
   truth.hourly.time.forEach((t, i) => truthIndex.set(t, i));
+  const clockShift = (truth.utc_offset_seconds ?? 0) - (runs.utc_offset_seconds ?? 0);
+  const truthTimes = times.map((t) => shiftIsoTime(t, clockShift));
   const alignedTruth = perVerifiedVariable((v) => {
     const arr = extractTruthHourly(truth, v);
-    return times.map((t): number | null => {
+    return truthTimes.map((t): number | null => {
       const i = truthIndex.get(t);
       return i == null ? null : (arr[i] ?? null);
     });

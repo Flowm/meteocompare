@@ -13,3 +13,12 @@ export function daysBetweenIso(fromIso: string, toIso: string): number {
   const to = new Date(`${toIso}T00:00:00Z`).getTime();
   return Math.round((to - from) / 86_400_000);
 }
+
+/** Shift a timezone-free ISO timestamp by a fixed offset, without using the
+ *  browser's timezone. API response offsets define the clock on each series. */
+export function shiftIsoTime(isoTime: string, seconds: number): string {
+  if (seconds === 0) return isoTime;
+  const timestamp = Date.parse(`${isoTime}Z`);
+  if (!Number.isFinite(timestamp)) return isoTime;
+  return new Date(timestamp + seconds * 1000).toISOString().slice(0, 16);
+}

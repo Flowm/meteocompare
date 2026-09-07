@@ -84,7 +84,7 @@ export type SingleRunsHourlyVar = VerifiedVariable;
 export interface SingleRunsRequest {
   lat: number;
   lon: number;
-  /** ISO local date (`YYYY-MM-DD`), combined with `runHour` into the run cycle. */
+  /** ISO UTC date (`YYYY-MM-DD`), combined with `runHour` into the run cycle. */
   runDate: string;
   /** Run cycle hour (00 / 06 / 12 / 18 Z); defaults to 0 (00Z). Models publish
    *  different cycles, so a non-00Z hour naturally prunes models that skip it. */
