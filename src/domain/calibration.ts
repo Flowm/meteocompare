@@ -117,12 +117,14 @@ function fitBand(points: readonly { raw: number; hit: boolean }[]): CalibrationC
   const binCount = n >= 100 ? 5 : 4;
 
   const rawBins: { raw: number; p: number; weight: number }[] = [];
+  let start = 0;
   for (let b = 0; b < binCount; b++) {
-    // Quantile split: contiguous slices of the sorted points, sizes as equal
-    // as integer division allows.
-    const start = Math.floor((b * n) / binCount);
-    const end = Math.floor(((b + 1) * n) / binCount);
+    // Extend quantile boundaries through ties so equal scores never acquire
+    // different hit rates based on their input order.
+    let end = Math.max(start, Math.floor(((b + 1) * n) / binCount));
+    while (end < n && sorted[end]?.raw === sorted[end - 1]?.raw) end++;
     const slice = sorted.slice(start, end);
+    start = end;
     if (slice.length === 0) continue;
     const hits = slice.filter((p) => p.hit).length;
     rawBins.push({
