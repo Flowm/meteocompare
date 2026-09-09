@@ -93,7 +93,11 @@ export async function gatherCached(loc: RefLocation, refs: readonly RunRef[], op
     mkdirSync(cacheDir, { recursive: true });
     // Newest-first: matches gatherRuns' retention-window memo (planRuns' order).
     const ordered = missing.toSorted((a, b) => b.runDate.localeCompare(a.runDate));
-    const fetched = await gatherRuns(ordered, { location: { latitude: loc.latitude, longitude: loc.longitude }, concurrency });
+    const fetched = await gatherRuns(ordered, {
+      location: { latitude: loc.latitude, longitude: loc.longitude },
+      concurrency,
+      onFailure: (ref, reason) => console.warn(`${loc.name} ${ref.runDate} ${ref.runHour}Z: ${reason}`),
+    });
     const byKey = new Map(fetched.map((e) => [`${e.runDate}:${e.runHour}`, e]));
     for (const ref of missing) {
       const e = byKey.get(`${ref.runDate}:${ref.runHour}`);

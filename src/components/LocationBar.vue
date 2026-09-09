@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { useDebounceFn, onClickOutside } from "@vueuse/core";
+import { onClickOutside } from "@vueuse/core";
 import { computed, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 
-import { searchLocations, type GeocodingResult } from "@/api/geocoding";
+import { type GeocodingResult } from "@/api/geocoding";
 import { useLocation, type Location } from "@/composables/useLocation";
+import { useLocationSearch } from "@/composables/useLocationSearch";
 
 import PopoverPanel from "./PopoverPanel.vue";
 import SearchResultsPanel from "./SearchResultsPanel.vue";
@@ -14,12 +15,10 @@ const route = useRoute();
 const { favourites, recent, setLocation } = useLocation();
 
 const query = ref("");
-const results = ref<GeocodingResult[]>([]);
+const { results, isSearching, searchError } = useLocationSearch(query);
 const isOpen = ref(false);
 // -1 means "no row highlighted"; the first ArrowDown lands on row 0.
 const activeIndex = ref(-1);
-const isSearching = ref(false);
-const searchError = ref<string | null>(null);
 const isLocating = ref(false);
 const locateError = ref<string | null>(null);
 const root = ref<HTMLElement | null>(null);
@@ -81,24 +80,6 @@ function onKeydown(e: KeyboardEvent): void {
   }
 }
 
-const runSearch = useDebounceFn(async () => {
-  if (query.value.trim().length < 2) {
-    results.value = [];
-    isSearching.value = false;
-    return;
-  }
-  isSearching.value = true;
-  searchError.value = null;
-  try {
-    results.value = await searchLocations(query.value);
-  } catch (e) {
-    searchError.value = e instanceof Error ? e.message : "Search failed";
-    results.value = [];
-  } finally {
-    isSearching.value = false;
-  }
-}, 250);
-
 watch(query, () => {
   // Open only when the user is actually typing — not for the programmatic reset
   // that runs after a pick, which would otherwise re-open the panel we just
@@ -106,7 +87,6 @@ watch(query, () => {
   if (inputEl.value && document.activeElement === inputEl.value) isOpen.value = true;
   // A fresh keystroke invalidates the prior highlight; restart from "none".
   activeIndex.value = -1;
-  void runSearch();
 });
 
 function pick(r: GeocodingResult): void {
@@ -120,7 +100,6 @@ function pick(r: GeocodingResult): void {
     timezone: r.timezone,
   });
   query.value = "";
-  results.value = [];
   isOpen.value = false;
   activeIndex.value = -1;
   inputEl.value?.blur();
@@ -128,6 +107,7 @@ function pick(r: GeocodingResult): void {
 
 function pickSaved(loc: Location): void {
   setLocation(loc);
+  query.value = "";
   isOpen.value = false;
   activeIndex.value = -1;
   inputEl.value?.blur();

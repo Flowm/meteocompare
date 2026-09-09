@@ -39,6 +39,20 @@ function controllableDeps(marker: string): { deps: GatherDeps; release: () => vo
 }
 
 describe("useSampleCollection", () => {
+  it("reports partial failures and retains successful runs", async () => {
+    const deps: GatherDeps = {
+      fetchRuns: (req) => (req.runDate === "2026-06-01" ? Promise.reject(new Error("Network unavailable")) : Promise.resolve({} as never)),
+      fetchTruth: () => Promise.resolve({} as never),
+      evaluate: ({ runDate, runHour }) => mkRun(runDate, runHour ?? 0, "ok"),
+    };
+    const collection = useSampleCollection(ref(LOCATION), ref("2026-06-01"), "2026-01-01", deps);
+    await collection.gather({ durationDays: 2, cyclesPerDay: 1 });
+    expect(collection.runs.value).toHaveLength(1);
+    expect(collection.error.value).toContain("1 of 2 runs");
+    expect(collection.error.value).toContain("Network unavailable");
+    expect(collection.progress.value).toEqual({ done: 2, total: 2 });
+  });
+
   it("clamps a recent requested end date before planning training runs", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-20T12:00:00Z"));

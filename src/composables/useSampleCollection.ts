@@ -77,11 +77,17 @@ export function useSampleCollection(location: Ref<Location>, endDate: Ref<string
     // superseded prior gather can never leave a stale "4/30" reading on screen.
     progress.value = { done: 0, total: refs.length };
     await task.run(async (signal) => {
+      let failed = 0;
+      let firstFailure = "";
       const got = await gatherRuns(
         refs,
         {
           location: source,
           signal,
+          onFailure: (run, reason) => {
+            failed++;
+            firstFailure ||= `${run.runDate} ${String(run.runHour).padStart(2, "0")}:00 UTC: ${reason}`;
+          },
           onProgress: (done, total) => {
             if (!signal.aborted) progress.value = { done, total };
           },
@@ -91,6 +97,7 @@ export function useSampleCollection(location: Ref<Location>, endDate: Ref<string
       if (!signal.aborted) {
         gatheredLocation = source;
         runs.value = got;
+        if (failed) error.value = `${failed} of ${refs.length} runs could not be gathered. ${firstFailure}`;
       }
     });
   }

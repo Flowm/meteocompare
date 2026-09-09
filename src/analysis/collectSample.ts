@@ -58,6 +58,7 @@ export interface GatherOptions {
   concurrency?: number;
   signal?: AbortSignal;
   onProgress?: (done: number, total: number) => void;
+  onFailure?: (ref: RunRef, reason: string) => void;
 }
 
 /** How often, walking newest-first, to re-attempt the full model set for a cycle
@@ -142,11 +143,12 @@ export async function gatherRuns(refs: readonly RunRef[], opts: GatherOptions, d
             ]);
             const ev = deps.evaluate({ runs, truth, lat, lon, runDate: ref.runDate, runHour: ref.runHour });
             if (ev) out.push(ev);
+            else opts.onFailure?.(ref, "No forecast hours returned.");
           } catch (e) {
-            if (e instanceof DOMException && e.name === "AbortError") return;
-            // A single failed run (missing archive, coverage gap) is skipped, not fatal.
+            if (opts.signal?.aborted || (e instanceof DOMException && e.name === "AbortError")) return;
+            opts.onFailure?.(ref, e instanceof Error ? e.message : String(e));
           }
-        }
+        } else opts.onFailure?.(ref, "No models available for this run cycle.");
         done += 1;
         opts.onProgress?.(done, refs.length);
       } finally {
