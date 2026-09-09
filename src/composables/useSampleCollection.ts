@@ -4,6 +4,7 @@ import { gatherRuns, planRuns, type GatherDeps } from "@/analysis/collectSample"
 import type { RunEvaluation } from "@/analysis/runEvaluation";
 import { aggregateSample, type LocationSample, type ModelSampleStats, type SampleLocation } from "@/analysis/sample";
 import { loadSample, mergeRuns, sampleKey, saveSample } from "@/analysis/sampleStore";
+import { latestVerifiableRunDate, TRAINING_FORECAST_DAYS } from "@/analysis/truthWindow";
 
 import { useAbortableTask } from "./useAbortableResource";
 import type { Location } from "./useLocation";
@@ -70,7 +71,8 @@ export function useSampleCollection(location: Ref<Location>, endDate: Ref<string
     gatheredLocation = null;
     const source: SampleLocation = { latitude: location.value.latitude, longitude: location.value.longitude, name: location.value.name };
     const cycles = controls.cyclesPerDay === 4 ? [0, 6, 12, 18] : [0];
-    const refs = planRuns({ endDate: endDate.value, durationDays: controls.durationDays, cycles, floorDate });
+    const latest = latestVerifiableRunDate(new Date().toISOString().slice(0, 10), TRAINING_FORECAST_DAYS);
+    const refs = planRuns({ endDate: endDate.value > latest ? latest : endDate.value, durationDays: controls.durationDays, cycles, floorDate });
     // Reset progress to this gather's total up front, so a cancelled or
     // superseded prior gather can never leave a stale "4/30" reading on screen.
     progress.value = { done: 0, total: refs.length };

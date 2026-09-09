@@ -2,6 +2,7 @@ import { computed, type Ref } from "vue";
 
 import { loadWeights } from "@/analysis/learnedWeightsStore";
 import { evaluateRun, type RunEvaluation, type VerificationHourly } from "@/analysis/runEvaluation";
+import { SINGLE_FORECAST_DAYS } from "@/analysis/truthWindow";
 import { extractSolar, fetchHistoricalWeather } from "@/api/omHistoricalWeather";
 import { fetchSingleRuns } from "@/api/omSingleRuns";
 import type { ModelDef } from "@/domain/models";
@@ -46,9 +47,12 @@ export function useVerification(location: Ref<Location>, runDate: Ref<string>, r
     async (signal) => {
       // Truth uses UTC dates, like the run cycle. Include the final date so
       // non-midnight cycles have observations through their full horizon.
-      const truthEndDate = addDaysIso(runDate.value, 7);
+      const truthEndDate = addDaysIso(runDate.value, SINGLE_FORECAST_DAYS);
       const [runs, truth] = await Promise.all([
-        fetchSingleRuns({ lat: location.value.latitude, lon: location.value.longitude, runDate: runDate.value, runHour: runCycle.value }, { signal }),
+        fetchSingleRuns(
+          { lat: location.value.latitude, lon: location.value.longitude, runDate: runDate.value, runHour: runCycle.value, forecastDays: SINGLE_FORECAST_DAYS },
+          { signal },
+        ),
         fetchHistoricalWeather({ lat: location.value.latitude, lon: location.value.longitude, startDate: runDate.value, endDate: truthEndDate }, signal),
       ]);
       return { runs, truth };

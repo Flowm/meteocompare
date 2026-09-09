@@ -20,6 +20,7 @@ import { fileURLToPath } from "node:url";
 import { calibrationPoints } from "@/analysis/calibrationSample";
 import type { RunRef } from "@/analysis/collectSample";
 import type { RunEvaluation } from "@/analysis/runEvaluation";
+import { TRAINING_RUN_DELAY_DAYS } from "@/analysis/truthWindow";
 import { fitCalibrationSet, type CalibrationSet } from "@/domain/calibration";
 import { LEAD_BANDS } from "@/domain/scorecard";
 import { VERIFIED_VARIABLES } from "@/domain/verification";
@@ -30,8 +31,8 @@ import { REFERENCE_LOCATIONS } from "./lib/referenceLocations";
 /** Runs per location, spread evenly across the usable archive window. */
 const RUNS_PER_LOCATION = 8;
 
-/** Truth needs ERA5 to cover run+7d with its ~5-day lag; 14 is comfortably safe. */
-const TRUTH_LAG_DAYS = 14;
+/** Include the full training horizon and truth publication delay. */
+const TRUTH_LAG_DAYS = TRAINING_RUN_DELAY_DAYS;
 
 function bandCounts(set: CalibrationSet): string {
   return VERIFIED_VARIABLES.map((v) => `${v}: [${set[v].bands.map((b) => b?.n ?? "-").join(", ")}]`).join("  ");

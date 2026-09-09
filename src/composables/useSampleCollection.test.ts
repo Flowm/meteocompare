@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { nextTick, ref } from "vue";
 
 import type { GatherDeps } from "@/analysis/collectSample";
@@ -39,6 +39,27 @@ function controllableDeps(marker: string): { deps: GatherDeps; release: () => vo
 }
 
 describe("useSampleCollection", () => {
+  it("clamps a recent requested end date before planning training runs", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-20T12:00:00Z"));
+    try {
+      const dates: string[] = [];
+      const deps: GatherDeps = {
+        fetchRuns: (req) => {
+          dates.push(req.runDate);
+          return Promise.resolve({} as never);
+        },
+        fetchTruth: () => Promise.resolve({} as never),
+        evaluate: () => null,
+      };
+      const collection = useSampleCollection(ref(LOCATION), ref("2026-06-08"), "2026-01-01", deps);
+      await collection.gather({ durationDays: 1, cyclesPerDay: 4 });
+      expect(dates).toEqual(Array.from({ length: 4 }, () => "2026-06-04"));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   let fake: ReturnType<typeof installFakeIndexedDB>;
 
   beforeEach(() => {

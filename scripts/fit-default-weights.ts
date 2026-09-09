@@ -23,6 +23,7 @@ import { fileURLToPath } from "node:url";
 
 import { buildPanels, fitBuiltinSet, MULT_MAX, MULT_MIN, type RunPanel } from "@/analysis/bandWeights";
 import type { RunRef } from "@/analysis/collectSample";
+import { TRAINING_RUN_DELAY_DAYS } from "@/analysis/truthWindow";
 import type { ModelKind } from "@/domain/models";
 import { LEAD_BANDS } from "@/domain/scorecard";
 import type { BuiltinWeightSet } from "@/domain/weightLadder";
@@ -36,7 +37,7 @@ const RUNS_PER_LOCATION = 24;
 
 /** Newest usable run: today − (10 forecast days + ~5-day ERA5 lag + 1 margin) so
  *  band 4 (168–240 h) has truth. Matches the WP3 experiment's TRUTH_LAG_DAYS. */
-const TRUTH_LAG_DAYS = 16;
+const TRUTH_LAG_DAYS = TRAINING_RUN_DELAY_DAYS;
 
 /** Model classes, in the About page's display order — the per-class sanity rows. */
 const CLASS_ORDER: ModelKind[] = ["global", "regional-mid", "regional-cam", "ai", "ensemble-mean"];

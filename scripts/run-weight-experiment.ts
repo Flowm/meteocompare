@@ -31,6 +31,7 @@ import { buildPanels, fitBuiltinSet, fitDeviceResiduals, type RunPanel } from "@
 import type { RunRef } from "@/analysis/collectSample";
 import { MIN_TRAIN_RUNS, MIN_VAL_RUNS, VAL_FRACTION } from "@/analysis/learnedWeights";
 import type { RunEvaluation } from "@/analysis/runEvaluation";
+import { TRAINING_RUN_DELAY_DAYS } from "@/analysis/truthWindow";
 import { getModel, type ModelDef } from "@/domain/models";
 import { LEAD_BANDS, scoreScope, type LeadBand } from "@/domain/scorecard";
 import type { Variable } from "@/domain/weighting";
@@ -43,7 +44,7 @@ import { REFERENCE_LOCATIONS, type RefLocation } from "./lib/referenceLocations"
 const RUNS_PER_LOCATION = 24;
 /** Newest usable run: today − (10 forecast days + ~5-day ERA5 lag + 1 margin) so
  *  band 3 (168–240 h) has truth. */
-const TRUTH_LAG_DAYS = 16;
+const TRUTH_LAG_DAYS = TRAINING_RUN_DELAY_DAYS;
 
 /** Per-day partition for the ablation arms (10 daily bands, 0–24 … 216–240). */
 const DAILY_BANDS: readonly LeadBand[] = Array.from({ length: 10 }, (_, d) => ({

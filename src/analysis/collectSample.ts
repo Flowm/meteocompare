@@ -8,6 +8,7 @@ import { ARCHIVED_MODEL_IDS, fetchSingleRuns } from "@/api/omSingleRuns";
 import { addDaysIso, daysBetweenIso } from "@/utils/date";
 
 import { evaluateRun, type RunEvaluation } from "./runEvaluation";
+import { TRAINING_FORECAST_DAYS } from "./truthWindow";
 
 export interface RunRef {
   runDate: string;
@@ -19,7 +20,7 @@ export interface RunRef {
  *  requests 10 days explicitly rather than leaning on the API's 7-day default.
  *  Drives both the forecast fetch and its truth window so band 4 (168–240 h) is
  *  verifiable. */
-export const TRAINING_FORECAST_DAYS = 10;
+export { TRAINING_FORECAST_DAYS };
 
 export interface PlanOptions {
   /** Most recent run date to include (ISO date, inclusive). */
