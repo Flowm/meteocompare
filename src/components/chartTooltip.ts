@@ -5,7 +5,7 @@
 // becomes a reactive dep of the option compute (the chart's no-redraw trick).
 
 import type { DataVarId, HourlySeries } from "@/composables/hourlySeries";
-import { convertVar, type UnitPrefs } from "@/composables/useUnits";
+import { convertDelta, convertVar, type UnitPrefs } from "@/composables/useUnits";
 import type { ModelDef } from "@/domain/models";
 
 import { CHART_VIEWS, type ChartViewId } from "./chartHelpers";
@@ -60,7 +60,8 @@ export function buildTooltipFormatter(ctx: TooltipContext): (params: unknown) =>
       if (showAggregate && aggPt && aggPt.value !== null) {
         // ±1σ shown whenever the spread is on — bars carry it as error-bar
         // whiskers, line views as the shaded band, but the tooltip reads alike.
-        const std = showBand && Number.isFinite(aggPt.stdDev) ? ` <span style="color:${STD_LABEL}">± ${fmtVar(dv, aggPt.stdDev).replace(/[°a-zA-Z%/ ]+$/, "")}</span>` : "";
+        const precision = dv === "cloud_cover" || dv === "precipitation_probability" ? 0 : 1;
+        const std = showBand && Number.isFinite(aggPt.stdDev) ? ` <span style="color:${STD_LABEL}">± ${convertDelta(aggPt.stdDev, dv, units).toFixed(precision)}</span>` : "";
         const label = vars.length > 1 ? `${dv === "temperature_2m" ? "Temp" : "Precip"} ` : "Forecast ";
         // Rain-blue precip label — the rain-300 token, matching the precip bars.
         const color = dv === "precipitation" ? RAIN_300 : AGG_COLOR;
