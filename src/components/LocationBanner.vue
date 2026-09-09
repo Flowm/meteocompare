@@ -77,7 +77,7 @@ const tempWhole = computed(() => {
         <div class="flex items-center gap-2.5">
           <span class="text-paper-300 font-mono text-[11px] tracking-wide" :title="weatherLabel(currentCode)">{{ weatherLabel(currentCode) }}</span>
           <span
-            v-if="todayPrecipProb != null && todayPrecipProb > 5"
+            v-if="todayPrecipProb != null && Number.isFinite(todayPrecipProb)"
             class="text-rain-300 flex items-center gap-1 font-mono text-xs font-medium tabular-nums"
             :title="`Chance of precipitation: ${formatPercent(todayPrecipProb)}`"
           >
@@ -86,7 +86,7 @@ const tempWhole = computed(() => {
             </svg>
             {{ formatPercent(todayPrecipProb) }}
           </span>
-          <span v-else class="text-paper-500 font-mono text-[11px] tracking-wide">dry</span>
+          <span v-else class="text-paper-500 font-mono text-[11px] tracking-wide" title="Rain chance unavailable">Rain chance —</span>
         </div>
 
         <div class="text-paper-400 flex items-center gap-3.5 font-mono text-[10px] tabular-nums">

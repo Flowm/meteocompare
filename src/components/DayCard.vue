@@ -115,16 +115,16 @@ const visibleModels = computed(() => props.models?.filter((m) => m.high != null 
       </div>
 
       <div class="mt-2 flex items-center justify-center gap-1.5 font-mono text-[10px] tabular-nums">
-        <template v-if="precipProb != null && precipProb > 5">
+        <template v-if="precipProb != null && Number.isFinite(precipProb)">
           <span class="bg-rain-400 size-1 rounded-full" aria-hidden="true" />
           <span class="text-rain-300">{{ formatPercent(precipProb) }}</span>
-          <template v-if="precipSum && precipSum > 0.1">
-            <span class="text-paper-500">/</span>
-            <span class="text-paper-200">{{ formatPrecip(precipSum, 1) }}</span>
-          </template>
         </template>
         <template v-else>
-          <span class="text-paper-500 text-[10px] tracking-wide">dry</span>
+          <span class="text-paper-500 text-[10px] tracking-wide" title="Rain chance unavailable">Rain chance —</span>
+        </template>
+        <template v-if="precipSum != null && Number.isFinite(precipSum) && precipSum > 0.1">
+          <span class="text-paper-500">/</span>
+          <span class="text-paper-200">{{ formatPrecip(precipSum, 1) }}</span>
         </template>
       </div>
 
