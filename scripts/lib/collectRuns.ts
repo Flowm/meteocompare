@@ -3,7 +3,7 @@
 // regenerations — and the three scripts between them — never re-fetch a run.
 //
 // The cache is keyed by (location, runDate, runHour) and stores a RunEvaluation
-// (or an explicit `null` marker for a ref that yielded nothing). A cached run is
+// under the current calculation version and exact coordinates. A cached run is
 // fetched with the same TRAINING_FORECAST_DAYS horizon regardless of caller, so
 // every script consumes an identical object — which is why they can, and do,
 // share one cache directory.
@@ -12,11 +12,11 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { gatherRuns, type RunRef } from "@/analysis/collectSample";
-import type { RunEvaluation } from "@/analysis/runEvaluation";
-import { ARCHIVE_START_MOST_MODELS } from "@/api/omSingleRuns";
-import { addDaysIso, daysBetweenIso } from "@/utils/date";
-
+import { gatherRuns, type RunRef } from "../../src/analysis/collectSample";
+import type { RunEvaluation } from "../../src/analysis/runEvaluation";
+import { ANALYSIS_VERSION } from "../../src/analysis/version";
+import { ARCHIVE_START_MOST_MODELS } from "../../src/api/omSingleRuns";
+import { addDaysIso, daysBetweenIso } from "../../src/utils/date";
 import type { RefLocation } from "./referenceLocations";
 
 /** Oldest usable run date: most models are archived only from 2 April 2026
@@ -64,7 +64,7 @@ const slug = (name: string): string =>
     .replace(/^-+|-+$/g, "");
 
 function cachePath(cacheDir: string, loc: RefLocation, ref: RunRef): string {
-  return join(cacheDir, `${slug(loc.name)}__${ref.runDate}__${String(ref.runHour).padStart(2, "0")}.json`);
+  return join(cacheDir, `${slug(loc.name)}__${loc.latitude}_${loc.longitude}__v${ANALYSIS_VERSION}__${ref.runDate}__${String(ref.runHour).padStart(2, "0")}.json`);
 }
 
 export interface GatherCachedOptions {
@@ -73,10 +73,8 @@ export interface GatherCachedOptions {
   concurrency?: number;
 }
 
-/** Cache-backed gather: cached refs are read from disk, misses are fetched via
- *  gatherRuns and written back (a ref that yielded nothing is cached as an
- *  explicit `null`, so a partial cache tops itself up and never re-fetches a
- *  known gap). Returns the successful evaluations; order is not guaranteed. */
+/** Reuse current-version evaluations; fetch misses and cache only successes.
+ *  Failed requests remain retryable. Preserve NaN scores across JSON round trips. */
 export async function gatherCached(loc: RefLocation, refs: readonly RunRef[], opts: GatherCachedOptions): Promise<RunEvaluation[]> {
   const { cacheDir, concurrency = DEFAULT_CONCURRENCY } = opts;
   const out: RunEvaluation[] = [];
@@ -84,8 +82,9 @@ export async function gatherCached(loc: RefLocation, refs: readonly RunRef[], op
   for (const ref of refs) {
     const p = cachePath(cacheDir, loc, ref);
     if (existsSync(p)) {
-      const data = JSON.parse(readFileSync(p, "utf8")) as RunEvaluation | null;
+      const data = JSON.parse(readFileSync(p, "utf8"), (_key, value) => (value === "__NaN__" ? NaN : value)) as RunEvaluation | null;
       if (data) out.push(data);
+      else missing.push(ref);
     } else {
       missing.push(ref);
     }
@@ -98,8 +97,13 @@ export async function gatherCached(loc: RefLocation, refs: readonly RunRef[], op
     const byKey = new Map(fetched.map((e) => [`${e.runDate}:${e.runHour}`, e]));
     for (const ref of missing) {
       const e = byKey.get(`${ref.runDate}:${ref.runHour}`);
-      writeFileSync(cachePath(cacheDir, loc, ref), JSON.stringify(e ?? null));
-      if (e) out.push(e);
+      if (e) {
+        writeFileSync(
+          cachePath(cacheDir, loc, ref),
+          JSON.stringify(e, (_key, value) => (typeof value === "number" && Number.isNaN(value) ? "__NaN__" : value)),
+        );
+        out.push(e);
+      }
     }
   }
   return out;

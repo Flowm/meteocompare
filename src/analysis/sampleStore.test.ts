@@ -60,6 +60,12 @@ describe("sampleStore IndexedDB I/O (fake-idb)", () => {
     expect(await loadSample("nope")).toBeNull();
   });
 
+  it.each([1, 2, 4])("does not expose sample calculations from version %s", async (v) => {
+    fake.factory.seed("samples", [{ key: "old", value: { key: "old", v, data: mkSample("Old") } }]);
+    expect(await loadSample("old")).toBeNull();
+    expect(await listSamples()).toEqual([]);
+  });
+
   it("lists every stored sample", async () => {
     await saveSample("k1", mkSample("A"));
     await saveSample("k2", mkSample("B"));
@@ -74,11 +80,12 @@ describe("sampleStore IndexedDB I/O (fake-idb)", () => {
     expect(loaded?.location.name).toBe("A");
   });
 
-  it("still loads a legacy pre-envelope { key, sample } record (v0 migration)", async () => {
+  it("ignores obsolete evaluations without deleting the legacy record", async () => {
     // Seed a record in the old shape an earlier install would have written.
     const legacy: LocationSample = mkSample("Legacy");
     fake.factory.seed("samples", [{ key: "old", value: { key: "old", sample: legacy } }]);
     const loaded = await loadSample("old");
-    expect(loaded?.location.name).toBe("Legacy");
+    expect(loaded).toBeNull();
+    expect(await listSamples()).toEqual([]);
   });
 });

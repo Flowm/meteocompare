@@ -42,7 +42,8 @@ function isEnvelope(raw: unknown): raw is Envelope<unknown> {
  *  returning the current-shape value or null when unreadable. */
 function unwrap<T>(parsed: unknown, version: number, migrate: Migrate<T>): T | null {
   if (isEnvelope(parsed)) {
-    if (parsed.v >= version) return parsed.data as T;
+    if (parsed.v > version) return null;
+    if (parsed.v === version) return parsed.data as T;
     return migrate(parsed.data, parsed.v);
   }
   // Bare value from before record versioning existed → treat as v0.
@@ -147,7 +148,8 @@ export function createIdbKeyedStore<T>({
   const unwrapRecord = (rec: IdbRecord<T> | undefined): T | null => {
     if (rec === undefined) return null;
     if (typeof rec.v === "number" && "data" in rec) {
-      if (rec.v >= version) return rec.data;
+      if (rec.v > version) return null;
+      if (rec.v === version) return rec.data;
       return migrate(rec.data, rec.v);
     }
     // A pre-envelope record: pass the whole record (minus its key) to migrate at

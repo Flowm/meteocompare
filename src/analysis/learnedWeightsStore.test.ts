@@ -21,6 +21,14 @@ describe("learnedWeightsStore", () => {
     expect(loadWeights(0, 0)).toBeNull();
   });
 
+  it("ignores fits computed before the truth-scoring corrections", () => {
+    const key = "meteocompare:weights:" + sampleKey(48, 11);
+    localStorage.setItem(key, JSON.stringify({ v: 2, data: { multipliers: { ecmwf_ifs: 2 } } }));
+    expect(loadWeights(48, 11)).toBeNull();
+    expect(listWeights()).toEqual([]);
+    expect(localStorage.getItem(key)).not.toBeNull();
+  });
+
   it("clears stored weights", () => {
     saveWeights(10, 10, { multipliers: {}, trainedAt: "2026-06-01T00:00:00Z", improvement: 0 });
     clearWeights(10, 10);
@@ -86,10 +94,10 @@ describe("learnedWeightsStore", () => {
       expect(listWeights()).toHaveLength(0);
     });
 
-    it("round-trips a current (v2, ladder-recipe) record and stamps the version", () => {
+    it("round-trips a current calculation-version record and stamps the version", () => {
       saveWeights(INNSBRUCK.lat, INNSBRUCK.lon, { multipliers: { gfs_seamless: 1.2 }, trainedAt: "t", improvement: 0 });
       const raw = JSON.parse(localStorage.getItem(PREFIX + sampleKey(INNSBRUCK.lat, INNSBRUCK.lon))!) as { v: number; data: unknown };
-      expect(raw.v).toBe(2);
+      expect(raw.v).toBe(3);
       expect(raw.data).toMatchObject({ multipliers: { gfs_seamless: 1.2 } });
       expect(loadWeights(INNSBRUCK.lat, INNSBRUCK.lon)?.multipliers.gfs_seamless).toBe(1.2);
     });
