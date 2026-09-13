@@ -51,7 +51,9 @@ export function useSampleCollection(location: Ref<Location>, endDate: Ref<string
   // gather-specific state (runs, progress).
   const task = useAbortableTask();
   const gathering = task.running;
-  const error = task.error;
+  const gatherWarning = ref<string | null>(null);
+  const storageError = ref<string | null>(null);
+  const error = computed(() => [task.error.value, gatherWarning.value, storageError.value].filter(Boolean).join(" ") || null);
 
   watch(
     () => [location.value.latitude, location.value.longitude],
@@ -60,13 +62,17 @@ export function useSampleCollection(location: Ref<Location>, endDate: Ref<string
       runs.value = [];
       gatheredLocation = null;
       storedCount.value = null;
-      error.value = null;
+      task.error.value = null;
+      gatherWarning.value = null;
+      storageError.value = null;
     },
     { flush: "sync" },
   );
 
   async function gather(controls: SampleControls): Promise<void> {
     storedCount.value = null;
+    gatherWarning.value = null;
+    storageError.value = null;
     runs.value = [];
     gatheredLocation = null;
     const source: SampleLocation = { latitude: location.value.latitude, longitude: location.value.longitude, name: location.value.name };
@@ -97,7 +103,7 @@ export function useSampleCollection(location: Ref<Location>, endDate: Ref<string
       if (!signal.aborted) {
         gatheredLocation = source;
         runs.value = got;
-        if (failed) error.value = `${failed} of ${refs.length} runs could not be gathered. ${firstFailure}`;
+        if (failed) gatherWarning.value = `${failed} of ${refs.length} runs could not be gathered. ${firstFailure}`;
       }
     });
   }
@@ -108,7 +114,7 @@ export function useSampleCollection(location: Ref<Location>, endDate: Ref<string
     if (!source || !incoming.length) return;
     // A location change or new gather may happen while IndexedDB is pending.
     const isCurrent = (): boolean => gatheredLocation === source && runs.value === incoming;
-    error.value = null;
+    storageError.value = null;
     try {
       const key = sampleKey(source.latitude, source.longitude);
       const existing = await loadSample(key);
@@ -121,7 +127,7 @@ export function useSampleCollection(location: Ref<Location>, endDate: Ref<string
       await saveSample(key, sample);
       if (isCurrent()) storedCount.value = merged.length;
     } catch (e) {
-      if (isCurrent()) error.value = e instanceof Error ? e.message : String(e);
+      if (isCurrent()) storageError.value = e instanceof Error ? e.message : String(e);
     }
   }
 

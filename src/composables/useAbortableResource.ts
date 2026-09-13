@@ -105,6 +105,7 @@ export function useAbortableTask(): AbortableTask {
 
   function cancel(): void {
     inflight?.abort();
+    inflight = null;
     running.value = false;
   }
 

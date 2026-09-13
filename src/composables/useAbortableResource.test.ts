@@ -134,6 +134,22 @@ describe("useAbortableTask — superseded-guard", () => {
     expect(task.running.value).toBe(false);
   });
 
+  it("ignores a cancelled run's late ordinary failure", async () => {
+    const task = useAbortableTask();
+    let reject!: (error: Error) => void;
+    const pending = task.run(
+      () =>
+        new Promise<void>((_resolve, r) => {
+          reject = r;
+        }),
+    );
+    task.cancel();
+    reject(new Error("late failure"));
+    await pending;
+    expect(task.error.value).toBeNull();
+    expect(task.running.value).toBe(false);
+  });
+
   it("cancel() aborts the in-flight run and clears running", async () => {
     const task = useAbortableTask();
     let seenAbort = false;

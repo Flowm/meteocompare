@@ -51,6 +51,20 @@ describe("useSampleCollection", () => {
     expect(collection.error.value).toContain("1 of 2 runs");
     expect(collection.error.value).toContain("Network unavailable");
     expect(collection.progress.value).toEqual({ done: 2, total: 2 });
+    const warning = collection.error.value;
+    const save = vi.spyOn(await import("@/analysis/sampleStore"), "saveSample").mockRejectedValueOnce(new Error("Storage full"));
+    try {
+      await collection.store();
+      expect(collection.error.value).toContain(warning);
+      expect(collection.error.value).toContain("Storage full");
+      expect(collection.storedCount.value).toBeNull();
+    } finally {
+      save.mockRestore();
+    }
+    await collection.store();
+    expect(collection.storedCount.value).toBe(1);
+    expect(collection.error.value).toBe(warning);
+    expect((await listSamples())[0]?.runs).toHaveLength(1);
   });
 
   it("clamps a recent requested end date before planning training runs", async () => {
