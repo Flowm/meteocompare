@@ -115,3 +115,19 @@ export function buildNightRanges(times: string[], sunrise: string[] | undefined,
   }
   return ranges;
 }
+
+/** Build [startIdx, endIdx] pairs covering daylight hours within the visible
+ *  window — the complement of `buildNightRanges`. Empty without solar data so
+ *  the chart shades nothing rather than painting the whole window as day. */
+export function buildDayRanges(times: string[], sunrise: string[] | undefined, sunset: string[] | undefined): Array<[number, number]> {
+  if (!times.length || !sunrise?.length || !sunset?.length) return [];
+  const last = times.length - 1;
+  const ranges: Array<[number, number]> = [];
+  let cursor = 0;
+  for (const [setIdx, riseIdx] of buildNightRanges(times, sunrise, sunset)) {
+    if (setIdx > cursor) ranges.push([cursor, setIdx]);
+    cursor = Math.max(cursor, riseIdx);
+  }
+  if (cursor < last) ranges.push([cursor, last]);
+  return ranges;
+}

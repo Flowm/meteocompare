@@ -12,7 +12,7 @@ import { convertDelta, convertVar, unitLabel, type UnitPrefs } from "@/composabl
 import { MODELS } from "@/domain/models";
 import type { ModelDef } from "@/domain/models";
 
-import { buildNightRanges, findNowIndex, type ChartViewId } from "./chartHelpers";
+import { buildDayRanges, findNowIndex, type ChartViewId } from "./chartHelpers";
 import {
   AGG_COLOR,
   BAND_FILL,
@@ -24,7 +24,7 @@ import {
   INK_950,
   MODEL_OPACITY,
   MODEL_PALETTE,
-  NIGHT_FILL,
+  DAY_FILL,
   NOW_LINE,
   PAPER_200,
   PAPER_300,
@@ -177,7 +177,7 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
   const n = Math.min(args.hoursWindow, data.times.length);
   const times = data.times.slice(0, n);
   const nowIdx = currentTime ? findNowIndex(times, currentTime) : -1;
-  const nightRanges = buildNightRanges(times, solar?.sunrise, solar?.sunset);
+  const dayRanges = buildDayRanges(times, solar?.sunrise, solar?.sunset);
   const toggles: VisibilityToggle[] = [];
 
   const labels = times.map((t) => {
@@ -192,8 +192,8 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
   const rightActive = isComposite || v === "precipitation";
 
   const markArea =
-    nightRanges.length > 0
-      ? { silent: true, itemStyle: { color: NIGHT_FILL, borderWidth: 0 }, data: nightRanges.map(([a, b]): [{ xAxis: number }, { xAxis: number }] => [{ xAxis: a }, { xAxis: b }]) }
+    dayRanges.length > 0
+      ? { silent: true, itemStyle: { color: DAY_FILL, borderWidth: 0 }, data: dayRanges.map(([a, b]): [{ xAxis: number }, { xAxis: number }] => [{ xAxis: a }, { xAxis: b }]) }
       : undefined;
   const markLine =
     nowIdx >= 0
@@ -218,11 +218,12 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
         }
       : undefined;
 
-  // Night shading lives on its own zero-z background series so it always sits
-  // *behind* the spread band and lines.
+  // Daylight shading lives on its own zero-z background series so it always
+  // sits *behind* the spread band and lines. Day is the lifted region and night
+  // stays on the dark floor — a lightened night reads backwards on this theme.
   if (markArea) {
     series.push({
-      id: "night",
+      id: "day",
       type: "line",
       yAxisIndex: 0,
       data: Array.from({ length: n }, () => null),

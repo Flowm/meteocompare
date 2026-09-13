@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { extractSolar, type HistoricalWeatherResponse } from "@/api/omHistoricalWeather";
 import { shiftIsoTime } from "@/utils/date";
 
-import { buildNightRanges, isVarActive, nextCombinableView } from "./chartHelpers";
+import { buildDayRanges, buildNightRanges, isVarActive, nextCombinableView } from "./chartHelpers";
 
 describe("nextCombinableView", () => {
   it("adds the second variable to form the composite", () => {
@@ -102,5 +102,32 @@ describe("night ranges from UTC archive solar data", () => {
       [0, 7],
       [22, 23],
     ]);
+  });
+});
+
+describe("day ranges", () => {
+  const sunrise = ["2026-06-15T05:00", "2026-06-16T05:00", "2026-06-17T05:00"];
+  const sunset = ["2026-06-15T21:00", "2026-06-16T21:00", "2026-06-17T21:00"];
+  it("fills the gaps between night ranges, sharing the sunrise/sunset boundary indices", () => {
+    const times = Array.from({ length: 72 }, (_, i) => shiftIsoTime("2026-06-15T00:00", i * 3600));
+    expect(buildNightRanges(times, sunrise, sunset)).toEqual([
+      [0, 5],
+      [21, 29],
+      [45, 53],
+      [69, 71],
+    ]);
+    expect(buildDayRanges(times, sunrise, sunset)).toEqual([
+      [5, 21],
+      [29, 45],
+      [53, 69],
+    ]);
+  });
+  it("covers the whole window when it opens and closes in daylight", () => {
+    const times = Array.from({ length: 12 }, (_, i) => shiftIsoTime("2026-06-15T06:00", i * 3600));
+    expect(buildNightRanges(times, sunrise, sunset)).toEqual([]);
+    expect(buildDayRanges(times, sunrise, sunset)).toEqual([[0, 11]]);
+  });
+  it("shades nothing without solar data", () => {
+    expect(buildDayRanges(["2026-06-15T00:00"], undefined, undefined)).toEqual([]);
   });
 });
