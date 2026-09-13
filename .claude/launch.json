@@ -3,15 +3,15 @@
   "configurations": [
     {
       "name": "dev",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "mise",
+      "runtimeArgs": ["exec", "--", "pnpm", "run", "dev"],
       "port": 5183,
       "autoPort": true
     },
     {
       "name": "preview",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["run", "preview"],
+      "runtimeExecutable": "mise",
+      "runtimeArgs": ["exec", "--", "pnpm", "run", "preview"],
       "port": 5184,
       "autoPort": true
     }
