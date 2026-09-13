@@ -90,44 +90,24 @@ function isoToHourIndex(iso: string, baseMs: number, count: number): number {
   return Math.max(0, Math.min(count - 1, idx));
 }
 
-/** Build [startIdx, endIdx] pairs covering night hours within the visible window. */
-export function buildNightRanges(times: string[], sunrise: string[] | undefined, sunset: string[] | undefined): Array<[number, number]> {
+/** Build [startIdx, endIdx] pairs covering daylight hours within the visible
+ *  window: each sunrise paired with the same day's sunset, clipped to the
+ *  window. Empty without solar data so the chart shades nothing rather than
+ *  painting the whole window as day. */
+export function buildDayRanges(times: string[], sunrise: string[] | undefined, sunset: string[] | undefined): Array<[number, number]> {
   if (!times.length || !sunrise?.length || !sunset?.length) return [];
   const firstTime = times[0];
-  const firstSunrise = sunrise[0];
-  if (firstTime === undefined || firstSunrise === undefined) return [];
+  if (firstTime === undefined) return [];
   const baseMs = new Date(firstTime).getTime();
   const count = times.length;
   const ranges: Array<[number, number]> = [];
-
-  // Pre-dawn on the first day.
-  const firstRise = isoToHourIndex(firstSunrise, baseMs, count);
-  if (firstRise > 0) ranges.push([0, firstRise]);
-
-  // Sunset of day i → sunrise of day i+1.
-  for (let i = 0; i < sunset.length; i++) {
-    const sunsetTime = sunset[i];
-    if (sunsetTime === undefined) continue;
-    const setIdx = isoToHourIndex(sunsetTime, baseMs, count);
-    const nextRiseIso = sunrise[i + 1];
-    const endIdx = nextRiseIso ? isoToHourIndex(nextRiseIso, baseMs, count) : count - 1;
-    if (endIdx > setIdx) ranges.push([setIdx, endIdx]);
+  for (let i = 0; i < sunrise.length; i++) {
+    const riseIso = sunrise[i];
+    const setIso = sunset[i];
+    if (riseIso === undefined || setIso === undefined) continue;
+    const riseIdx = isoToHourIndex(riseIso, baseMs, count);
+    const setIdx = isoToHourIndex(setIso, baseMs, count);
+    if (setIdx > riseIdx) ranges.push([riseIdx, setIdx]);
   }
-  return ranges;
-}
-
-/** Build [startIdx, endIdx] pairs covering daylight hours within the visible
- *  window — the complement of `buildNightRanges`. Empty without solar data so
- *  the chart shades nothing rather than painting the whole window as day. */
-export function buildDayRanges(times: string[], sunrise: string[] | undefined, sunset: string[] | undefined): Array<[number, number]> {
-  if (!times.length || !sunrise?.length || !sunset?.length) return [];
-  const last = times.length - 1;
-  const ranges: Array<[number, number]> = [];
-  let cursor = 0;
-  for (const [setIdx, riseIdx] of buildNightRanges(times, sunrise, sunset)) {
-    if (setIdx > cursor) ranges.push([cursor, setIdx]);
-    cursor = Math.max(cursor, riseIdx);
-  }
-  if (cursor < last) ranges.push([cursor, last]);
   return ranges;
 }
