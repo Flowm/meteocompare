@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createSSRApp } from "vue";
+import { createApp, createSSRApp, nextTick } from "vue";
 import { createMemoryHistory, createRouter } from "vue-router";
 import { renderToString } from "vue/server-renderer";
 
@@ -26,6 +26,25 @@ describe("rain probability display", () => {
     expect(html).toContain("Rain chance —");
     expect(html).toContain("4.2 mm");
     expect(html).not.toContain(">dry</span>");
+  });
+
+  it.each([null, NaN, 0, 5, 70])("shows unknown and known probabilities in expanded model rows (%s)", async (precipProb) => {
+    const host = document.createElement("div");
+    const app = createApp(DayCard, {
+      ...dayProps,
+      precipProb: 40,
+      models: [{ id: "test", label: "Test model", high: 20, low: 10, precipProb }],
+    });
+    try {
+      app.mount(host);
+      host.querySelector<HTMLElement>(".group")!.click();
+      await nextTick();
+      const rows = host.textContent!.split("Per-model")[1];
+      expect(rows).toBeDefined();
+      expect(rows).toContain(precipProb != null && Number.isFinite(precipProb) ? `${precipProb}%` : "Rain chance —");
+    } finally {
+      app.unmount();
+    }
   });
 
   it.each([null, NaN, 0, 5])("distinguishes missing and low probabilities in the banner (%s)", async (probability) => {
