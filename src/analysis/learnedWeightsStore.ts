@@ -38,8 +38,7 @@ export interface StoredWeights {
   radiusKm?: number;
   /** Predictability calibration curves fitted from the same sample (ADR 0008).
    *  Rides along with the weights so it inherits the grid key and reach for
-   *  free. Optional + additive: entries stored before calibration existed load
-   *  unchanged and resolve to the pooled tier / raw heuristic instead. */
+   *  free. Missing curves fall through to the pooled and builtin tiers. */
   calibration?: CalibrationSet;
 }
 
@@ -52,8 +51,8 @@ export interface WeightEntry {
 
 // The synchronous localStorage machinery — availability guard, JSON codec, and
 // record versioning — lives in keyedStore; only the reach-resolution logic below
-// is specific to weights. Pre-ladder records (any version below ANALYSIS_VERSION)
-// are dropped on read, not migrated (see the ANALYSIS_VERSION note).
+// is specific to weights. Fits from older analysis versions require retraining;
+// reads ignore these records but leave their stored payloads intact.
 const store = createLocalKeyedStore<StoredWeights>({ prefix: PREFIX, version: ANALYSIS_VERSION, migrate: dropStaleRecipe });
 
 /** The training center to measure reach from: the stored exact coords when
