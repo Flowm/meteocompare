@@ -153,14 +153,15 @@ describe("buildHourlyChartOption — window slicing", () => {
   });
 });
 
-describe("buildHourlyChartOption — night/now marks", () => {
-  it("adds a night background series given solar, and a Now markLine given currentTime in-window", () => {
+describe("buildHourlyChartOption — day/now marks", () => {
+  it("adds a daylight background series given solar, and a Now markLine given currentTime in-window", () => {
     const args: HourlyChartOptionArgs = {
       ...base,
-      solar: { sunrise: ["2026-05-20T06:00"], sunset: ["2026-05-20T20:00"] },
+      // Sunrise/sunset inside the 5-hour fixture window so there is daylight to shade.
+      solar: { sunrise: ["2026-05-20T01:00:00Z"], sunset: ["2026-05-20T03:00:00Z"] },
       currentTime: DATA.times[1],
     };
-    expect(byId(args, "night")?.markArea).toBeDefined();
+    expect(byId(args, "day")?.markArea).toBeDefined();
     expect(byId(args, "agg")?.markLine).toBeDefined();
   });
 });
