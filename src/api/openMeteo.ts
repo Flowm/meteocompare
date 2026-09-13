@@ -9,6 +9,8 @@
 //
 // Docs: https://open-meteo.com/en/docs (see "Commercial API access").
 
+import { abortableDelay } from "@/utils/abortableDelay";
+
 export const OPEN_METEO_API_KEY_STORAGE_KEY = "meteocompare:openmeteo:api-key";
 
 /** The configured key, trimmed; empty string when none is set. Read live from
@@ -43,26 +45,6 @@ const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 const MAX_DELAY_MS = 20_000;
 
-/** Sleep `ms`, rejecting with an AbortError if `signal` fires first. */
-function sleep(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(new DOMException("Aborted", "AbortError"));
-      return;
-    }
-    let timer: ReturnType<typeof setTimeout>;
-    const onAbort = (): void => {
-      clearTimeout(timer);
-      reject(new DOMException("Aborted", "AbortError"));
-    };
-    timer = setTimeout(() => {
-      signal?.removeEventListener("abort", onAbort);
-      resolve();
-    }, ms);
-    signal?.addEventListener("abort", onAbort, { once: true });
-  });
-}
-
 /** Delay per a `Retry-After` header (delta-seconds or an HTTP date), clamped to
  *  [0, MAX_DELAY_MS]; null when the header is absent or unparseable. */
 function retryAfterMs(res: Response): number | null {
@@ -86,7 +68,7 @@ export async function fetchOpenMeteo(url: string, signal?: AbortSignal): Promise
     const res = await fetch(url, { signal });
     if (res.status !== 429 || attempt >= MAX_RETRIES) return res;
     // eslint-disable-next-line no-await-in-loop -- backoff between attempts is inherently sequential.
-    await sleep(retryAfterMs(res) ?? backoffMs(attempt), signal);
+    await abortableDelay(retryAfterMs(res) ?? backoffMs(attempt), signal);
   }
 }
 

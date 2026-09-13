@@ -14,6 +14,8 @@ describe("location search", () => {
     const query = ref("Oslo");
     const scope = effectScope();
     const state = scope.run(() => useLocationSearch(query, search))!;
+    expect(state.isSearching.value).toBe(true);
+    expect(search).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(250);
     query.value = "Paris";
     await vi.advanceTimersByTimeAsync(250);

@@ -1,6 +1,7 @@
 import { computed, type Ref } from "vue";
 
 import { searchLocations } from "@/api/geocoding";
+import { abortableDelay } from "@/utils/abortableDelay";
 
 import { useAbortableResource } from "./useAbortableResource";
 
@@ -10,17 +11,7 @@ export function useLocationSearch(query: Ref<string>, search = searchLocations) 
     async (signal) => {
       const text = query.value.trim();
       if (text.length < 2) return [];
-      await new Promise<void>((resolve, reject) => {
-        const abort = (): void => {
-          clearTimeout(timer);
-          reject(new DOMException("Aborted", "AbortError"));
-        };
-        const timer = setTimeout(() => {
-          signal.removeEventListener("abort", abort);
-          resolve();
-        }, 250);
-        signal.addEventListener("abort", abort, { once: true });
-      });
+      await abortableDelay(250, signal);
       signal.throwIfAborted();
       return search(text, signal);
     },
