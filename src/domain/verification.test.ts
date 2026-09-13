@@ -177,12 +177,12 @@ describe("coveredPrecipSums", () => {
   });
 
   it("is zero/zero when the forecast covers nothing", () => {
-    expect(coveredPrecipSums([null, null], [4, 6])).toEqual({ forecastSum: 0, truthSum: 0, coveredHours: 0 });
+    expect(coveredPrecipSums([null, null], [4, 6])).toEqual({ forecastSum: 0, truthSum: 0, scoredHours: 0 });
   });
 
   it("counts overlapping hours and ignores a forecast beyond the truth array", () => {
-    expect(coveredPrecipSums([1, 2, 10], [null, 1])).toEqual({ forecastSum: 2, truthSum: 1, coveredHours: 1 });
-    expect(coveredPrecipSums([0, null], [null, 1])).toEqual({ forecastSum: 0, truthSum: 0, coveredHours: 0 });
+    expect(coveredPrecipSums([1, 2, 10], [null, 1])).toEqual({ forecastSum: 2, truthSum: 1, scoredHours: 1 });
+    expect(coveredPrecipSums([0, null], [null, 1])).toEqual({ forecastSum: 0, truthSum: 0, scoredHours: 0 });
   });
 });
 

@@ -127,9 +127,9 @@ export function scoreScope(
   const tempBias = bias(fTemp, tTemp);
   const tempMae = mae(fTemp, tTemp);
 
-  const { forecastSum, truthSum, coveredHours } = coveredPrecipSums(fPrecip, tPrecip);
-  const amountError = coveredHours > 0 ? forecastSum - truthSum : NaN;
-  const thr = coveredHours > 0 ? timingScore(classifyHours(fPrecip, tPrecip)) : NaN;
+  const { forecastSum, truthSum, scoredHours } = coveredPrecipSums(fPrecip, tPrecip);
+  const amountError = scoredHours > 0 ? forecastSum - truthSum : NaN;
+  const thr = scoredHours > 0 ? timingScore(classifyHours(fPrecip, tPrecip)) : NaN;
 
   const terms: Array<{ w: number; g: number }> = [];
   if (Number.isFinite(tempMae)) {
@@ -137,8 +137,8 @@ export function scoreScope(
   }
   if (Number.isFinite(amountError)) {
     // Use the same observed hours as the sums; missing truth cannot dilute error.
-    const coveredDays = coveredHours / HOURS_PER_DAY;
-    const perDay = Math.abs(amountError) / coveredDays;
+    const scoredDays = scoredHours / HOURS_PER_DAY;
+    const perDay = Math.abs(amountError) / scoredDays;
     terms.push({ w: COMPOSITE_WEIGHTS.amountError, g: clamp01(1 - perDay / AMOUNT_REF_BAD_PER_DAY) });
   }
   if (Number.isFinite(thr)) {

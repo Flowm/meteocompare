@@ -130,20 +130,20 @@ export function sumNonNull(values: readonly (number | null)[]): number {
 }
 
 /** Sum precipitation only where forecast and truth both have a value.
- *  `coveredHours` counts those pairs; zero pairs means unscorable, not dry. */
-export function coveredPrecipSums(forecast: readonly (number | null)[], truth: readonly (number | null)[]): { forecastSum: number; truthSum: number; coveredHours: number } {
+ *  `scoredHours` counts those pairs; zero pairs means unscorable, not dry. */
+export function coveredPrecipSums(forecast: readonly (number | null)[], truth: readonly (number | null)[]): { forecastSum: number; truthSum: number; scoredHours: number } {
   let forecastSum = 0;
   let truthSum = 0;
-  let coveredHours = 0;
+  let scoredHours = 0;
   for (let i = 0; i < forecast.length; i++) {
     const f = forecast[i];
     const t = truth[i];
     if (f == null || t == null) continue;
     forecastSum += f;
     truthSum += t;
-    coveredHours += 1;
+    scoredHours += 1;
   }
-  return { forecastSum, truthSum, coveredHours };
+  return { forecastSum, truthSum, scoredHours };
 }
 
 export function minNonNull(values: readonly (number | null)[]): number {
@@ -258,8 +258,8 @@ function scoreTemperature(forecast: readonly (number | null)[], truth: readonly 
 }
 
 function scorePrecipitation(forecast: readonly (number | null)[], truth: readonly (number | null)[], predictability: number): PrecipitationScores | null {
-  const { forecastSum, truthSum, coveredHours } = coveredPrecipSums(forecast, truth);
-  if (coveredHours === 0) return null;
+  const { forecastSum, truthSum, scoredHours } = coveredPrecipSums(forecast, truth);
+  if (scoredHours === 0) return null;
   const classification = classifyHours(forecast, truth);
   return {
     amountError: forecastSum - truthSum,
