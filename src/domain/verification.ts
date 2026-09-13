@@ -129,24 +129,21 @@ export function sumNonNull(values: readonly (number | null)[]): number {
   return s;
 }
 
-/** Forecast and truth precipitation sums restricted to the hours the forecast
- *  actually covers (a non-null forecast value). Truth in hours the forecast
- *  never provided is ignored, so a model that drops out mid-window is judged
- *  only on the rain during the hours it forecast — not charged for rain it had
- *  no chance to predict. Mirrors how `bias()`/`mae()` only score overlapping
- *  pairs. The two sums are coverage-aligned, so `forecastSum − truthSum` is a
- *  fair amount error. */
-export function coveredPrecipSums(forecast: readonly (number | null)[], truth: readonly (number | null)[]): { forecastSum: number; truthSum: number } {
+/** Sum precipitation only where forecast and truth both have a value.
+ *  `scoredHours` counts those pairs; zero pairs means unscorable, not dry. */
+export function coveredPrecipSums(forecast: readonly (number | null)[], truth: readonly (number | null)[]): { forecastSum: number; truthSum: number; scoredHours: number } {
   let forecastSum = 0;
   let truthSum = 0;
+  let scoredHours = 0;
   for (let i = 0; i < forecast.length; i++) {
     const f = forecast[i];
-    if (f == null) continue;
-    forecastSum += f;
     const t = truth[i];
-    if (t != null) truthSum += t;
+    if (f == null || t == null) continue;
+    forecastSum += f;
+    truthSum += t;
+    scoredHours += 1;
   }
-  return { forecastSum, truthSum };
+  return { forecastSum, truthSum, scoredHours };
 }
 
 export function minNonNull(values: readonly (number | null)[]): number {
@@ -261,16 +258,9 @@ function scoreTemperature(forecast: readonly (number | null)[], truth: readonly 
 }
 
 function scorePrecipitation(forecast: readonly (number | null)[], truth: readonly (number | null)[], predictability: number): PrecipitationScores | null {
-  // No forecast data at all is unscorable, not a dry forecast. Treating null as
-  // 0 mm/h would yield `amountError = −truthSum` — indistinguishable from a
-  // model that confidently predicted a dry week. Mirrors how temperature reaches
-  // the same answer implicitly, via `bias()`/`mae()` returning NaN.
-  const anyForecast = forecast.some((v) => v != null);
-  if (!anyForecast) return null;
+  const { forecastSum, truthSum, scoredHours } = coveredPrecipSums(forecast, truth);
+  if (scoredHours === 0) return null;
   const classification = classifyHours(forecast, truth);
-  // Sum truth only over the hours the forecast covers (coverage-aligned), so a
-  // model that drops out mid-day isn't charged for the rain it never forecast.
-  const { forecastSum, truthSum } = coveredPrecipSums(forecast, truth);
   return {
     amountError: forecastSum - truthSum,
     timingScore: timingScore(classification),

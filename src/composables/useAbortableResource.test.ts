@@ -1,9 +1,62 @@
 import { describe, it, expect } from "vitest";
-import { nextTick, ref } from "vue";
+import { effectScope, nextTick, ref } from "vue";
 
 import { useAbortableResource, useAbortableTask } from "./useAbortableResource";
 
 describe("useAbortableResource — superseded-request guard", () => {
+  it.each([false, true])("ignores a superseded request's late completion (failure: %s)", async (fail) => {
+    const pending: { resolve: (v: string) => void; reject: (e: Error) => void }[] = [];
+    const dep = ref(0);
+    const resource = useAbortableResource(
+      () => new Promise<string>((resolve, reject) => pending.push({ resolve, reject })),
+      () => [dep.value],
+    );
+    dep.value++;
+    await nextTick();
+    pending[1]!.resolve("current");
+    await nextTick();
+    if (fail) pending[0]!.reject(new Error("stale failure"));
+    else pending[0]!.resolve("stale data");
+    await nextTick();
+    expect(resource.data.value).toBe("current");
+    expect(resource.error.value).toBeNull();
+    expect(resource.loading.value).toBe(false);
+  });
+
+  it("clears the previous location's data synchronously when dependencies change", async () => {
+    const dep = ref(0);
+    const resource = useAbortableResource(
+      () => Promise.resolve("old location"),
+      () => [dep.value],
+    );
+    await nextTick();
+    expect(resource.data.value).toBe("old location");
+    dep.value++;
+    expect(resource.data.value).toBeNull();
+  });
+
+  it("aborts on disposal and ignores a late success", async () => {
+    const scope = effectScope();
+    let resolve!: (value: string) => void;
+    let signal!: AbortSignal;
+    const resource = scope.run(() =>
+      useAbortableResource(
+        (s) => {
+          signal = s;
+          return new Promise<string>((r) => {
+            resolve = r;
+          });
+        },
+        () => [],
+      ),
+    )!;
+    scope.stop();
+    expect(signal.aborted).toBe(true);
+    resolve("disposed");
+    await nextTick();
+    expect(resource.data.value).toBeNull();
+  });
+
   // The bug class this helper centralizes: a request that has been superseded
   // by a newer one must not flip `loading` off when it (late-)resolves, or the
   // loading indicator would vanish while the replacement is still in flight.
@@ -78,6 +131,22 @@ describe("useAbortableTask — superseded-guard", () => {
     resolvers[1]!();
     await nextTick();
     await nextTick();
+    expect(task.running.value).toBe(false);
+  });
+
+  it("ignores a cancelled run's late ordinary failure", async () => {
+    const task = useAbortableTask();
+    let reject!: (error: Error) => void;
+    const pending = task.run(
+      () =>
+        new Promise<void>((_resolve, r) => {
+          reject = r;
+        }),
+    );
+    task.cancel();
+    reject(new Error("late failure"));
+    await pending;
+    expect(task.error.value).toBeNull();
     expect(task.running.value).toBe(false);
   });
 

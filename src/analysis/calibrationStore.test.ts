@@ -9,6 +9,14 @@ import type { RunEvaluation } from "./runEvaluation";
 import type { LocationSample } from "./sample";
 import { listSamples } from "./sampleStore";
 
+it("ignores old pooled calibration without deleting its stored payload", () => {
+  const key = "meteocompare:calibration:pooled";
+  localStorage.setItem(key, JSON.stringify({ v: 1, data: { set: {} } }));
+  expect(loadPooledCalibration()).toBeNull();
+  expect(localStorage.getItem(key)).not.toBeNull();
+  localStorage.removeItem(key);
+});
+
 vi.mock("./sampleStore", async (importOriginal) => {
   const orig = await importOriginal<typeof import("./sampleStore")>();
   return { ...orig, listSamples: vi.fn(async () => []) };

@@ -1,4 +1,4 @@
-import { computed, onScopeDispose, ref, type Ref } from "vue";
+import { computed, onScopeDispose, type Ref } from "vue";
 
 import { resolveCalibration } from "@/analysis/calibrationStore";
 import { evaluateForecast, type CurrentConditions, type DailyAggregate, type ForecastEvaluation, type HourlyAggregate } from "@/analysis/forecastEvaluation";
@@ -27,7 +27,6 @@ export interface UseForecastReturn {
  *  the trained-weights toggle, and the SW cache-refresh channel; all
  *  extraction + aggregation lives in `evaluateForecast`. */
 export function useForecast(location: Ref<Location>): UseForecastReturn {
-  const lastUpdated = ref<Date | null>(null);
   // Switching the commercial API key on/off changes which host every request
   // hits, so it's a fetch dependency — flipping it refetches the current view.
   const { apiKey } = useApiKey();
@@ -38,22 +37,20 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
   const { useTrainedWeights } = useSettings();
   const multipliers = computed(() => (useTrainedWeights.value ? loadWeights(location.value.latitude, location.value.longitude)?.multipliers : undefined));
 
-  // Re-fetches on location change; the superseded-request guard lives in the
-  // helper. `lastUpdated` is stamped here, inside the fetcher, so it only moves
-  // on a non-aborted success.
+  // Data and its timestamp are published together by the guarded resource.
   const {
     data: raw,
     loading,
     error,
     refresh,
-  } = useAbortableResource<ForecastResponse>(
+  } = useAbortableResource<{ response: ForecastResponse; updatedAt: Date }>(
     async (signal) => {
       const data = await fetchForecast({ lat: location.value.latitude, lon: location.value.longitude }, signal);
-      lastUpdated.value = new Date();
-      return data;
+      return { response: data, updatedAt: new Date() };
     },
     () => [location.value.latitude, location.value.longitude, apiKey.value],
   );
+  const lastUpdated = computed(() => raw.value?.updatedAt ?? null);
 
   // The forecast SW cache uses StaleWhileRevalidate: the initial fetch resolves with
   // the stale response (or nothing on cold cache), and the SW broadcasts when the
@@ -76,7 +73,7 @@ export function useForecast(location: Ref<Location>): UseForecastReturn {
   const calibration = computed(() => resolveCalibration(location.value.latitude, location.value.longitude));
 
   const evaluation = computed<ForecastEvaluation | null>(() => {
-    const data = raw.value;
+    const data = raw.value?.response;
     if (!data) return null;
     return evaluateForecast({ raw: data, lat: location.value.latitude, lon: location.value.longitude, multipliers: multipliers.value, calibration: calibration.value });
   });

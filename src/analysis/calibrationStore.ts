@@ -13,11 +13,10 @@ import { DEFAULT_CALIBRATION } from "./defaultCalibration";
 import { createLocalKeyedStore } from "./keyedStore";
 import { loadWeights } from "./learnedWeightsStore";
 import { listSamples } from "./sampleStore";
+import { ANALYSIS_VERSION } from "./version";
 
 const PREFIX = "meteocompare:calibration:";
 const POOLED_KEY = "pooled";
-
-const CALIBRATION_VERSION = 1;
 
 export interface StoredCalibration {
   set: CalibrationSet;
@@ -25,7 +24,7 @@ export interface StoredCalibration {
   fittedAt: string;
 }
 
-const store = createLocalKeyedStore<StoredCalibration>({ prefix: PREFIX, version: CALIBRATION_VERSION });
+const store = createLocalKeyedStore<StoredCalibration>({ prefix: PREFIX, version: ANALYSIS_VERSION, migrate: () => null });
 
 export function loadPooledCalibration(): StoredCalibration | null {
   return store.get(POOLED_KEY);

@@ -72,7 +72,7 @@ const emit = defineEmits<{
       </button>
     </div>
     <p v-if="gathering || progress.total" class="text-paper-400 font-mono text-[11px] tracking-wide">
-      Gathered {{ gatheredCount }} runs · {{ progress.done }}/{{ progress.total }} fetched
+      Gathered {{ gatheredCount }} runs · {{ progress.done }}/{{ progress.total }} processed
     </p>
     <p v-if="storedCount != null" class="text-predictability-high font-mono text-[11px] tracking-wide">Stored {{ storedCount }} runs for this location.</p>
     <p v-if="error" class="text-heat-300 font-mono text-[11px] tracking-wide"><span class="text-heat-400">[err]</span> {{ error }}</p>

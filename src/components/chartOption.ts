@@ -261,6 +261,8 @@ export function buildHourlyChartOption(args: HourlyChartOptionArgs): HourlyChart
       id: "band-delta",
       type: "line",
       stack: `band-${axisIndex}`,
+      // The positive width must also stack on a negative lower bound.
+      stackStrategy: "all",
       yAxisIndex: axisIndex,
       symbol: "none",
       lineStyle: { opacity: 0 },

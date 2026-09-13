@@ -1,9 +1,10 @@
-import { computed, ref, shallowRef, type Ref } from "vue";
+import { computed, ref, shallowRef, watch, type Ref } from "vue";
 
 import { gatherRuns, planRuns, type GatherDeps } from "@/analysis/collectSample";
 import type { RunEvaluation } from "@/analysis/runEvaluation";
-import { aggregateSample, type LocationSample, type ModelSampleStats } from "@/analysis/sample";
+import { aggregateSample, type LocationSample, type ModelSampleStats, type SampleLocation } from "@/analysis/sample";
 import { loadSample, mergeRuns, sampleKey, saveSample } from "@/analysis/sampleStore";
+import { latestVerifiableRunDate, TRAINING_FORECAST_DAYS } from "@/analysis/truthWindow";
 
 import { useAbortableTask } from "./useAbortableResource";
 import type { Location } from "./useLocation";
@@ -43,54 +44,90 @@ export function useSampleCollection(location: Ref<Location>, endDate: Ref<string
   const stats = computed<ModelSampleStats[]>(() => aggregateSample(runs.value));
   const progress = ref({ done: 0, total: 0 });
   const storedCount = ref<number | null>(null);
+  let gatheredLocation: SampleLocation | null = null;
 
   // The abort/superseded guard and the gathering/error flags live in the shared
   // task helper — `gathering` is its `running`. This composable adds only the
   // gather-specific state (runs, progress).
   const task = useAbortableTask();
   const gathering = task.running;
-  const error = task.error;
+  const gatherWarning = ref<string | null>(null);
+  const storageError = ref<string | null>(null);
+  const error = computed(() => [task.error.value, gatherWarning.value, storageError.value].filter(Boolean).join(" ") || null);
+
+  watch(
+    () => [location.value.latitude, location.value.longitude],
+    () => {
+      cancel();
+      runs.value = [];
+      gatheredLocation = null;
+      storedCount.value = null;
+      task.error.value = null;
+      gatherWarning.value = null;
+      storageError.value = null;
+    },
+    { flush: "sync" },
+  );
 
   async function gather(controls: SampleControls): Promise<void> {
     storedCount.value = null;
+    gatherWarning.value = null;
+    storageError.value = null;
     runs.value = [];
+    gatheredLocation = null;
+    const source: SampleLocation = { latitude: location.value.latitude, longitude: location.value.longitude, name: location.value.name };
     const cycles = controls.cyclesPerDay === 4 ? [0, 6, 12, 18] : [0];
-    const refs = planRuns({ endDate: endDate.value, durationDays: controls.durationDays, cycles, floorDate });
+    const latest = latestVerifiableRunDate(new Date().toISOString().slice(0, 10), TRAINING_FORECAST_DAYS);
+    const refs = planRuns({ endDate: endDate.value > latest ? latest : endDate.value, durationDays: controls.durationDays, cycles, floorDate });
     // Reset progress to this gather's total up front, so a cancelled or
     // superseded prior gather can never leave a stale "4/30" reading on screen.
     progress.value = { done: 0, total: refs.length };
     await task.run(async (signal) => {
+      let failed = 0;
+      let firstFailure = "";
       const got = await gatherRuns(
         refs,
         {
-          location: { latitude: location.value.latitude, longitude: location.value.longitude },
+          location: source,
           signal,
+          onFailure: (run, reason) => {
+            failed++;
+            firstFailure ||= `${run.runDate} ${String(run.runHour).padStart(2, "0")}:00 UTC: ${reason}`;
+          },
           onProgress: (done, total) => {
             if (!signal.aborted) progress.value = { done, total };
           },
         },
         deps,
       );
-      if (!signal.aborted) runs.value = got;
+      if (!signal.aborted) {
+        gatheredLocation = source;
+        runs.value = got;
+        if (failed) gatherWarning.value = `${failed} of ${refs.length} runs could not be gathered. ${firstFailure}`;
+      }
     });
   }
 
   async function store(): Promise<void> {
-    if (!runs.value.length) return;
-    error.value = null;
+    const source = gatheredLocation;
+    const incoming = runs.value;
+    if (!source || !incoming.length) return;
+    // A location change or new gather may happen while IndexedDB is pending.
+    const isCurrent = (): boolean => gatheredLocation === source && runs.value === incoming;
+    storageError.value = null;
     try {
-      const key = sampleKey(location.value.latitude, location.value.longitude);
+      const key = sampleKey(source.latitude, source.longitude);
       const existing = await loadSample(key);
-      const merged = mergeRuns(existing?.runs ?? [], runs.value);
+      const merged = mergeRuns(existing?.runs ?? [], incoming);
       const sample: LocationSample = {
-        location: { latitude: location.value.latitude, longitude: location.value.longitude, name: location.value.name },
+        location: source,
         runs: merged,
         gatheredAt: new Date().toISOString(),
       };
       await saveSample(key, sample);
-      storedCount.value = merged.length;
+      if (isCurrent()) storedCount.value = merged.length;
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e);
+      if (isCurrent()) storageError.value = e instanceof Error ? e.message : String(e);
     }
   }
 

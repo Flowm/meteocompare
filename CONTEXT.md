@@ -150,6 +150,9 @@ A coarse lead-hour bucket (0–48 h / 48–96 h / 96–168 h / 168–240 h) the 
 **Coverage**:
 The hours a model actually returned data for within the window — a runtime fact (retention varies per model and run date). Sub-full-coverage models are flagged `*` and still ranked; their empty lead bands show the gap. Distinct from **Available models**, which is the binary did-it-return-anything set.
 
+**Scored hours**:
+The hours with both a forecast value and a truth value for the variable under comparison. Unlike **Coverage**, this count excludes missing truth.
+
 ### Training
 
 **Trained weights**:

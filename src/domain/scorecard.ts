@@ -65,7 +65,7 @@ export interface ScorecardMetrics {
   /** Temperature MAE (°C); `NaN` when no overlapping pair exists. */
   tempMae: number;
   /** Signed precip amount error (forecast − truth sum, mm); `NaN` when the
-   *  forecast carried no precipitation data in scope. */
+   *  forecast and truth have no overlapping precipitation data in scope. */
   amountError: number;
   /** Timing skill, Critical Success Index hits/(hits+misses+false_alarms);
    *  `NaN` only when nothing happened on either side (all correct-dry). */
@@ -114,8 +114,8 @@ export interface ScorecardInput {
 /** Score one scope (full window or a band slice) into metrics + composite.
  *  Each metric maps to a 0..1 goodness; the composite blends only the metrics
  *  that are scorable in the scope, renormalising the weights accordingly:
- *  - temperature drops out when the entity has no temp data in scope,
- *  - amount + timing drop out when there is no precip data,
+ *  - temperature drops out when there are no overlapping temp observations,
+ *  - amount + timing drop out when there are no overlapping precip observations,
  *  - timing alone drops out on a dry scope (no truth-wet hours) while amount
  *    still penalises false precipitation. */
 export function scoreScope(
@@ -127,23 +127,18 @@ export function scoreScope(
   const tempBias = bias(fTemp, tTemp);
   const tempMae = mae(fTemp, tTemp);
 
-  const anyPrecip = fPrecip.some((v) => v != null);
-  // Coverage-aligned: truth summed only over hours the forecast covers, so a
-  // model that drops out isn't charged for the rain it never forecast.
-  const { forecastSum, truthSum } = coveredPrecipSums(fPrecip, tPrecip);
-  const amountError = anyPrecip ? forecastSum - truthSum : NaN;
-  const thr = anyPrecip ? timingScore(classifyHours(fPrecip, tPrecip)) : NaN;
+  const { forecastSum, truthSum, scoredHours } = coveredPrecipSums(fPrecip, tPrecip);
+  const amountError = scoredHours > 0 ? forecastSum - truthSum : NaN;
+  const thr = scoredHours > 0 ? timingScore(classifyHours(fPrecip, tPrecip)) : NaN;
 
   const terms: Array<{ w: number; g: number }> = [];
   if (Number.isFinite(tempMae)) {
     terms.push({ w: COMPOSITE_WEIGHTS.tempMae, g: clamp01(1 - tempMae / TEMP_MAE_REF_BAD) });
   }
   if (Number.isFinite(amountError)) {
-    // Normalise the summed error by covered precip-days so coverage and window
-    // length don't distort it (a 48 h model isn't credited for the dry hours it
-    // never forecast).
-    const coveredDays = fPrecip.filter((v) => v != null).length / HOURS_PER_DAY;
-    const perDay = coveredDays > 0 ? Math.abs(amountError) / coveredDays : Math.abs(amountError);
+    // Use the same observed hours as the sums; missing truth cannot dilute error.
+    const scoredDays = scoredHours / HOURS_PER_DAY;
+    const perDay = Math.abs(amountError) / scoredDays;
     terms.push({ w: COMPOSITE_WEIGHTS.amountError, g: clamp01(1 - perDay / AMOUNT_REF_BAD_PER_DAY) });
   }
   if (Number.isFinite(thr)) {

@@ -27,13 +27,13 @@ describe("fetchHistoricalWeather URL assembly", () => {
     expect(url.pathname).toBe("/v1/archive");
   });
 
-  it("carries the shared baseParams (coords, timezone, metric units)", async () => {
+  it("uses UTC dates and hourly grids while keeping coordinates and metric units", async () => {
     const { urlOf } = stubFetch({ hourly: { time: [] } });
     await fetchHistoricalWeather(REQ);
     const p = urlOf().searchParams;
     expect(p.get("latitude")).toBe("48.2");
     expect(p.get("longitude")).toBe("16.4");
-    expect(p.get("timezone")).toBe("auto");
+    expect(p.get("timezone")).toBe("GMT");
     expect(p.get("temperature_unit")).toBe("celsius");
     expect(p.get("precipitation_unit")).toBe("mm");
     expect(p.get("wind_speed_unit")).toBe("kmh");
@@ -68,6 +68,21 @@ describe("extractHourly", () => {
 });
 
 describe("extractSolar", () => {
+  it("preserves missing solar timestamps when shifting to local time", () => {
+    const resp = { hourly: { time: [] }, utc_offset_seconds: 0, daily: { time: ["2026-05-20"], sunrise: [""], sunset: [""] } } as unknown as HistoricalWeatherResponse;
+    expect(extractSolar(resp, 3600)).toEqual({ sunrise: [""], sunset: [""] });
+  });
+
+  it("converts UTC solar times to the forecast's local offset across date boundaries", () => {
+    const resp = {
+      hourly: { time: [] },
+      utc_offset_seconds: 0,
+      daily: { time: ["2026-05-20"], sunrise: ["2026-05-20T01:00"], sunset: ["2026-05-20T18:00"] },
+    } as unknown as HistoricalWeatherResponse;
+    expect(extractSolar(resp, -7 * 3600)).toEqual({ sunrise: ["2026-05-19T18:00"], sunset: ["2026-05-20T11:00"] });
+    expect(extractSolar(resp, 5.5 * 3600)).toEqual({ sunrise: ["2026-05-20T06:30"], sunset: ["2026-05-20T23:30"] });
+  });
+
   it("reads the bare sunrise/sunset the archive returns", () => {
     const resp = { hourly: { time: [] }, daily: { time: ["d0"], sunrise: ["06:00"], sunset: ["21:00"] } } as unknown as HistoricalWeatherResponse;
     expect(extractSolar(resp)).toEqual({ sunrise: ["06:00"], sunset: ["21:00"] });

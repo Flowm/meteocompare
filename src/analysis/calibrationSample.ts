@@ -14,8 +14,9 @@ import type { RunEvaluation } from "./runEvaluation";
  *  anchor the daily forecast cadence uses. */
 const leadAnchor = (day: DailyVerification): number => (day.leadHoursStart + day.leadHoursEnd) / 2;
 
-/** Every verified (raw, hit) day outcome contained in the runs. Days whose raw
- *  score or outcome inputs are non-finite (no data) are skipped, not counted. */
+/** Every verified (raw, hit) day outcome contained in the runs. Non-finite
+ *  inputs are skipped. Precipitation requires a fully observed forecast day
+ *  because a partial sum cannot establish a daily wet/dry outcome. */
 export function calibrationPoints(runs: readonly RunEvaluation[]): CalibrationPoint[] {
   const points: CalibrationPoint[] = [];
   for (const run of runs) {
@@ -28,7 +29,14 @@ export function calibrationPoints(runs: readonly RunEvaluation[]): CalibrationPo
       }
 
       const p = day.aggregate.precipitation;
-      if (p && Number.isFinite(p.predictability) && Number.isFinite(p.forecastSum) && Number.isFinite(p.truthSum)) {
+      if (
+        p &&
+        p.hourlyClassification.length === day.leadHoursEnd - day.leadHoursStart &&
+        p.hourlyClassification.every((c) => c !== "no_data") &&
+        Number.isFinite(p.predictability) &&
+        Number.isFinite(p.forecastSum) &&
+        Number.isFinite(p.truthSum)
+      ) {
         const forecastWet = p.forecastSum >= WET_DAY_THRESHOLD_MM;
         const truthWet = p.truthSum >= WET_DAY_THRESHOLD_MM;
         points.push({ variable: "precipitation", leadHours, raw: p.predictability, hit: forecastWet === truthWet });

@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { resolveCalibration } from "@/analysis/calibrationStore";
+import { latestVerifiableRunDate, SINGLE_FORECAST_DAYS, TRAINING_FORECAST_DAYS } from "@/analysis/truthWindow";
 import { ARCHIVE_START_ECMWF, ARCHIVE_START_MOST_MODELS } from "@/api/omSingleRuns";
 import AppFooter from "@/components/AppFooter.vue";
 import { type ChartViewId } from "@/components/chartHelpers";
@@ -39,23 +40,22 @@ const { current, label: locationLabel } = useLocation();
 const calibration = computed(() => resolveCalibration(current.value.latitude, current.value.longitude));
 
 // Date bounds (see ADR 0001 + grilling notes):
-// - max = today − 12 days: ERA5-Seamless ~5-day lag + 7-day forward window
+// - max includes the active horizon, publication lag and a complete-day margin.
 // - min, single-run mode: ECMWF's archive start (March 2024) — the page prunes
 //   the models a date predates, so deep ECMWF-only browsing is allowed.
 // - min, multi-run mode: most models' archive start (2 April 2026) — sampling
 //   before that gathers ECMWF-only runs, which poison training/calibration
 //   with single-model aggregates.
-const TRUTH_LAG_DAYS = 12;
+const mode = ref<"single" | "multi">("single");
 const SINGLE_RUN_FLOOR = ARCHIVE_START_ECMWF;
 const GATHER_FLOOR = ARCHIVE_START_MOST_MODELS;
-const DEFAULT_OFFSET_DAYS = 14;
 
 function todayIsoUTC(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-const maxRunDate = computed(() => addDaysIso(todayIsoUTC(), -TRUTH_LAG_DAYS));
-const defaultRunDate = computed(() => addDaysIso(todayIsoUTC(), -DEFAULT_OFFSET_DAYS));
+const maxRunDate = computed(() => latestVerifiableRunDate(todayIsoUTC(), mode.value === "multi" ? TRAINING_FORECAST_DAYS : SINGLE_FORECAST_DAYS));
+const defaultRunDate = computed(() => addDaysIso(maxRunDate.value, -1));
 
 const runDate = computed<string>(() => {
   const r = route.query.runDate;
@@ -82,7 +82,6 @@ const cycleLabel = computed(() => `${String(runCycle.value).padStart(2, "0")}:00
 
 // Single-run vs multi-run analysis mode (view-local). The single-run date picker
 // doubles as the run-date window end when gathering a multi-run sample.
-const mode = ref<"single" | "multi">("single");
 const durationDays = ref(30);
 const cyclesPerDay = ref<1 | 4>(1);
 

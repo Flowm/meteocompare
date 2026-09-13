@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 
 import { clearWeights, clearWeightsByKey, listWeights, loadWeights, saveWeights, setReach } from "./learnedWeightsStore";
 import { sampleKey } from "./sampleStore";
+import { ANALYSIS_VERSION } from "./version";
 
 const INNSBRUCK = { lat: 47.2654, lon: 11.3927 };
 // ~33 km north of Innsbruck — a different 0.25° cell.
@@ -19,6 +20,23 @@ describe("learnedWeightsStore", () => {
 
   it("returns null when nothing is stored", () => {
     expect(loadWeights(0, 0)).toBeNull();
+  });
+
+  it("ignores fits computed before the truth-scoring corrections", () => {
+    const key = "meteocompare:weights:" + sampleKey(48, 11);
+    localStorage.setItem(key, JSON.stringify({ v: 2, data: { multipliers: { ecmwf_ifs: 2 } } }));
+    expect(loadWeights(48, 11)).toBeNull();
+    expect(listWeights()).toEqual([]);
+    expect(localStorage.getItem(key)).not.toBeNull();
+  });
+
+  it("ignores future-version fits on direct reads and listing without deleting them", () => {
+    const key = "meteocompare:weights:" + sampleKey(48, 11);
+    const payload = JSON.stringify({ v: ANALYSIS_VERSION + 1, data: { multipliers: { ecmwf_ifs: 2 } } });
+    localStorage.setItem(key, payload);
+    expect(loadWeights(48, 11)).toBeNull();
+    expect(listWeights()).toEqual([]);
+    expect(localStorage.getItem(key)).toBe(payload);
   });
 
   it("clears stored weights", () => {
@@ -86,10 +104,10 @@ describe("learnedWeightsStore", () => {
       expect(listWeights()).toHaveLength(0);
     });
 
-    it("round-trips a current (v2, ladder-recipe) record and stamps the version", () => {
+    it("round-trips a current calculation-version record and stamps the version", () => {
       saveWeights(INNSBRUCK.lat, INNSBRUCK.lon, { multipliers: { gfs_seamless: 1.2 }, trainedAt: "t", improvement: 0 });
       const raw = JSON.parse(localStorage.getItem(PREFIX + sampleKey(INNSBRUCK.lat, INNSBRUCK.lon))!) as { v: number; data: unknown };
-      expect(raw.v).toBe(2);
+      expect(raw.v).toBe(ANALYSIS_VERSION);
       expect(raw.data).toMatchObject({ multipliers: { gfs_seamless: 1.2 } });
       expect(loadWeights(INNSBRUCK.lat, INNSBRUCK.lon)?.multipliers.gfs_seamless).toBe(1.2);
     });

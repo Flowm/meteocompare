@@ -84,7 +84,7 @@ export type SingleRunsHourlyVar = VerifiedVariable;
 export interface SingleRunsRequest {
   lat: number;
   lon: number;
-  /** ISO local date (`YYYY-MM-DD`), combined with `runHour` into the run cycle. */
+  /** ISO UTC date (`YYYY-MM-DD`), combined with `runHour` into the run cycle. */
   runDate: string;
   /** Run cycle hour (00 / 06 / 12 / 18 Z); defaults to 0 (00Z). Models publish
    *  different cycles, so a non-00Z hour naturally prunes models that skip it. */
@@ -95,8 +95,8 @@ export interface SingleRunsRequest {
   forecastDays?: number;
 }
 
-/** Same shape as the live forecast response — variables are suffixed with
- *  `_<modelId>` when `models=` carries multiple ids. */
+/** Forecast response with hourly variables normalised to `_<modelId>` keys,
+ *  including when retries leave only one requested model. */
 export type SingleRunsResponse = ForecastResponse;
 
 export interface FetchSingleRunsOptions {
@@ -122,7 +122,16 @@ async function fetchModels(models: string[], req: SingleRunsRequest, signal?: Ab
   const text = await res.text().catch(() => "");
   if (res.ok) {
     try {
-      return JSON.parse(text) as SingleRunsResponse;
+      const response = JSON.parse(text) as SingleRunsResponse;
+      const onlyModel = models.length === 1 ? models[0] : undefined;
+      if (onlyModel) {
+        for (const variable of HOURLY_VARS) {
+          const key = `${variable}_${onlyModel}`;
+          response.hourly[key] ??= response.hourly[variable];
+          if (response.hourly_units) response.hourly_units[key] ??= response.hourly_units[variable]!;
+        }
+      }
+      return response;
     } catch {
       // A 200 with an unparseable body is the *streamed* failure shape: a large
       // batch sends its status before the body, so a missing run surfaces as a

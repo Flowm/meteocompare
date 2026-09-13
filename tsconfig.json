@@ -12,5 +12,5 @@
     },
     "lib": ["DOM", "DOM.Iterable", "ESNext", "WebWorker"]
   },
-  "include": ["src", "src/**/*.vue", "vite.config.ts"]
+  "include": ["src", "src/**/*.vue", "vite.config.ts", "scripts"]
 }

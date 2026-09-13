@@ -1,9 +1,10 @@
-import { afterEach, beforeEach, describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { nextTick, ref } from "vue";
 
 import type { GatherDeps } from "@/analysis/collectSample";
 import type { RunEvaluation } from "@/analysis/runEvaluation";
 import type { LocationSample } from "@/analysis/sample";
+import { listSamples, loadSample, sampleKey } from "@/analysis/sampleStore";
 import { installFakeIndexedDB } from "@/analysis/testFakeIdb";
 
 import type { Location } from "./useLocation";
@@ -38,6 +39,55 @@ function controllableDeps(marker: string): { deps: GatherDeps; release: () => vo
 }
 
 describe("useSampleCollection", () => {
+  it("reports partial failures and retains successful runs", async () => {
+    const deps: GatherDeps = {
+      fetchRuns: (req) => (req.runDate === "2026-06-01" ? Promise.reject(new Error("Network unavailable")) : Promise.resolve({} as never)),
+      fetchTruth: () => Promise.resolve({} as never),
+      evaluate: ({ runDate, runHour }) => mkRun(runDate, runHour ?? 0, "ok"),
+    };
+    const collection = useSampleCollection(ref(LOCATION), ref("2026-06-01"), "2026-01-01", deps);
+    await collection.gather({ durationDays: 2, cyclesPerDay: 1 });
+    expect(collection.runs.value).toHaveLength(1);
+    expect(collection.error.value).toContain("1 of 2 runs");
+    expect(collection.error.value).toContain("Network unavailable");
+    expect(collection.progress.value).toEqual({ done: 2, total: 2 });
+    const warning = collection.error.value;
+    const save = vi.spyOn(await import("@/analysis/sampleStore"), "saveSample").mockRejectedValueOnce(new Error("Storage full"));
+    try {
+      await collection.store();
+      expect(collection.error.value).toContain(warning);
+      expect(collection.error.value).toContain("Storage full");
+      expect(collection.storedCount.value).toBeNull();
+    } finally {
+      save.mockRestore();
+    }
+    await collection.store();
+    expect(collection.storedCount.value).toBe(1);
+    expect(collection.error.value).toBe(warning);
+    expect((await listSamples())[0]?.runs).toHaveLength(1);
+  });
+
+  it("clamps a recent requested end date before planning training runs", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-20T12:00:00Z"));
+    try {
+      const dates: string[] = [];
+      const deps: GatherDeps = {
+        fetchRuns: (req) => {
+          dates.push(req.runDate);
+          return Promise.resolve({} as never);
+        },
+        fetchTruth: () => Promise.resolve({} as never),
+        evaluate: () => null,
+      };
+      const collection = useSampleCollection(ref(LOCATION), ref("2026-06-08"), "2026-01-01", deps);
+      await collection.gather({ durationDays: 1, cyclesPerDay: 4 });
+      expect(dates).toEqual(Array.from({ length: 4 }, () => "2026-06-04"));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   let fake: ReturnType<typeof installFakeIndexedDB>;
 
   beforeEach(() => {
@@ -46,6 +96,59 @@ describe("useSampleCollection", () => {
   afterEach(() => fake.restore());
 
   const controls = { durationDays: 1, cyclesPerDay: 1 } as const;
+  const OTHER_LOCATION: Location = { latitude: 35.6762, longitude: 139.6503, name: "Tokyo" };
+
+  it("discards completed results when the location changes before storing", async () => {
+    const { deps, release } = controllableDeps("A");
+    const location = ref({ ...LOCATION });
+    const c = useSampleCollection(location, ref("2026-06-01"), "2026-01-01", deps);
+    const pending = c.gather(controls);
+    release();
+    await pending;
+
+    location.value = OTHER_LOCATION;
+    await c.store();
+
+    expect(c.runs.value).toEqual([]);
+    expect(c.storedCount.value).toBeNull();
+    expect(await listSamples()).toEqual([]);
+  });
+
+  it("cancels a gather on location change and ignores its late result", async () => {
+    const { deps, release } = controllableDeps("A");
+    const location = ref({ ...LOCATION });
+    const c = useSampleCollection(location, ref("2026-06-01"), "2026-01-01", deps);
+    const pending = c.gather(controls);
+
+    location.value = OTHER_LOCATION;
+    expect(c.gathering.value).toBe(false);
+    release();
+    await pending;
+    await c.store();
+
+    expect(c.runs.value).toEqual([]);
+    expect(c.progress.value).toEqual({ done: 0, total: 0 });
+    expect(await listSamples()).toEqual([]);
+  });
+
+  it("keeps an in-flight save bound to its original runs and location", async () => {
+    const { deps, release } = controllableDeps("A");
+    const location = ref({ ...LOCATION });
+    const c = useSampleCollection(location, ref("2026-06-01"), "2026-01-01", deps);
+    const pending = c.gather(controls);
+    release();
+    await pending;
+
+    const saving = c.store();
+    location.value = OTHER_LOCATION;
+    await saving;
+
+    const original = await loadSample(sampleKey(LOCATION.latitude, LOCATION.longitude));
+    expect(original?.location).toEqual(LOCATION);
+    expect(original?.runs).toHaveLength(1);
+    expect(await loadSample(sampleKey(OTHER_LOCATION.latitude, OTHER_LOCATION.longitude))).toBeNull();
+    expect(c.storedCount.value).toBeNull();
+  });
 
   it("gathers, exposing gathering + progress, then lands the runs", async () => {
     const { deps, release } = controllableDeps("A");

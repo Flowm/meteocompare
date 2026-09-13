@@ -18,7 +18,18 @@ function mkDay(over: {
     leadHoursEnd: (dayIndex + 1) * 24,
     aggregate: {
       temperature: over.temp === null ? null : { bias: 0, mae: 0, predictability: 0.7, forecastMin: 10, truthMin: 10, forecastMax: 20, truthMax: 20, ...over.temp },
-      precipitation: over.precip === null ? null : { amountError: 0, timingScore: 1, predictability: 0.6, forecastSum: 0, truthSum: 0, hourlyClassification: [], ...over.precip },
+      precipitation:
+        over.precip === null
+          ? null
+          : {
+              amountError: 0,
+              timingScore: 1,
+              predictability: 0.6,
+              forecastSum: 0,
+              truthSum: 0,
+              hourlyClassification: Array.from({ length: 24 }, () => "correct_dry"),
+              ...over.precip,
+            },
     },
     perModel: {},
   } as DailyVerification;
@@ -27,6 +38,12 @@ function mkDay(over: {
 const mkRun = (daily: DailyVerification[]): RunEvaluation => ({ daily }) as unknown as RunEvaluation;
 
 describe("calibrationPoints", () => {
+  it.each([1, 24])("skips saved precipitation outcomes with %s missing hours", (missingHours) => {
+    const day = mkDay({});
+    day.aggregate.precipitation!.hourlyClassification.fill("no_data", 0, missingHours);
+    expect(calibrationPoints([mkRun([day])]).map((p) => p.variable)).toEqual(["temperature_2m"]);
+  });
+
   it("emits one temperature and one precipitation point per scored day, at the day's lead midpoint", () => {
     const points = calibrationPoints([mkRun([mkDay({ dayIndex: 2 })])]);
     expect(points).toHaveLength(2);

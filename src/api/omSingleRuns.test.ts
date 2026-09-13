@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { evaluateRun } from "@/analysis/runEvaluation";
+import type { HistoricalWeatherResponse } from "@/api/omHistoricalWeather";
+import { fakeResponse } from "@/test/fixtures";
+
 import { fetchSingleRuns } from "./omSingleRuns";
 
 const REQ = { lat: 48.2, lon: 16.4, runDate: "2026-05-12", models: ["ecmwf_ifs", "icon_global", "jma_seamless"] };
@@ -39,6 +43,21 @@ function modelsOf(mock: ReturnType<typeof vi.fn>, call: number): string[] {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("fetchSingleRuns adaptive retry", () => {
+  it.each([false, true])("preserves bare single-model data through evaluation (after retry: %s)", async (retry) => {
+    const time = Array.from({ length: 24 }, (_, i) => `2026-05-12T${String(i).padStart(2, "0")}:00`);
+    const hourly = { time, temperature_2m: time.map(() => 12), precipitation: time.map(() => 0) };
+    const fetchMock = vi.fn();
+    if (retry) fetchMock.mockResolvedValueOnce(res({ ok: false, model: "dwd_icon" }));
+    fetchMock.mockResolvedValueOnce(fakeResponse({ body: JSON.stringify({ hourly, hourly_units: { temperature_2m: "°C", precipitation: "mm" } }) }));
+    vi.stubGlobal("fetch", fetchMock);
+    const runs = await fetchSingleRuns({ ...REQ, models: retry ? ["ecmwf_ifs", "icon_global"] : ["ecmwf_ifs"] });
+    const ev = evaluateRun({ runs, truth: { hourly } as HistoricalWeatherResponse, lat: REQ.lat, lon: REQ.lon, runDate: REQ.runDate });
+    expect(ev!.availableModels.map((m) => m.id)).toEqual(["ecmwf_ifs"]);
+    expect(ev!.hourly.perModel.temperature_2m?.ecmwf_ifs).toEqual(hourly.temperature_2m);
+    expect(ev!.daily[0]!.aggregate.temperature?.mae).toBe(0);
+    expect(ev!.scorecard.find((row) => row.id === "ecmwf_ifs")?.overall.composite).toBe(100);
+  });
+
   it("drops a model named in a 'run not available' error and retries", async () => {
     const fetchMock = vi
       .fn()

@@ -36,6 +36,8 @@ export function variableBoost(model: ModelDef, variable: Variable): number {
  *  defaultCalibration.ts's `DefaultCalibrationMeta` (ADR 0010): the caller
  *  supplies these — this module never reads the clock or randomness. */
 export interface BuiltinWeightMeta {
+  /** Missing on fits generated before analysis versioning. */
+  analysisVersion?: number;
   generatedAt: string;
   locations: string[];
   runDates: string[];

@@ -19,7 +19,10 @@ import { fileURLToPath } from "node:url";
 
 import { calibrationPoints } from "@/analysis/calibrationSample";
 import type { RunRef } from "@/analysis/collectSample";
+import { DEFAULT_WEIGHTS_META } from "@/analysis/defaultWeights";
 import type { RunEvaluation } from "@/analysis/runEvaluation";
+import { TRAINING_RUN_DELAY_DAYS } from "@/analysis/truthWindow";
+import { ANALYSIS_VERSION } from "@/analysis/version";
 import { fitCalibrationSet, type CalibrationSet } from "@/domain/calibration";
 import { LEAD_BANDS } from "@/domain/scorecard";
 import { VERIFIED_VARIABLES } from "@/domain/verification";
@@ -30,16 +33,14 @@ import { REFERENCE_LOCATIONS } from "./lib/referenceLocations";
 /** Runs per location, spread evenly across the usable archive window. */
 const RUNS_PER_LOCATION = 8;
 
-/** Truth needs ERA5 to cover run+7d with its ~5-day lag; 14 is comfortably safe. */
-const TRUTH_LAG_DAYS = 14;
-
 function bandCounts(set: CalibrationSet): string {
   return VERIFIED_VARIABLES.map((v) => `${v}: [${set[v].bands.map((b) => b?.n ?? "-").join(", ")}]`).join("  ");
 }
 
 async function main(): Promise<void> {
+  if (!DEFAULT_WEIGHTS_META) throw new Error("Regenerate the current-version builtin weights before fitting calibration.");
   const cacheDir = cacheDirFromArgv();
-  const dates = runDates(RUNS_PER_LOCATION, TRUTH_LAG_DAYS);
+  const dates = runDates(RUNS_PER_LOCATION, TRAINING_RUN_DELAY_DAYS);
   const refs: RunRef[] = dates.map((runDate) => ({ runDate, runHour: 0 }));
   console.log(`Cache dir: ${cacheDir}`);
   console.log(`Reference run dates: ${dates.join(", ")}`);
@@ -49,6 +50,7 @@ async function main(): Promise<void> {
     const t0 = Date.now();
     // eslint-disable-next-line no-await-in-loop -- sequential per location on purpose: polite to open-meteo's free tier.
     const runs = await gatherCached(location, refs, { cacheDir });
+    if (runs.length !== refs.length) throw new Error(`${location.name}: gathered ${runs.length}/${refs.length} runs. Retry before publishing a fit.`);
     allRuns.push(...runs);
     console.log(`${location.name.padEnd(12)} ${runs.length}/${refs.length} runs evaluated in ${((Date.now() - t0) / 1000).toFixed(0)}s`);
   }
@@ -60,10 +62,11 @@ async function main(): Promise<void> {
   console.log(`Fitted bands (n per ${LEAD_BANDS.map((b) => b.label).join(" / ")}):  ${bandCounts(set)}`);
 
   for (const v of VERIFIED_VARIABLES) {
-    if (set[v].bands.every((b) => b === null)) console.warn(`WARNING: no band cleared the data gate for ${v} — default tier will not cover it.`);
+    if (set[v].bands.every((b) => b === null)) throw new Error(`No calibration band cleared the data gate for ${v}.`);
   }
 
   const meta = {
+    analysisVersion: ANALYSIS_VERSION,
     generatedAt: new Date().toISOString(),
     locations: REFERENCE_LOCATIONS.map((l) => l.name),
     runDates: dates,
@@ -81,7 +84,10 @@ async function main(): Promise<void> {
 
 import type { CalibrationSet } from "@/domain/calibration";
 
+import { currentAnalysis } from "./version";
+
 export interface DefaultCalibrationMeta {
+  analysisVersion: number;
   generatedAt: string;
   locations: string[];
   runDates: string[];
@@ -89,9 +95,12 @@ export interface DefaultCalibrationMeta {
   points: Record<string, number>;
 }
 
-export const DEFAULT_CALIBRATION_META: DefaultCalibrationMeta | null = ${JSON.stringify(meta, null, 2)};
+const FITTED_META: DefaultCalibrationMeta | null = ${JSON.stringify(meta, null, 2)};
 
-export const DEFAULT_CALIBRATION: CalibrationSet | null = ${JSON.stringify(set, null, 2)};
+const FITTED_CALIBRATION: CalibrationSet | null = ${JSON.stringify(set, null, 2)};
+
+export const DEFAULT_CALIBRATION_META = currentAnalysis(FITTED_META, FITTED_META?.analysisVersion);
+export const DEFAULT_CALIBRATION = DEFAULT_CALIBRATION_META ? FITTED_CALIBRATION : null;
 `,
   );
   console.log(`\nWrote ${outPath}`);

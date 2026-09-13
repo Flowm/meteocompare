@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 
 import { MULT_MAX, MULT_MIN } from "@/analysis/bandWeights";
 import { DEFAULT_WEIGHTS } from "@/analysis/defaultWeights";
+import { ANALYSIS_VERSION } from "@/analysis/version";
 import { PARIS } from "@/test/fixtures";
 
 import { MODELS, getModel } from "./models";
@@ -30,15 +31,13 @@ describe("modelWeight — fitted ladder recipe (ADR 0011)", () => {
     }
   });
 
-  it("steps between bands where the fit differs — no continuous decay", () => {
-    // The fitted multiplier is piecewise-constant: flat within a band, a jump at
-    // the edge. 12 h and 40 h share band 0; 60 h is band 1.
+  it("uses one multiplier within each band without continuous decay", () => {
+    // Each band has one fitted multiplier. 12 h and 40 h share band 0; 60 h is band 1.
     const b0a = modelWeight(ecmwf, 12, EQ.lat, EQ.lon, "temperature_2m");
     const b0b = modelWeight(ecmwf, 40, EQ.lat, EQ.lon, "temperature_2m");
     const b1 = modelWeight(ecmwf, 60, EQ.lat, EQ.lon, "temperature_2m");
     expect(b0b).toBeCloseTo(b0a, 10); // flat inside band 0
-    // The shipped fit gives ecmwf different band-0 and band-1 multipliers.
-    expect(Math.abs(b1 - b0a)).toBeGreaterThan(1e-6); // steps at the 48 h edge
+    expect(b1).toBeCloseTo(builtinAt("ecmwf_ifs", "global", 60), 10);
   });
 
   it("composes region bonus and the CAM precip boost on top of the builtin tier", () => {
@@ -128,6 +127,7 @@ describe("trained multipliers (device pooled tier)", () => {
 describe("DEFAULT_WEIGHTS (shipped fit) sanity", () => {
   it("ships a set whose metadata matches the current band partition", () => {
     if (!DEFAULT_WEIGHTS) return; // tolerate an unshipped fit, like defaultCalibration
+    expect(DEFAULT_WEIGHTS.meta.analysisVersion).toBe(ANALYSIS_VERSION);
     expect(DEFAULT_WEIGHTS.meta.locations.length).toBeGreaterThan(0);
     expect(Number.isNaN(Date.parse(DEFAULT_WEIGHTS.meta.generatedAt))).toBe(false);
     expect(DEFAULT_WEIGHTS.meta.bands.map((b) => [b.start, b.end])).toEqual(LEAD_BANDS.map((b) => [b.start, b.end]));

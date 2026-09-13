@@ -6,6 +6,7 @@
 import { createIdbKeyedStore } from "./keyedStore";
 import type { RunEvaluation } from "./runEvaluation";
 import type { LocationSample } from "./sample";
+import { ANALYSIS_VERSION } from "./version";
 
 const GRID_DEG = 0.25;
 
@@ -30,32 +31,13 @@ export function mergeRuns(existing: readonly RunEvaluation[], incoming: readonly
   return [...byKey.values()].toSorted((a, b) => runKey(b).localeCompare(runKey(a)));
 }
 
-// IndexedDB I/O (browser only)
-//
-// Boilerplate and the availability guard live in keyedStore. v1 is the first
-// *enveloped* shape; records written before it stored the payload under a
-// `sample` field (`{ key, sample }`), which the v0 migration below lifts into
-// the envelope so existing installs keep loading.
-
-const DB_NAME = "meteocompare";
-const STORE = "samples";
-
-/** Record schema version (separate from the IDB database version, which is 1). */
-const SAMPLE_VERSION = 1;
-
+// Old evaluations cannot recover truth omitted by earlier alignment code.
+// Ignore them without deleting the underlying records; gather fresh samples.
 const store = createIdbKeyedStore<LocationSample>({
-  dbName: DB_NAME,
-  storeName: STORE,
-  version: SAMPLE_VERSION,
-  migrate: (data, fromVersion) => {
-    if (fromVersion === 0) {
-      // Legacy `{ key, sample }` record — lift `.sample` out. Structurally
-      // identical payload, so no field remapping beyond unwrapping.
-      const legacy = data as { sample?: LocationSample } | null;
-      return legacy?.sample ?? null;
-    }
-    return data as LocationSample;
-  },
+  dbName: "meteocompare",
+  storeName: "samples",
+  version: ANALYSIS_VERSION,
+  migrate: () => null,
 });
 
 /** Load the stored sample for a location key, or null when none / no IndexedDB. */

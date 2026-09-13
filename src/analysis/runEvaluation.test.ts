@@ -4,6 +4,7 @@ import type { HistoricalWeatherResponse } from "@/api/omHistoricalWeather";
 import type { SingleRunsResponse } from "@/api/omSingleRuns";
 import { AGGREGATE_LEGACY_ROW_ID, AGGREGATE_TUNED_ROW_ID } from "@/domain/scorecard";
 
+import { calibrationPoints } from "./calibrationSample";
 import { evaluateRun } from "./runEvaluation";
 
 const N = 24;
@@ -29,6 +30,46 @@ const truth = {
 } as unknown as HistoricalWeatherResponse;
 
 describe("evaluateRun", () => {
+  it.each([5.5, 5.75, -3.5, -7, 14])("aligns UTC truth with a run offset by %s hours", (offsetHours) => {
+    const offsetSeconds = offsetHours * 3600;
+    const localTimes = times.map((t) => new Date(Date.parse(`${t}Z`) + offsetSeconds * 1000).toISOString().slice(0, 16));
+    const localRuns = structuredClone(runs);
+    localRuns.utc_offset_seconds = offsetSeconds;
+    localRuns.hourly.time = localTimes;
+    const temperatures = times.map((_, i) => i);
+    localRuns.hourly.temperature_2m_ecmwf_ifs = temperatures;
+    localRuns.hourly.temperature_2m_gfs_seamless = temperatures;
+    const ev = evaluateRun({
+      runs: localRuns,
+      truth: { ...truth, utc_offset_seconds: 0, hourly: { ...truth.hourly, temperature_2m: temperatures } },
+      lat: 48,
+      lon: 11,
+      runDate: "2026-05-20",
+    });
+    expect(ev!.hourly.times).toEqual(localTimes);
+    expect(ev!.hourly.truth?.temperature_2m).toEqual(temperatures);
+    expect(ev!.daily[0]!.aggregate.temperature?.mae).toBeCloseTo(0);
+    expect(ev!.daily[0]!.aggregate.precipitation?.hourlyClassification).toEqual(times.map(() => "correct_dry"));
+  });
+
+  it.each([0, 1])("excludes a %s mm/h forecast with missing truth from daily scores and calibration", (precip) => {
+    const forecasts = structuredClone(runs);
+    forecasts.hourly.precipitation_ecmwf_ifs = flat(precip);
+    forecasts.hourly.precipitation_gfs_seamless = flat(precip);
+    const ev = evaluateRun({
+      runs: forecasts,
+      truth: { ...truth, hourly: { ...truth.hourly, precipitation: Array.from({ length: N }, () => null) } },
+      lat: 48,
+      lon: 11,
+      runDate: "2026-05-20",
+    });
+    expect(ev).not.toBeNull();
+    expect(ev!.daily).toHaveLength(1);
+    expect(ev!.daily[0]!.aggregate.precipitation).toBeNull();
+    for (const scores of Object.values(ev!.daily[0]!.perModel)) expect(scores.precipitation).toBeNull();
+    expect(calibrationPoints([ev!]).map((p) => p.variable)).toEqual(["temperature_2m"]);
+  });
+
   it("wires runs + truth into hourly, daily, scorecard and availability", () => {
     const ev = evaluateRun({ runs, truth, lat: 48, lon: 11, runDate: "2026-05-20" });
     expect(ev).not.toBeNull();

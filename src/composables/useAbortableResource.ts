@@ -1,4 +1,4 @@
-import { ref, shallowRef, watch, type Ref, type ShallowRef } from "vue";
+import { getCurrentScope, onScopeDispose, ref, shallowRef, watch, type Ref, type ShallowRef } from "vue";
 
 export interface AbortableResource<T> {
   /** Latest successfully-fetched value, or null before the first success / after a failure. */
@@ -16,8 +16,8 @@ export interface AbortableResource<T> {
  *  aborted attempt must NOT flip `loading` off while its replacement is still in
  *  flight, or the indicator vanishes mid-fetch.
  *
- *  Page-specific success side effects (e.g. a "last updated" stamp) belong in
- *  the caller's `fetcher` closure, which runs only on a non-aborted success. */
+ *  Fetchers return values without publishing state; only a current request may
+ *  publish its result. Include success metadata in the returned value. */
 export function useAbortableResource<T>(fetcher: (signal: AbortSignal) => Promise<T>, deps: () => unknown[]): AbortableResource<T> {
   const data = shallowRef<T | null>(null);
   const loading = ref(false);
@@ -32,8 +32,10 @@ export function useAbortableResource<T>(fetcher: (signal: AbortSignal) => Promis
     loading.value = true;
     error.value = null;
     try {
-      data.value = await fetcher(signal);
+      const result = await fetcher(signal);
+      if (!signal.aborted) data.value = result;
     } catch (e: unknown) {
+      if (signal.aborted) return;
       if (e instanceof DOMException && e.name === "AbortError") return;
       error.value = e instanceof Error ? e.message : String(e);
       data.value = null;
@@ -42,7 +44,20 @@ export function useAbortableResource<T>(fetcher: (signal: AbortSignal) => Promis
     }
   }
 
-  watch(deps, () => void refresh(), { immediate: true });
+  watch(
+    deps,
+    () => {
+      data.value = null;
+      void refresh();
+    },
+    { immediate: true, flush: "sync" },
+  );
+
+  if (getCurrentScope())
+    onScopeDispose(() => {
+      inflight?.abort();
+      loading.value = false;
+    });
 
   return { data, loading, error, refresh };
 }
@@ -90,6 +105,7 @@ export function useAbortableTask(): AbortableTask {
 
   function cancel(): void {
     inflight?.abort();
+    inflight = null;
     running.value = false;
   }
 
