@@ -12,11 +12,12 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { gatherRuns, type RunRef } from "../../src/analysis/collectSample";
-import type { RunEvaluation } from "../../src/analysis/runEvaluation";
-import { ANALYSIS_VERSION } from "../../src/analysis/version";
-import { ARCHIVE_START_MOST_MODELS } from "../../src/api/omSingleRuns";
-import { addDaysIso, daysBetweenIso } from "../../src/utils/date";
+import { gatherRuns, type RunRef } from "@/analysis/collectSample";
+import type { RunEvaluation } from "@/analysis/runEvaluation";
+import { ANALYSIS_VERSION } from "@/analysis/version";
+import { ARCHIVE_START_MOST_MODELS } from "@/api/omSingleRuns";
+import { addDaysIso, daysBetweenIso } from "@/utils/date";
+
 import type { RefLocation } from "./referenceLocations";
 
 /** Oldest usable run date: most models are archived only from 2 April 2026

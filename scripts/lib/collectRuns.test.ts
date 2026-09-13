@@ -5,11 +5,12 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { gatherCached } from "../../scripts/lib/collectRuns";
-import { gatherRuns } from "./collectSample";
-import type { RunEvaluation } from "./runEvaluation";
+import { gatherRuns } from "@/analysis/collectSample";
+import type { RunEvaluation } from "@/analysis/runEvaluation";
 
-vi.mock("./collectSample", () => ({ gatherRuns: vi.fn() }));
+import { gatherCached } from "./collectRuns";
+
+vi.mock("@/analysis/collectSample", () => ({ gatherRuns: vi.fn() }));
 const dirs: string[] = [];
 afterEach(() => {
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
