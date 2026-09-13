@@ -24,6 +24,7 @@ import { fileURLToPath } from "node:url";
 import { buildPanels, fitBuiltinSet, MULT_MAX, MULT_MIN, type RunPanel } from "@/analysis/bandWeights";
 import type { RunRef } from "@/analysis/collectSample";
 import { TRAINING_RUN_DELAY_DAYS } from "@/analysis/truthWindow";
+import { ANALYSIS_VERSION } from "@/analysis/version";
 import type { ModelKind } from "@/domain/models";
 import { LEAD_BANDS } from "@/domain/scorecard";
 import type { BuiltinWeightSet } from "@/domain/weightLadder";
@@ -34,10 +35,6 @@ import { REFERENCE_LOCATIONS } from "./lib/referenceLocations";
 /** Runs per location, spread evenly across the usable archive window. Matches the
  *  experiment (WP3) so its cache is reused verbatim. */
 const RUNS_PER_LOCATION = 24;
-
-/** Newest usable run: today − (10 forecast days + ~5-day ERA5 lag + 1 margin) so
- *  band 4 (168–240 h) has truth. Matches the WP3 experiment's TRUTH_LAG_DAYS. */
-const TRUTH_LAG_DAYS = TRAINING_RUN_DELAY_DAYS;
 
 /** Model classes, in the About page's display order — the per-class sanity rows. */
 const CLASS_ORDER: ModelKind[] = ["global", "regional-mid", "regional-cam", "ai", "ensemble-mean"];
@@ -71,7 +68,7 @@ function classLine(set: BuiltinWeightSet, kind: ModelKind): string {
 
 async function main(): Promise<void> {
   const cacheDir = cacheDirFromArgv();
-  const dates = runDates(RUNS_PER_LOCATION, TRUTH_LAG_DAYS);
+  const dates = runDates(RUNS_PER_LOCATION, TRAINING_RUN_DELAY_DAYS);
   const refs: RunRef[] = dates.map((runDate) => ({ runDate, runHour: 0 }));
   console.log(`Cache dir: ${cacheDir}`);
   console.log(`Reference run dates (${dates.length}): ${dates[0]} … ${dates[dates.length - 1]}`);
@@ -82,16 +79,14 @@ async function main(): Promise<void> {
     const t0 = Date.now();
     // eslint-disable-next-line no-await-in-loop -- sequential per location on purpose: polite to open-meteo's free tier.
     const runs = await gatherCached(location, refs, { cacheDir });
-    if (runs.length === 0) {
-      console.warn(`${location.name.padEnd(12)} 0 runs — skipped.`);
-      continue;
-    }
+    if (runs.length !== refs.length) throw new Error(`${location.name}: gathered ${runs.length}/${refs.length} runs. Retry before publishing a fit.`);
     panelsByLocation.push(buildPanels({ runs, lat: location.latitude, lon: location.longitude }));
     usedNames.push(location.name);
     console.log(`${location.name.padEnd(12)} ${String(runs.length).padStart(2)}/${refs.length} runs in ${((Date.now() - t0) / 1000).toFixed(0)}s`);
   }
 
   const meta = {
+    analysisVersion: ANALYSIS_VERSION,
     generatedAt: new Date().toISOString(),
     locations: usedNames,
     runDates: dates,
@@ -126,9 +121,14 @@ async function main(): Promise<void> {
 
 import type { BuiltinWeightMeta, BuiltinWeightSet } from "@/domain/weightLadder";
 
-export const DEFAULT_WEIGHTS_META: BuiltinWeightMeta | null = ${JSON.stringify(meta, null, 2)};
+import { currentAnalysis } from "./version";
 
-export const DEFAULT_WEIGHTS: BuiltinWeightSet | null = ${JSON.stringify(set, null, 2)};
+const FITTED_META: BuiltinWeightMeta | null = ${JSON.stringify(meta, null, 2)};
+
+const FITTED_WEIGHTS: BuiltinWeightSet | null = ${JSON.stringify(set, null, 2)};
+
+export const DEFAULT_WEIGHTS_META = currentAnalysis(FITTED_META, FITTED_META?.analysisVersion);
+export const DEFAULT_WEIGHTS = DEFAULT_WEIGHTS_META ? FITTED_WEIGHTS : null;
 `,
   );
   console.log(`\nWrote ${outPath}`);

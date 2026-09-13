@@ -5,6 +5,7 @@ import { LEAD_BANDS } from "@/domain/scorecard";
 import { VERIFIED_VARIABLES } from "@/domain/verification";
 
 import { DEFAULT_CALIBRATION, DEFAULT_CALIBRATION_META } from "./defaultCalibration";
+import { ANALYSIS_VERSION } from "./version";
 
 // Guards the GENERATED shipped default (ADR 0010): whatever the fitting script
 // produced must be structurally sound, or the ladder's third tier would
@@ -13,6 +14,7 @@ import { DEFAULT_CALIBRATION, DEFAULT_CALIBRATION_META } from "./defaultCalibrat
 describe("defaultCalibration (generated)", () => {
   it("ships curves with metadata, or nothing at all", () => {
     expect((DEFAULT_CALIBRATION === null) === (DEFAULT_CALIBRATION_META === null)).toBe(true);
+    if (DEFAULT_CALIBRATION_META) expect(DEFAULT_CALIBRATION_META.analysisVersion).toBe(ANALYSIS_VERSION);
   });
 
   it("every fitted band is well-formed: builtin source, monotone bins, probabilities in [0,1]", () => {

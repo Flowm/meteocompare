@@ -4,6 +4,7 @@ import type { RunEvaluation } from "./runEvaluation";
 import type { LocationSample } from "./sample";
 import { listSamples, loadSample, mergeRuns, sampleKey, saveSample } from "./sampleStore";
 import { installFakeIndexedDB } from "./testFakeIdb";
+import { ANALYSIS_VERSION } from "./version";
 
 describe("sampleKey", () => {
   it("snaps a location to a 0.25° grid cell", () => {
@@ -60,7 +61,7 @@ describe("sampleStore IndexedDB I/O (fake-idb)", () => {
     expect(await loadSample("nope")).toBeNull();
   });
 
-  it.each([1, 2, 4])("does not expose sample calculations from version %s", async (v) => {
+  it.each([1, 2, 3, ANALYSIS_VERSION + 1])("does not expose sample calculations from version %s", async (v) => {
     fake.factory.seed("samples", [{ key: "old", value: { key: "old", v, data: mkSample("Old") } }]);
     expect(await loadSample("old")).toBeNull();
     expect(await listSamples()).toEqual([]);

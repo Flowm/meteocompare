@@ -42,10 +42,6 @@ import { ARCHIVE_START, cacheDirFromArgv, gatherCached, runDates } from "./lib/c
 import { REFERENCE_LOCATIONS, type RefLocation } from "./lib/referenceLocations";
 
 const RUNS_PER_LOCATION = 24;
-/** Newest usable run: today − (10 forecast days + ~5-day ERA5 lag + 1 margin) so
- *  band 3 (168–240 h) has truth. */
-const TRUTH_LAG_DAYS = TRAINING_RUN_DELAY_DAYS;
-
 /** Per-day partition for the ablation arms (10 daily bands, 0–24 … 216–240). */
 const DAILY_BANDS: readonly LeadBand[] = Array.from({ length: 10 }, (_, d) => ({
   label: `d${d + 1}`,
@@ -311,7 +307,7 @@ async function main(): Promise<void> {
 
   const locations: readonly RefLocation[] = SMOKE ? REFERENCE_LOCATIONS.slice(0, SMOKE_LOCATIONS) : REFERENCE_LOCATIONS;
   const nRuns = SMOKE ? SMOKE_RUNS : RUNS_PER_LOCATION;
-  const dates = runDates(nRuns, TRUTH_LAG_DAYS);
+  const dates = runDates(nRuns, TRAINING_RUN_DELAY_DAYS);
   const refs: RunRef[] = dates.map((runDate) => ({ runDate, runHour: 0 }));
 
   console.log(`\n=== ADR 0011 weight-ladder experiment ${SMOKE ? "(SMOKE)" : ""} ===`);
@@ -422,7 +418,7 @@ async function main(): Promise<void> {
   const payload = {
     generatedAt: new Date().toISOString(),
     smoke: SMOKE,
-    protocol: { locations: locations.map((l) => l.name), runsPerLocation: nRuns, runDates: dates, archiveStart: ARCHIVE_START, truthLagDays: TRUTH_LAG_DAYS },
+    protocol: { locations: locations.map((l) => l.name), runsPerLocation: nRuns, runDates: dates, archiveStart: ARCHIVE_START, truthLagDays: TRAINING_RUN_DELAY_DAYS },
     decision,
     perLocation: results,
   };

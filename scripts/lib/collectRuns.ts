@@ -1,18 +1,21 @@
 // Local run collection + caching, shared by the three offline fitting scripts.
 // Wraps the production gatherRuns with an on-disk cache so repeated
-// regenerations — and the three scripts between them — never re-fetch a run.
+// regenerations reuse runs evaluated with the same analysis and weight recipe.
 //
 // The cache is keyed by (location, runDate, runHour) and stores a RunEvaluation
-// under the current calculation version and exact coordinates. A cached run is
+// under the current calculation version, weight recipe, and exact coordinates.
+// A cached run is
 // fetched with the same TRAINING_FORECAST_DAYS horizon regardless of caller, so
 // every script consumes an identical object — which is why they can, and do,
 // share one cache directory.
 
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { gatherRuns, type RunRef } from "@/analysis/collectSample";
+import { DEFAULT_WEIGHTS } from "@/analysis/defaultWeights";
 import type { RunEvaluation } from "@/analysis/runEvaluation";
 import { ANALYSIS_VERSION } from "@/analysis/version";
 import { ARCHIVE_START_MOST_MODELS } from "@/api/omSingleRuns";
@@ -65,7 +68,8 @@ const slug = (name: string): string =>
     .replace(/^-+|-+$/g, "");
 
 function cachePath(cacheDir: string, loc: RefLocation, ref: RunRef): string {
-  return join(cacheDir, `${slug(loc.name)}__${loc.latitude}_${loc.longitude}__v${ANALYSIS_VERSION}__${ref.runDate}__${String(ref.runHour).padStart(2, "0")}.json`);
+  const recipe = createHash("sha256").update(JSON.stringify(DEFAULT_WEIGHTS)).digest("hex").slice(0, 16);
+  return join(cacheDir, `${slug(loc.name)}__${loc.latitude}_${loc.longitude}__v${ANALYSIS_VERSION}_${recipe}__${ref.runDate}__${String(ref.runHour).padStart(2, "0")}.json`);
 }
 
 export interface GatherCachedOptions {
