@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { addDaysIso, daysBetweenIso } from "./date";
+import { addDaysIso, daysBetweenIso, shiftIsoTime } from "./date";
 
 describe("addDaysIso", () => {
   it("adds within a month", () => {
@@ -91,5 +91,18 @@ describe("UTC anchoring — the module's reason to exist", () => {
     // Spanning a spring-forward and a fall-back in most zones; a local-ms diff
     // would give 89.958… or 90.042… and round wrong at the edge. UTC gives 90.
     expect(daysBetweenIso("2026-02-01", "2026-05-02")).toBe(90);
+  });
+});
+
+describe("shiftIsoTime", () => {
+  it.each([
+    ["2026-01-01T00:15", -1800, "2025-12-31T23:45"],
+    ["2026-12-31T23:00", 19800, "2027-01-01T04:30"],
+    ["2026-06-15T23:30", 20700, "2026-06-16T05:15"],
+    ["2026-06-15T12:00", 0, "2026-06-15T12:00"],
+    ["", 3600, ""],
+    ["invalid", 3600, "invalid"],
+  ])("shifts %s by %s seconds", (timestamp, seconds, expected) => {
+    expect(shiftIsoTime(timestamp, seconds)).toBe(expected);
   });
 });

@@ -59,7 +59,7 @@ describe("fitCalibrationSet — data gate", () => {
 
 describe("fitCalibrationSet — curve shape", () => {
   it("fits one base-rate bin for identical scores regardless of outcome order", () => {
-    const points = bandPoints(100, () => 0).map((p, i) => ({ ...p, raw: 0.5, hit: i >= 50 }));
+    const points = Array.from({ length: 100 }, (_, i): CalibrationPoint => ({ variable: "temperature_2m", leadHours: 12, raw: 0.5, hit: i >= 50 }));
     const forward = fitCalibrationSet(points);
     const reversed = fitCalibrationSet(points.toReversed());
     expect(forward).toEqual(reversed);
@@ -68,7 +68,7 @@ describe("fitCalibrationSet — curve shape", () => {
   });
 
   it("keeps tied scores together across quantile boundaries", () => {
-    const points = bandPoints(100, () => 0).map((p, i) => ({ ...p, raw: i < 60 ? 0.25 : 0.75, hit: i % 3 === 0 }));
+    const points = Array.from({ length: 100 }, (_, i): CalibrationPoint => ({ variable: "temperature_2m", leadHours: 12, raw: i < 60 ? 0.25 : 0.75, hit: i % 3 === 0 }));
     const forward = fitCalibrationSet(points);
     expect(forward).toEqual(fitCalibrationSet(points.toReversed()));
     const bins = forward.temperature_2m.bands[0]!.bins;
