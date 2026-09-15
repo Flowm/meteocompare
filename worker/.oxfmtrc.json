@@ -3,6 +3,5 @@
   "printWidth": 180,
   "sortImports": true,
   "sortPackageJson": true,
-  "sortTailwindcss": true,
-  "ignorePatterns": ["dist", "worker"]
+  "ignorePatterns": ["worker-configuration.d.ts"]
 }

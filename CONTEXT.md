@@ -174,6 +174,14 @@ The gridded location whose stored sample a fit was computed from — and the cen
 The distance around a **training location** within which its **trained weights** also apply to other locations. Uniform within the radius, hard cutoff at the edge — no distance falloff. The default is _this point only_ (no reach: the weights apply solely to the training location's own grid cell). Resolution precedence when several sources could apply: a location's own exact-cell fit always wins; otherwise the nearest training location whose reach covers the point.
 _Avoid_: **coverage** (taken — it means temporal data availability, see "Coverage") and **region** (taken — a model's structural-advantage box, see "Home region") for this spatial concept; reserve **reach** for it.
 
+### Locations
+
+**Approximate location**:
+The city-level position the site's own edge endpoint (`/api/geo`, served by the `worker/` package) derives from the visitor's IP via Cloudflare's `request.cf` — the first step of _Use my location_, chosen because it raises no permission prompt (an installed iOS web app re-prompts for browser geolocation on every launch). Always labelled `(approx.)` in the location detail so an IP centroid is never presented as a measured position. The coordinates are used as given; the city name is only a label.
+
+**Precise location**:
+The position from the browser Geolocation API (GPS), labelled _Your location_. Only ever requested on an explicit second tap while the approximate location is current — the permission prompt is the cost the user opts into.
+
 ## Flagged ambiguities
 
 **"Predictability" / "probability" / "agreement".**

@@ -8,7 +8,12 @@
   },
   "rules": {
     "consistent-function-scoping": "off",
-    "import/no-unassigned-import": ["warn", { "allow": ["**/*.css"] }],
+    "import/no-unassigned-import": [
+      "warn",
+      {
+        "allow": ["**/*.css"]
+      }
+    ],
     "no-console": "off",
     "no-underscore-dangle": "off"
   },
@@ -17,5 +22,5 @@
     "browser": true,
     "vue": true
   },
-  "ignorePatterns": ["dist"]
+  "ignorePatterns": ["dist", "worker"]
 }
