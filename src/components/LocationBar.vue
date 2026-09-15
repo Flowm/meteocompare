@@ -4,6 +4,7 @@ import { computed, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 
 import { type GeocodingResult } from "@/api/geocoding";
+import { useLocate } from "@/composables/useLocate";
 import { useLocation, type Location } from "@/composables/useLocation";
 import { useLocationSearch } from "@/composables/useLocationSearch";
 
@@ -12,15 +13,15 @@ import SearchResultsPanel from "./SearchResultsPanel.vue";
 import SettingsMenu from "./SettingsMenu.vue";
 
 const route = useRoute();
-const { favourites, recent, setLocation } = useLocation();
+const { current, favourites, recent, setLocation } = useLocation();
 
 const query = ref("");
 const { results, isSearching, searchError } = useLocationSearch(query);
 const isOpen = ref(false);
 // -1 means "no row highlighted"; the first ArrowDown lands on row 0.
 const activeIndex = ref(-1);
-const isLocating = ref(false);
-const locateError = ref<string | null>(null);
+// Approximate (edge) fix first, precise GPS on the follow-up tap — see useLocate.
+const { locate, isLocating, error: locateError, notice: locateNotice, isApproximate, title: locateTitle } = useLocate(current, setLocation);
 const root = ref<HTMLElement | null>(null);
 const inputEl = ref<HTMLInputElement | null>(null);
 
@@ -111,45 +112,6 @@ function pickSaved(loc: Location): void {
   isOpen.value = false;
   activeIndex.value = -1;
   inputEl.value?.blur();
-}
-
-function geolocate(): void {
-  if (!navigator.geolocation) {
-    locateError.value = "Geolocation not supported by this browser.";
-    return;
-  }
-  locateError.value = null;
-  isLocating.value = true;
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      isLocating.value = false;
-      setLocation({
-        name: "Your location",
-        detail: `${pos.coords.latitude.toFixed(3)}, ${pos.coords.longitude.toFixed(3)}`,
-        latitude: pos.coords.latitude,
-        longitude: pos.coords.longitude,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      });
-      isOpen.value = false;
-    },
-    (err) => {
-      isLocating.value = false;
-      switch (err.code) {
-        case err.PERMISSION_DENIED:
-          locateError.value = "Location permission denied.";
-          break;
-        case err.POSITION_UNAVAILABLE:
-          locateError.value = "Location unavailable.";
-          break;
-        case err.TIMEOUT:
-          locateError.value = "Location request timed out.";
-          break;
-        default:
-          locateError.value = "Could not determine location.";
-      }
-    },
-    { enableHighAccuracy: false, timeout: 10_000, maximumAge: 5 * 60_000 },
-  );
 }
 </script>
 
@@ -258,10 +220,11 @@ function geolocate(): void {
         />
         <button
           type="button"
-          class="text-paper-300 hover:text-sodium-300 absolute top-1/2 right-1 flex -translate-y-1/2 items-center justify-center p-1.5 transition-colors"
+          class="hover:text-sodium-300 absolute top-1/2 right-1 flex -translate-y-1/2 items-center justify-center p-1.5 transition-colors"
+          :class="isApproximate ? 'text-sodium-300' : 'text-paper-300'"
           :disabled="isLocating"
-          :title="locateError ?? 'Use my location'"
-          @click="geolocate"
+          :title="locateError ?? locateTitle"
+          @click="locate"
         >
           <svg
             v-if="!isLocating"
@@ -276,19 +239,32 @@ function geolocate(): void {
             aria-hidden="true"
           >
             <circle cx="12" cy="12" r="3" />
-            <circle cx="12" cy="12" r="8" />
+            <circle cx="12" cy="12" r="8" :stroke-dasharray="isApproximate ? '3 2.5' : undefined" />
             <line x1="12" y1="2" x2="12" y2="5" />
             <line x1="12" y1="19" x2="12" y2="22" />
             <line x1="2" y1="12" x2="5" y2="12" />
             <line x1="19" y1="12" x2="22" y2="12" />
           </svg>
           <span v-else class="border-ink-600 border-t-sodium-300 size-4 animate-spin rounded-full border" aria-hidden="true" />
-          <span class="sr-only">Use my location</span>
+          <span class="sr-only">{{ locateTitle }}</span>
         </button>
       </div>
 
       <div class="flex justify-self-end">
         <SettingsMenu />
+      </div>
+
+      <!-- Locate notice: a transient strip under the bar after an approximate
+           fix. Overlaid rather than in flow, so it costs no vertical space on
+           mobile; full-bleed there because the input is too narrow to host it,
+           tucked under the input from sm up. -->
+      <div
+        v-if="locateNotice"
+        role="status"
+        class="panel-in border-ink-700 bg-ink-900/95 text-paper-200 pointer-events-none absolute top-full right-0 left-0 z-20 col-span-full flex items-center gap-2 border-b px-4 py-1.5 font-mono text-[11px] tracking-wide backdrop-blur sm:right-auto sm:left-auto sm:col-[2/3] sm:justify-self-end sm:border sm:border-t-0"
+      >
+        <span class="bg-sodium-300 size-1 shrink-0 rounded-full" aria-hidden="true" />
+        <span class="truncate">{{ locateNotice }}</span>
       </div>
 
       <!-- Results panel: its own grid placement makes it full-bleed on mobile

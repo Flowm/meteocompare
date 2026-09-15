@@ -27,6 +27,7 @@ jobs:
           cache: pnpm
       - run: pnpm ci
       - run: pnpm test
+      - run: pnpm test:worker
   preview:
     needs: [lint, test]
     # PRs targeting main, excluding forks (which can't access the deploy secrets).
@@ -58,11 +59,14 @@ jobs:
         run: echo "sha=${HEAD_SHA:0:8}" >> "$GITHUB_OUTPUT"
       # Upload a new Worker version without promoting it to production. The
       # --preview-alias mints a stable URL (preview-<sha>-meteocompare.<subdomain>.workers.dev).
+      # The Worker (and its wrangler.jsonc) live in worker/; the built SPA in
+      # ../dist is uploaded as its static assets.
       - id: preview
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           packageManager: pnpm
+          workingDirectory: worker
           command: versions upload --preview-alias preview-${{ steps.meta.outputs.sha }}
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
@@ -128,3 +132,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           packageManager: pnpm
+          workingDirectory: worker

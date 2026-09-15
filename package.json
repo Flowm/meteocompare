@@ -10,10 +10,16 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "type-check": "vue-tsc --noEmit",
-    "lint": "oxlint && oxfmt --check && vue-tsc",
-    "lint:fix": "oxlint --fix && oxfmt --write",
-    "deploy": "pnpm build && wrangler deploy",
-    "deploy:preview": "pnpm build && wrangler versions upload --preview-alias preview-$(git rev-parse --short=8 HEAD)"
+    "lint": "pnpm lint:web && pnpm lint:worker",
+    "lint:fix": "pnpm lint:fix:web && pnpm lint:fix:worker",
+    "deploy": "pnpm build && pnpm --filter meteocompare-worker deploy",
+    "deploy:preview": "pnpm build && pnpm --filter meteocompare-worker deploy:preview",
+    "dev:worker": "pnpm --filter meteocompare-worker dev",
+    "lint:web": "oxlint --disable-nested-config && oxfmt --disable-nested-config --check && vue-tsc",
+    "lint:worker": "pnpm --filter meteocompare-worker lint",
+    "lint:fix:web": "oxlint --disable-nested-config --fix && oxfmt --disable-nested-config --write",
+    "lint:fix:worker": "pnpm --filter meteocompare-worker lint:fix",
+    "test:worker": "pnpm --filter meteocompare-worker test"
   },
   "dependencies": {
     "@fontsource-variable/instrument-sans": "^5.3.0",
@@ -40,8 +46,7 @@
     "vite": "^8.3.0",
     "vite-plugin-pwa": "^1.3.0",
     "vitest": "^5.0.0",
-    "vue-tsc": "^3.3.11",
-    "wrangler": "^4.131.1"
+    "vue-tsc": "^3.3.11"
   },
   "packageManager": "pnpm@11.9.0"
 }

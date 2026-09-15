@@ -1,0 +1,25 @@
+{
+  "name": "meteocompare-worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Cloudflare Worker for meteocompare: static assets plus the /api/geo locate endpoint",
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "deploy:preview": "wrangler versions upload --preview-alias preview-$(git rev-parse --short=8 HEAD)",
+    "dev": "wrangler dev --port 8080",
+    "generate-types": "wrangler types src/worker-configuration.d.ts",
+    "lint": "pnpm generate-types && oxlint && oxfmt --check && tsc --noEmit",
+    "lint:fix": "oxlint --fix && oxfmt --write",
+    "test": "pnpm generate-types && vitest run",
+    "type-check": "pnpm generate-types && tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.1.8",
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.131.1"
+  }
+}

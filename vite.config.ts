@@ -16,12 +16,25 @@ try {
 
 const port = process.env.PORT ? Number(process.env.PORT) : undefined;
 
+// `/api/*` is served by the Worker in worker/, which neither `vite dev` nor
+// `vite preview` runs. Proxy it to production by default so the locate flow
+// works out of the box; point at a local worker with
+// METEOCOMPARE_API_PROXY=http://localhost:8080 (`pnpm dev:worker`). The proxy
+// also keeps Vite's SPA fallback from answering an api path with index.html.
+const apiProxy = {
+  "/api": {
+    target: process.env.METEOCOMPARE_API_PROXY ?? "https://meteocompare.frcy.org",
+    changeOrigin: true,
+  },
+};
+
 export default defineConfig({
   server: {
     port,
     strictPort: port !== undefined,
+    proxy: apiProxy,
   },
-  preview: { port, strictPort: port !== undefined },
+  preview: { port, strictPort: port !== undefined, proxy: apiProxy },
   build: {
     // echarts is a large charting library that legitimately lands ~550 kB in its
     // own dedicated chunk; raise the warning limit so that expected chunk doesn't
