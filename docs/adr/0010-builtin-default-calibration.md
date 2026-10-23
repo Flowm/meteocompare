@@ -20,7 +20,7 @@ accepted — extends ADR 0008's ladder.
 
 - **Fitting**: `scripts/fit-default-calibration.ts` reuses the production path
   byte-for-byte (`gatherRuns → evaluateRun → calibrationPoints →
-fitCalibrationSet`) over ~12 reference locations spanning alpine, maritime,
+  fitCalibrationSet`) over ~12 reference locations spanning alpine, maritime,
   continental, tropical and southern-hemisphere climates, with run dates spread
   across the usable single-runs archive window. That window is bounded by the
   archive itself: most models are archived only from **2 April 2026** (ECMWF
