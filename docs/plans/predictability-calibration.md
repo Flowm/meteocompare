@@ -79,7 +79,7 @@ New `src/domain/calibration.ts` — framework-free, fully unit-tested:
   `loadWeights`.
 - `forecastEvaluation`: `evaluateForecast` gains optional `calibration` input;
   new per-day output `dayPredictability: { overall, temperature,
-precipitation, calibrated }[]` — per-variable day-mean of hourly raw scores
+  precipitation, calibrated }[]` — per-variable day-mean of hourly raw scores
   (calendar-day grouping by date prefix), passed through `applyCalibration`,
   overall = **min** of the two (skip non-finite parts; ADR 0009).
   `dailyOverallPredictability` (the mean-of-three collapse) is deleted.

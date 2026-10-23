@@ -148,17 +148,17 @@ localStorage holds units, favourites, recent searches, and the optional open-met
 ## Develop
 
 ```bash
-mise trust && mise install   # provision Node 24 + pnpm 11 + prek (see mise.toml); or bring your own
+mise trust && mise install   # provision Node 24 + pnpm 12 + prek (see mise.toml); or bring your own
 mise setup                   # install the git hooks (one-time; runs `prek install`)
 
 pnpm install
 pnpm dev                     # http://localhost:5173 (Vite's default; PORT overrides it)
 ```
 
-[mise](https://mise.jdx.dev) pins the toolchain (Node 24 + pnpm 11, matching CI). Git hooks are run by
+[mise](https://mise.jdx.dev) pins the toolchain (Node 24 + pnpm 12, matching CI). Git hooks are run by
 [prek](https://prek.j178.dev), a pre-commit-compatible runner — on every **commit**,
 `.pre-commit-config.yaml` auto-fixes with oxlint/oxfmt and runs the type-check + tests, the same gate
-as CI. mise is optional: any Node 24 + pnpm 11 works, but you'll then install prek yourself to get the hooks.
+as CI. mise is optional: any Node 24 + pnpm 12 works, but you'll then install prek yourself to get the hooks.
 
 ### Scripts
 
